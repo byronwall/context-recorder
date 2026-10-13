@@ -445,7 +445,10 @@
     // Drop elements whose descendants were also hit (keep the most specific), then rank by coverage.
     const els = [...seen.keys()];
     const specific = els.filter((el) => !els.some((other) => other !== el && el.contains(other)));
+    // Keep the 25 with the most coverage, then list them in reading (document) order.
     specific.sort((a, b) => seen.get(b) - seen.get(a));
+    specific.splice(25);
+    specific.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
     const text = specific.map((el) => (el.innerText || "").trim().replace(/\s+/g, " ")).filter(Boolean);
     return {
       viewportRect: { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) },
