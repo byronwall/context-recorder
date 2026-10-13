@@ -267,11 +267,16 @@ struct NowStrip: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(ctx?.appName ?? "No activity recorded")
                         .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
                     HStack(spacing: 6) {
-                        if let w = ctx?.browserTitle ?? ctx?.windowTitle, !w.isEmpty { Text(w) }
+                        if let w = ctx?.browserTitle ?? ctx?.windowTitle, !w.isEmpty { Text(w).lineLimit(1) }
                         if let u = ctx?.browserURL, let url = URL(string: u) {
+                            // A Link's label doesn't inherit lineLimit on macOS; without it a long URL wraps
+                            // onto many lines and pushes the timeline down.
                             Link(destination: url) {
                                 Text(u.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: ""))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
                             }
                             .layoutPriority(-1)
                             .help(u)
@@ -311,6 +316,7 @@ struct NowStrip: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(said.map { "Said: \($0.text)" } ?? "Nothing said")
         }
-        .frame(minHeight: 34)
+        // Fixed height (two lines of narration) so the timeline below never shifts as the playhead moves.
+        .frame(height: 38)
     }
 }
