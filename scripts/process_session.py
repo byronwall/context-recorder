@@ -21,10 +21,16 @@ Stdlib only.
 """
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+
+# The app launches us from a GUI context where PATH may be minimal; make Homebrew / uv tools findable.
+os.environ["PATH"] = os.pathsep.join(
+    [str(Path.home() / ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", os.environ.get("PATH", "")])
 
 
 def run(cmd):
