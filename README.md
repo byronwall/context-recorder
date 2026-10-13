@@ -13,9 +13,9 @@ open build/ContextRecorder.app
 | --- | --- |
 | ⌃⌥R | Start / stop recording |
 | ⌃⌥M | Mark this moment (context saved now, a frame is taken from the video later) |
-| ⌃⌥S | Screenshot mark (full-resolution still plus context) |
+| ⌃⌥S | Region screenshot: drag a rectangle (click = full screen, Esc = cancel) plus context |
 
-The menu bar shows `● 3:42 · 5` (elapsed time · number of marks). Use the menu's **Record Microphone** item to turn narration on or off. Turn it off for silent sessions: you still get video, screenshots and context.
+A floating control panel (shown at launch and whenever you open the app again) has the same actions, a live timer and the mark count, because the menu-bar item can be hidden when the bar is crowded. While recording, the menu bar shows `● 3:42 · 5` (elapsed time · number of marks). Use the menu's **Record Microphone** item to turn narration on or off. Turn it off for silent sessions: you still get video, screenshots and context.
 
 When you stop, the app transcribes your narration (if there is any), writes markdown and opens `viewer.html` for the session.
 
@@ -30,7 +30,8 @@ First run asks for **Screen Recording**, **Microphone** and (the first time you 
 | `recording.mp4` | Main display at 15 fps, ≤1920 px wide, plus mic audio when enabled |
 | `marks.jsonl` | One line per mark: time offset, kind, context (app, window, Chrome URL and title, mouse position) |
 | `activity.jsonl` | A new line whenever the front app, window title or Chrome tab changes |
-| `screenshots/`, `frames/` | Images for each mark |
+| `screenshots/` | Region screenshots |
+| `frames/` | Full-screen video frame for every mark |
 | `transcript.json` | Parakeet output, with timestamps for every sentence and token |
 | `marks/NNN.md`, `session.md` | Markdown for each mark, with the narration window (20 s before and 10 s after the mark; ⚑ shows where the mark landed) |
 | `session.json` | Everything above in one file, for the viewer and exporters |
