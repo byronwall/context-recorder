@@ -103,7 +103,13 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
             guard let self, event.window === self.window, let model = self.state.model else { return event }
             if self.window?.firstResponder is NSText { return event }
             if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty { return event }
+            if model.regionMode {
+                if event.keyCode == 53 { model.regionMode = false; NSCursor.arrow.set(); return nil }   // esc
+                return event
+            }
             switch event.keyCode {
+            case 46: Task { await model.addReviewMark() }    // m
+            case 1: model.player.pause(); model.regionMode = true   // s
             case 49: model.togglePlay()                       // space
             case 38: model.step(1)                            // j
             case 40: model.step(-1)                           // k

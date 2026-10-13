@@ -36,11 +36,16 @@ struct SessionMark: Decodable, Identifiable, Hashable {
     var narration: String?        // spoken window around the mark, with ⚑ where the mark landed
     var context: MarkContext?
     var browser: PageSnapshot?
+    var note: String?             // typed while reviewing
+    var source: String?           // "review" for marks added from the video afterwards
 
     var id: Int { index }
     var isShot: Bool { kind == "screenshot" }
+    var isReview: Bool { source == "review" }
 
-    static func == (a: SessionMark, b: SessionMark) -> Bool { a.index == b.index && a.offsetSeconds == b.offsetSeconds }
+    static func == (a: SessionMark, b: SessionMark) -> Bool {
+        a.index == b.index && a.offsetSeconds == b.offsetSeconds && a.note == b.note && a.image == b.image
+    }
     func hash(into h: inout Hasher) { h.combine(index) }
 }
 

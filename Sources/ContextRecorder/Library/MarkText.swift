@@ -57,6 +57,7 @@ enum MarkText {
 
     /// The sentence being spoken when the mark was made; falls back to page, window, app.
     static func title(_ m: SessionMark) -> String {
+        if let note = noteTitle(m.note) { return note }
         if let n = narration(m.narration) {
             let focus = n.focus
             if !focus.isEmpty { return focus }
@@ -64,6 +65,12 @@ enum MarkText {
         }
         let c = m.context
         return [c?.browserTitle, c?.windowTitle, c?.appName].compactMap { $0.nonEmpty }.first ?? "Mark \(m.index)"
+    }
+
+    /// First line of a typed note.
+    static func noteTitle(_ note: String?) -> String? {
+        guard let line = note?.split(whereSeparator: \.isNewline).first?.trimmingCharacters(in: .whitespaces), !line.isEmpty else { return nil }
+        return line
     }
 
     // MARK: Markdown (keep in step with markdownFor() in scripts/viewer.html)
@@ -74,13 +81,15 @@ enum MarkText {
         var lines: [String] = [
             "## \(String(format: "%03d", m.index)) · \(Format.time(m.offsetSeconds)) · \(title(m))",
             "", "![mark \(m.index)](\(m.image ?? ""))", "",
-            m.narration.nonEmpty.map { "> \($0)\n" } ?? "",
         ]
+        if let note = m.note.nonEmpty { lines.append("**Note:** \(note.split(whereSeparator: \.isWhitespace).joined(separator: " "))\n") }
+        lines.append(m.narration.nonEmpty.map { "> \($0)\n" } ?? "")
         if let app = c?.appName.nonEmpty { lines.append("- **App:** \(app) (`\(c?.bundleID ?? "undefined")`)") }
         if let w = c?.windowTitle.nonEmpty { lines.append("- **Window:** \(w)") }
         if let u = c?.browserURL.nonEmpty { lines.append("- **URL:** \(u)") }
         if let t = c?.browserTitle.nonEmpty { lines.append("- **Page title:** \(t)") }
         lines.append("- **Video:** `\(folder)/recording.mp4` @ \(String(format: "%.1f", m.offsetSeconds))s")
+        if m.isReview { lines.append("- **Added:** while reviewing the recording (no live page snapshot)") }
         if let h = b?.hovered {
             var line = "- **Under mouse:** `\(h.selector ?? "")`"
             if let t = h.text.nonEmpty { line += " “\(t)”" }

@@ -75,13 +75,13 @@ def load_jsonl(path):
 
 
 def transcribe(folder):
+    out = folder / "transcript.json"
+    if out.exists():  # re-processing (e.g. after adding marks while reviewing) keeps the transcript
+        return json.loads(out.read_text())
     if not has_audio(folder / "recording.mp4"):
         print("no audio track (silent recording); skipping transcript")
         return None
     wav = folder / "audio.wav"
-    out = folder / "transcript.json"
-    if out.exists():
-        return json.loads(out.read_text())
     if not wav.exists():
         run(["ffmpeg", "-loglevel", "error", "-y", "-i", folder / "recording.mp4", "-vn", "-ac", "1", "-ar", "16000", wav])
     exe = shutil.which("parakeet-mlx")
@@ -235,18 +235,29 @@ def trunc_line(s, n=400):
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
+def note_title(note, limit=70):
+    """First line of a typed note, for headings."""
+    text = " ".join((note or "").strip().splitlines()[:1]).strip() if note else ""
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
 def mark_markdown(mark, image, narration, rel_prefix=""):
-    title = narration_title(narration) or (mark["context"].get("browserTitle") or mark["context"].get("windowTitle") or "Mark")
+    title = (note_title(mark.get("note")) or narration_title(narration)
+             or mark["context"].get("browserTitle") or mark["context"].get("windowTitle") or "Mark")
     lines = [
         f"## {mark['index']:03d} · {fmt_ts(mark['offsetSeconds'])} · {title}",
         "",
         f"![mark {mark['index']}]({rel_prefix}{image})",
         "",
     ]
+    if mark.get("note"):
+        lines += ["**Note:** " + " ".join(mark["note"].split()), ""]
     if narration:
         lines += ["> " + narration, ""]
     lines += context_lines(mark["context"])
     lines += [f"- **Video:** `recording.mp4` @ {mark['offsetSeconds']:.1f}s", f"- **Kind:** {mark['kind']}"]
+    if mark.get("source") == "review":
+        lines.append("- **Added:** while reviewing the recording (no live page snapshot)")
     lines += [l.replace("PAGE_PREFIX", rel_prefix) for l in browser_lines(mark.get("browser"))]
     lines.append("")
     return "\n".join(lines)
@@ -288,6 +299,11 @@ def main():
     tokens = tokens_of(transcript)
 
     (folder / "marks").mkdir(exist_ok=True)
+    # Marks can be deleted while reviewing: drop their old Markdown.
+    keep = {f"{m['index']:03d}.md" for m in marks}
+    for old in (folder / "marks").glob("*.md"):
+        if old.name not in keep:
+            old.unlink()
     sections = []
     for mark in marks:
         check_page_file(folder, mark)

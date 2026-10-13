@@ -36,6 +36,14 @@ A native library of every recording (menu bar → **Sessions…**, or the play b
 | Space | Play / pause |
 | J / K | Next / previous mark |
 | → / ← | Skip 5 s |
+| M | Add a mark at the playhead |
+| S | Capture a region of the current frame (drag; click for the whole frame; Esc cancels) |
+
+### Marking up a recording afterwards
+
+You can mark things you notice while reviewing, not just while recording. **M** (or the flag in the playback controls) adds a mark at the playhead. **S** (or the viewfinder) pauses and lets you drag a box on the video; the region is cut from the frame at full resolution. Every mark has a **Note** field, and a note becomes the mark's title.
+
+Review marks carry what the recording knows at that moment: the app, window and URL from the activity log, the narration around it, and page events from the 30 s before. There's no live Chrome snapshot (element under the pointer, saved page). They're stored in `marks.jsonl` with `"source": "review"` and the session is re-processed, so Markdown, Copy as Markdown and export treat them like any other mark. Review marks can be deleted; marks made while recording can't.
 
 The window updates on its own when a session is re-processed.
 
