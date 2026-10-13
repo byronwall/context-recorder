@@ -15,7 +15,7 @@ open build/ContextRecorder.app
 | ⌃⌥M | Mark this moment (context saved now, a frame is taken from the video later) |
 | ⌃⌥S | Region screenshot: drag a rectangle (click = full screen, Esc = cancel) plus context |
 
-A floating control panel (shown at launch and whenever you open the app again) has the same actions, a live timer and the mark count, because the menu-bar item can be hidden when the bar is crowded. While recording, the menu bar shows `● 3:42 · 5` (elapsed time · number of marks). Use the menu's **Record Microphone** item to turn narration on or off. Turn it off for silent sessions: you still get video, screenshots and context.
+A floating control panel (shown at launch and whenever you open the app again) has the same actions, a live timer and the mark count, because the menu-bar item can be hidden when the bar is crowded. While recording, the menu bar shows a red record dot with `3:42  ⚑5` (elapsed time and number of marks). Use the menu's **Record Microphone** item to turn narration on or off. Turn it off for silent sessions: you still get video, screenshots and context.
 
 When you stop, the app transcribes your narration (if there is any), writes markdown and opens `viewer.html` for the session.
 
