@@ -66,56 +66,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func rebuildMenu() {
         let menu = NSMenu()
         let recording = session != nil
-        menu.addItem(item(recording ? "Stop Recording  (⌃⌥R)" : "Start Recording  (⌃⌥R)", #selector(toggleRecording)))
-        let mark = item("Mark Moment  (⌃⌥M)", #selector(markFromMenu))
+        menu.addItem(item(recording ? "Stop Recording" : "Start Recording", #selector(toggleRecording),
+                          symbol: recording ? "stop.fill" : "record.circle", key: "r"))
+        let mark = item("Mark Moment", #selector(markFromMenu), symbol: "flag", key: "m")
         mark.isEnabled = recording
         menu.addItem(mark)
-        let shot = item("Screenshot Region  (⌃⌥S)", #selector(screenshotFromMenu))
+        let shot = item("Screenshot Region", #selector(screenshotFromMenu), symbol: "viewfinder", key: "s")
         shot.isEnabled = recording
         menu.addItem(shot)
         menu.addItem(.separator())
-        let mic = item("Record Microphone (narration)", #selector(toggleMicrophone))
+        let mic = item("Record Microphone", #selector(toggleMicrophone), symbol: "mic")
         mic.state = recordMicrophone ? .on : .off
         mic.isEnabled = !recording
         menu.addItem(mic)
         menu.addItem(.separator())
-        menu.addItem(item("Show Control Panel", #selector(showPanel)))
-        menu.addItem(item("Open Last Session Viewer", #selector(openLastViewer)))
-        menu.addItem(item("Open Sessions Folder", #selector(openSessions)))
+        menu.addItem(item("Show Control Panel", #selector(showPanel), symbol: "macwindow"))
+        menu.addItem(item("Open Last Session", #selector(openLastViewer), symbol: "play.rectangle"))
+        menu.addItem(item("Open Sessions Folder", #selector(openSessions), symbol: "folder"))
         menu.addItem(.separator())
-        menu.addItem(item("Quit", #selector(quit)))
+        menu.addItem(item("Quit Context Recorder", #selector(quit), key: "q", modifiers: .command))
         menu.autoenablesItems = false
         statusItem.menu = menu
         updateTitle()
     }
 
-    private func item(_ title: String, _ action: Selector) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+    /// `key` only displays the global hotkey (⌃⌥ by default) next to the item; HotKeys does the real work.
+    private func item(_ title: String, _ action: Selector, symbol: String? = nil, key: String = "",
+                      modifiers: NSEvent.ModifierFlags = [.control, .option]) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.keyEquivalentModifierMask = modifiers
         item.target = self
+        if let symbol { item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) }
         return item
     }
 
     private func updateTitle() {
-        let title: String
+        let state: ControlPanel.State
         if let session, let offset = recorder.currentOffset() {
-            let t = Int(offset)
-            title = String(format: "● %d:%02d · %d", t / 60, t % 60, session.marks.count)
+            state = .recording(elapsed: offset, marks: session.marks.count)
         } else if session != nil {
-            title = "● starting…"
+            state = .starting
         } else if busy {
-            title = "◌ processing…"
+            state = .processing
         } else {
-            title = "◎ CR"
+            state = .ready
         }
-        if title == "◎ CR" {
-            statusItem.button?.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Context Recorder")
-            statusItem.button?.title = ""
-        } else {
-            statusItem.button?.image = nil
-            statusItem.button?.title = title
+        let button = statusItem.button
+        button?.imagePosition = .imageLeading
+        button?.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        switch state {
+        case .ready:
+            button?.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Context Recorder")
+            button?.title = ""
+        case .starting, .recording:
+            let red = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
+            button?.image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")?
+                .withSymbolConfiguration(red)
+            if case let .recording(elapsed, marks) = state {
+                let t = Int(elapsed)
+                button?.title = String(format: " %d:%02d", t / 60, t % 60) + (marks > 0 ? "  ⚑\(marks)" : "")
+            } else {
+                button?.title = ""
+            }
+        case .processing:
+            button?.image = NSImage(systemSymbolName: "hourglass", accessibilityDescription: "Processing")
+            button?.title = ""
         }
-        panel?.update(status: title == "◎ CR" ? "Ready" : title, recording: session != nil, busy: busy,
-                      microphone: recordMicrophone, chromeConnected: chromeConnections > 0)
+        panel?.update(state: state, microphone: recordMicrophone, chromeConnected: chromeConnections > 0)
     }
 
     private func flash(_ text: String) {
@@ -220,7 +237,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                 screenshot: nil, region: nil, context: context, browser: browser)
                 session.add(mark)
                 NSSound(named: "Tink")?.play()
-                self?.flash("🚩 \(mark.index)")
+                self?.flash(" Marked #\(mark.index)")
             }
             return
         }
@@ -236,7 +253,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                 }, context: context, browser: browser)
                 session.add(mark)
                 NSSound(named: "Glass")?.play()
-                self.flash("📸 \(index)")
+                self.flash(" Captured #\(index)")
                 Task { @MainActor in
                     do {
                         try await self.recorder.screenshot(to: session.folder.appendingPathComponent(name), rect: region)
