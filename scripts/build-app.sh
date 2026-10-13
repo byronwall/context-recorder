@@ -1,8 +1,8 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Builds ContextRecorder.app and signs it with a stable identity so macOS keeps
 # Screen Recording / Microphone / Automation permissions across rebuilds.
 set -euo pipefail
-cd "${0:A:h}/.."
+cd "$(dirname "$0")/.."
 
 IDENTITY="${CODESIGN_IDENTITY:-RegionShot Local Development}"
 APP="build/ContextRecorder.app"

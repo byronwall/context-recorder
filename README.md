@@ -32,7 +32,23 @@ First run asks for **Screen Recording**, **Microphone** and (the first time you 
 What it records:
 
 - **As it happens** (`browser.jsonl`): clicks (selector, text, React/Vue component chain), SPA navigation, `console.error`/`console.warn`, uncaught exceptions and unhandled promise rejections, and failed or slow `fetch`/XHR requests (status, timing and the first 800 characters of an error response body).
-- **On each mark when Chrome is in front** (`mark.browser`): the element under the mouse, the focused element, the selected text, the viewport and window position, and the page's last 40 events.
+- **On each mark when Chrome is in front** (`mark.browser`):
+  - the element under the mouse and the focused element: selector, text, component chain, the nearest named component's props (shallow), and the **source location** when the page is a dev build (see below)
+  - the selected text, the viewport and window position, and the page's last 40 events
+  - **the saved page** (`pages/<id>.mhtml`): the DOM, styles and images as they were at the mark. Open it in Chrome and inspect it with DevTools.
+  - for region screenshots: **the elements inside the region** (`browser.region`), each with selector, text and source
+
+Source locations come from whatever the dev build exposes, in this order:
+
+1. React ≤ 18: `_debugSource`, the exact JSX file and line.
+2. Svelte: `__svelte_meta`.
+3. Vue 3: the component's `__file`.
+4. Source attributes added by build plugins: `data-inspector-relative-path`/`data-inspector-line` (code-inspector), `data-source-loc`, `data-locatorjs`. Use one of these for Solid.
+5. React 19: the `_debugStack` frame. The file is right, but the line refers to the transformed output.
+
+Production builds have none of these, so you get selectors and readable component names only.
+
+The region is mapped to page coordinates using the pointer position, which the app and the page both know at the moment of the keypress. If the pointer wasn't over the page, it falls back to the window geometry. Browser zoom is taken into account.
 
 Input values are never recorded, only which field changed. The app accepts connections only from `chrome-extension://` origins, so web pages can't connect to it.
 
@@ -46,6 +62,7 @@ Input values are never recorded, only which field changed. The app accepts conne
 | `marks.jsonl` | One line per mark: time offset, kind, context (app, window, Chrome URL and title, mouse position) |
 | `activity.jsonl` | A new line whenever the front app, window title or Chrome tab changes |
 | `browser.jsonl` | Page events from the Chrome extension |
+| `pages/*.mhtml` | Saved page for each mark made in Chrome |
 | `screenshots/` | Region screenshots |
 | `frames/` | Full-screen video frame for every mark |
 | `transcript.json` | Parakeet output, with timestamps for every sentence and token |
@@ -71,5 +88,5 @@ Requires the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `parakeet-ml
 
 ## Next
 
-- Map a region screenshot back to the DOM elements inside it, using the `window` and `viewport` values in the snapshot.
+- rrweb DOM recording, to replay the DOM over time alongside the video.
 - Export marks to Product Grid (`pgm image add` plus a context node).

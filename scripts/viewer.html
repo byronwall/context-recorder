@@ -162,12 +162,22 @@ const pageEventText = (e) => {
   if (e.kind === "request") return `${e.method} ${e.requestUrl} → ${e.status} (${e.ms} ms)${e.error ? " " + e.error : ""}${e.body ? " — " + e.body : ""}`;
   return JSON.stringify(e);
 };
-const elementHtml = (label, el) => el ? `<dt>${label}</dt><dd><code>${esc(el.selector)}</code>${el.text ? ` “${esc(el.text)}”` : ""}${el.components ? `<div class="sub">${esc([...el.components].slice(0, 5).reverse().join(" › "))}</div>` : ""}</dd>` : "";
+const sourceText = (src) => src && src.file ? `${src.file}${src.line ? ":" + src.line : ""}${src.column ? ":" + src.column : ""}${src.via === "react-debugStack" ? " (post-transform line)" : ""}` : "";
+const propsText = (p) => p ? `<${p.component}> ` + Object.entries(p.props || {}).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" ") : "";
+const elementHtml = (label, el) => el ? `<dt>${label}</dt><dd><code>${esc(el.selector)}</code>${el.text ? ` “${esc(el.text)}”` : ""}${el.components ? `<div class="sub">${esc([...el.components].slice(0, 5).reverse().join(" › "))}</div>` : ""}${el.source ? `<div class="sub">📄 <code>${esc(sourceText(el.source))}</code></div>` : ""}${el.props ? `<div class="sub"><code>${esc(propsText(el.props))}</code></div>` : ""}</dd>` : "";
+function regionHtml(r) {
+  if (!r) return "";
+  if (!r.elements || !r.elements.length) return r.note ? `<div class="sub">Region: ${esc(r.note)}</div>` : "";
+  return `<div class="sub" style="margin-top:8px">Inside the region <span style="opacity:.7">(mapped via ${esc(r.method)})</span></div><ul class="problems" style="color:var(--text)">` +
+    r.elements.slice(0, 15).map((el) => `<li><code>${esc(el.selector)}</code>${el.text ? ` “${esc(el.text.slice(0, 80))}”` : ""}${el.source ? ` · 📄 ${esc(sourceText(el.source))}` : ""}</li>`).join("") + "</ul>";
+}
 function pageHtml(b) {
   if (!b) return "";
   if (b.error) return `<div class="sub">Page snapshot unavailable: ${esc(b.error)}</div>`;
   const problems = (b.recent || []).filter(isProblem).slice(-8);
   return `<dl class="kv" style="margin-top:6px">${elementHtml("Mouse", b.hovered)}${elementHtml("Focused", b.focused)}${b.selection ? `<dt>Selected</dt><dd>${esc(b.selection)}</dd>` : ""}</dl>` +
+    regionHtml(b.region) +
+    (b.pageFile ? `<div class="sub" style="margin-top:6px"><a href="${esc(b.pageFile)}" target="_blank">Open saved page (MHTML)</a> to inspect the DOM as it was</div>` : "") +
     (problems.length ? `<ul class="problems">${problems.map((e) => `<li>${esc(pageEventText(e))}</li>`).join("")}</ul>` : "");
 }
 let duration = DATA.duration || Math.max(1, ...marks.map((m) => m.offsetSeconds + 5));
@@ -199,7 +209,10 @@ function markdownFor(m) {
     c.browserTitle && `- **Page title:** ${c.browserTitle}`,
     `- **Video:** \`${DATA.folder}/recording.mp4\` @ ${m.offsetSeconds.toFixed(1)}s`,
     m.browser?.hovered && `- **Under mouse:** \`${m.browser.hovered.selector}\`${m.browser.hovered.text ? ` “${m.browser.hovered.text}”` : ""}${m.browser.hovered.components ? ` in ${[...m.browser.hovered.components].slice(0, 5).reverse().join(" › ")}` : ""}`,
+    m.browser?.hovered?.source && `- **Source:** \`${sourceText(m.browser.hovered.source)}\``,
     m.browser?.focused && `- **Focused:** \`${m.browser.focused.selector}\``,
+    ...(m.browser?.region?.elements || []).slice(0, 15).map((el) => `- In region: \`${el.selector}\`${el.text ? ` “${el.text.slice(0, 80)}”` : ""}${el.source ? ` · ${sourceText(el.source)}` : ""}`),
+    m.browser?.pageFile && `- **Saved page:** \`${DATA.folder}/${m.browser.pageFile}\``,
     ...(m.browser?.recent || []).filter(isProblem).slice(-8).map((e) => `- ⚠ ${pageEventText(e)}`),
   ].filter((x) => x !== undefined && x !== null && x !== false).join("\n");
 }

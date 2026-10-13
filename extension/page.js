@@ -106,7 +106,90 @@
     return names.length ? names : undefined;
   }
 
-  function describe(el) {
+  // ---------- source location (dev builds) ----------
+  // Tries, in order: React 18 _debugSource (exact JSX line), framework metadata (Svelte, Vue),
+  // source attributes added by build plugins (e.g. Solid/Vite locator plugins), React 19 _debugStack.
+
+  const reactFiberOf = (el) => {
+    const key = Object.keys(el).find((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"));
+    return key ? el[key] : null;
+  };
+
+  const SKIP_FRAME = /node_modules|\.vite\/deps|react-dom|react\.development|react-jsx|scheduler|chunk-|<anonymous>|chrome-extension:/;
+
+  function frameFromStack(stack) {
+    for (const line of String(stack || "").split("\n")) {
+      const m = line.match(/(https?:\/\/[^\s)]+|file:\/\/[^\s)]+):(\d+):(\d+)/);
+      if (m && !SKIP_FRAME.test(m[1])) {
+        const url = new URL(m[1]);
+        return { file: url.pathname, line: +m[2], column: +m[3], url: url.origin + url.pathname };
+      }
+    }
+    return null;
+  }
+
+  const SOURCE_ATTR = /^data-(source|src)[-_]?(loc|location|file|path)$|^data-inspector-(relative-path|path)$|^data-locator(js)?(-id)?$|^data-sourcepos$/;
+
+  function sourceFor(el) {
+    try {
+      // React <= 18 dev: exact JSX location of this element (or nearest ancestor that has one).
+      let fiber = reactFiberOf(el);
+      for (let i = 0; fiber && i < 50; i++, fiber = fiber.return) {
+        const src = fiber._debugSource;
+        if (src && src.fileName) return { file: src.fileName, line: src.lineNumber, column: src.columnNumber, via: "react-debugSource" };
+      }
+      // Svelte dev
+      for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+        const loc = n.__svelte_meta && n.__svelte_meta.loc;
+        if (loc) return { file: loc.file, line: loc.line + 1, column: loc.column, via: "svelte" };
+      }
+      // Vue 3 dev: component file
+      const vue = el.__vueParentComponent;
+      if (vue && vue.type && vue.type.__file) return { file: vue.type.__file, via: "vue" };
+      // Build-plugin attributes (code-inspector / locator style)
+      for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+        for (const a of n.attributes) {
+          if (SOURCE_ATTR.test(a.name)) {
+            const line = n.getAttribute("data-inspector-line");
+            return { file: a.value, line: line ? +line : undefined, via: a.name };
+          }
+        }
+      }
+      // React 19 dev: stack captured when the element was created. Lines are post-transform.
+      fiber = reactFiberOf(el);
+      for (let i = 0; fiber && i < 50; i++, fiber = fiber.return) {
+        const frame = fiber._debugStack && frameFromStack(fiber._debugStack.stack);
+        if (frame) return { ...frame, via: "react-debugStack" };
+      }
+    } catch {}
+    return undefined;
+  }
+
+  // Shallow, size-capped view of the nearest named React component's props.
+  function propsFor(el) {
+    try {
+      let fiber = reactFiberOf(el);
+      for (let i = 0; fiber && i < 300; i++, fiber = fiber.return) {
+        const t = fiber.type;
+        const name = t && typeof t !== "string" ? t.displayName || t.name : null;
+        if (!name || !isReadableName(name)) continue;
+        const out = {};
+        for (const [k, v] of Object.entries(fiber.memoizedProps || {}).slice(0, 20)) {
+          if (k === "children") continue;
+          out[k] = v === null || ["number", "boolean", "undefined"].includes(typeof v) ? v
+            : typeof v === "string" ? trunc(v, 120)
+            : typeof v === "function" ? "[fn]"
+            : Array.isArray(v) ? `Array(${v.length})`
+            : v && v.$$typeof ? "<element>"
+            : `{${Object.keys(v).slice(0, 6).join(", ")}${Object.keys(v).length > 6 ? ", …" : ""}}`;
+        }
+        return { component: name, props: out };
+      }
+    } catch {}
+    return undefined;
+  }
+
+  function describe(el, { deep = false } = {}) {
     if (!(el instanceof Element)) return null;
     // Prefer the nearest interactive ancestor: clicking an <svg> inside a <button> means the button.
     const target = el.closest("button, a, [role=button], [role=link], [role=menuitem], [role=tab], input, select, textarea, label, summary") || el;
@@ -125,12 +208,19 @@
       rect: { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) },
       components: componentChain(target),
       innerTarget: target !== el ? selectorFor(el) : undefined,
+      source: sourceFor(target),
+      ...(deep ? { props: propsFor(target) } : {}),
     };
   }
 
   // ---------- user actions ----------
 
   addEventListener("mouseover", (e) => (lastHover = e.target), { capture: true, passive: true });
+  // Last pointer position inside the viewport (null once it leaves the page). Lets the app line up
+  // screen coordinates with page coordinates for region screenshots.
+  let lastMouse = null;
+  addEventListener("mousemove", (e) => (lastMouse = { clientX: e.clientX, clientY: e.clientY }), { capture: true, passive: true });
+  document.addEventListener("mouseout", (e) => { if (!e.relatedTarget) lastMouse = null; }, { capture: true, passive: true });
   addEventListener(
     "click",
     (e) => record({ kind: "click", element: describe(e.target), x: e.clientX, y: e.clientY }),
@@ -262,14 +352,15 @@
   function snapshot() {
     const active = document.activeElement;
     const selection = String(getSelection() || "").trim();
-    const hovered = describe(lastHover);
-    const focused = active && active !== document.body ? describe(active) : null;
+    const hovered = describe(lastHover, { deep: true });
+    const focused = active && active !== document.body ? describe(active, { deep: true }) : null;
     return {
       url: location.href,
       title: document.title,
       viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, scrollX: Math.round(scrollX), scrollY: Math.round(scrollY) },
       // Where the page sits on screen, so a screen-space region can be mapped back to page coordinates.
       window: { screenX, screenY, outerWidth, outerHeight },
+      mouse: lastMouse || undefined,
       hovered,
       focused: focused && focused.selector !== (hovered && hovered.selector) ? focused : undefined,
       selection: selection ? trunc(selection, 500) : undefined,
@@ -277,14 +368,74 @@
     };
   }
 
+  // ---------- elements inside a screen region ----------
+  // req: { rect: {x,y,width,height} in screen points (top-left origin), mouseScreen: {x,y}|null, screenScale }
+
+  function viewportOrigin(req) {
+    const zoom = req.screenScale ? devicePixelRatio / req.screenScale : 1;
+    const client = req.mouseClient || lastMouse;
+    if (req.mouseScreen && client) {
+      // Most robust: the pointer is in both coordinate spaces (handles toolbars, docked DevTools, etc.).
+      return { x: req.mouseScreen.x - client.clientX * zoom, y: req.mouseScreen.y - client.clientY * zoom, zoom, method: "pointer" };
+    }
+    // Fallback: assume browser chrome sits above the viewport only.
+    return { x: screenX + (outerWidth - innerWidth * zoom) / 2, y: screenY + outerHeight - innerHeight * zoom, zoom, method: "window" };
+  }
+
+  const MEANINGFUL = "button, a, input, select, textarea, label, summary, [role], [tabindex], h1, h2, h3, h4, h5, h6, img, svg, canvas, video, table, th, td, li, p, [data-testid], [data-test], [data-cy]";
+
+  function regionElements(req) {
+    const o = viewportOrigin(req);
+    const r = {
+      x: (req.rect.x - o.x) / o.zoom,
+      y: (req.rect.y - o.y) / o.zoom,
+      width: req.rect.width / o.zoom,
+      height: req.rect.height / o.zoom,
+    };
+    const clip = {
+      left: Math.max(0, r.x), top: Math.max(0, r.y),
+      right: Math.min(innerWidth, r.x + r.width), bottom: Math.min(innerHeight, r.y + r.height),
+    };
+    if (clip.right <= clip.left || clip.bottom <= clip.top) {
+      return { viewportRect: r, method: o.method, elements: [], note: "region is outside the page viewport" };
+    }
+    // Sample a grid of points; keep the most meaningful element under each.
+    const seen = new Map();
+    const cols = 14, rows = 10;
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        const x = clip.left + ((i + 0.5) * (clip.right - clip.left)) / cols;
+        const y = clip.top + ((j + 0.5) * (clip.bottom - clip.top)) / rows;
+        const hit = document.elementFromPoint(x, y);
+        const el = hit && (hit.closest(MEANINGFUL) || hit);
+        if (el && el !== document.body && el !== document.documentElement) seen.set(el, (seen.get(el) || 0) + 1);
+      }
+    }
+    // Drop elements whose descendants were also hit (keep the most specific), then rank by coverage.
+    const els = [...seen.keys()];
+    const specific = els.filter((el) => !els.some((other) => other !== el && el.contains(other)));
+    specific.sort((a, b) => seen.get(b) - seen.get(a));
+    const text = specific.map((el) => (el.innerText || "").trim().replace(/\s+/g, " ")).filter(Boolean);
+    return {
+      viewportRect: { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) },
+      method: o.method,
+      elements: specific.slice(0, 25).map((el) => ({ ...describe(el), coverage: seen.get(el) })),
+      text: trunc([...new Set(text)].join(" · "), 1500) || undefined,
+    };
+  }
+
+  const HANDLERS = { snapshot: () => snapshot(), region: (payload) => regionElements(payload) };
+
   addEventListener("message", (e) => {
-    if (e.source !== window || !e.data || e.data.source !== SRC_RELAY || e.data.type !== "snapshot") return;
+    if (e.source !== window || !e.data || e.data.source !== SRC_RELAY) return;
+    const handler = HANDLERS[e.data.type];
+    if (!handler) return;
     let data;
     try {
-      data = snapshot();
+      data = handler(e.data.payload || {});
     } catch (err) {
       data = { error: String(err) };
     }
-    window.postMessage({ source: SRC_PAGE, type: "snapshot-result", id: e.data.id, data }, "*");
+    window.postMessage({ source: SRC_PAGE, type: "result", id: e.data.id, data }, "*");
   });
 })();

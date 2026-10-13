@@ -10,14 +10,14 @@ window.addEventListener("message", (e) => {
   if (e.source !== window || !e.data || e.data.source !== SRC_PAGE) return;
   if (e.data.type === "event") {
     chrome.runtime.sendMessage({ type: "event", event: e.data.event }).catch(() => {});
-  } else if (e.data.type === "snapshot-result") {
+  } else if (e.data.type === "result") {
     const done = waiting.get(e.data.id);
     if (done) done(e.data.data);
   }
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type !== "snapshot") return;
+  if (msg.type !== "snapshot" && msg.type !== "region") return;
   const id = Math.random().toString(36).slice(2);
   const timer = setTimeout(() => {
     waiting.delete(id);
@@ -28,7 +28,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     waiting.delete(id);
     sendResponse(data);
   });
-  window.postMessage({ source: SRC_RELAY, type: "snapshot", id }, "*");
+  window.postMessage({ source: SRC_RELAY, type: msg.type, id, payload: msg.payload }, "*");
   return true; // async sendResponse
 });
 }

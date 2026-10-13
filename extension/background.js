@@ -53,21 +53,24 @@ function setBadge(connected) {
   chrome.action.setBadgeBackgroundColor({ color: "#888" });
 }
 
+// App requests: {type: "snapshot" | "region", id, payload?, capturePage?}
 async function handle(msg) {
-  if (msg.type !== "snapshot") return;
+  if (msg.type !== "snapshot" && msg.type !== "region") return;
   let data;
+  let tab;
   try {
-    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     if (!tab || tab.id === undefined) {
       data = { error: "no active tab" };
     } else {
+      const request = { type: msg.type, payload: msg.payload };
       try {
-        data = await chrome.tabs.sendMessage(tab.id, { type: "snapshot" });
+        data = await chrome.tabs.sendMessage(tab.id, request);
       } catch {
         // Tab was open before the extension loaded: inject now and retry once.
         try {
           await injectInto(tab.id);
-          data = await chrome.tabs.sendMessage(tab.id, { type: "snapshot" });
+          data = await chrome.tabs.sendMessage(tab.id, request);
           data = { ...data, lateInjection: true };
         } catch {
           // chrome:// pages, the Web Store, PDFs, etc.
@@ -79,7 +82,24 @@ async function handle(msg) {
   } catch (err) {
     data = { error: String(err) };
   }
-  send({ type: "snapshot-result", id: msg.id, data });
+  send({ type: "result", id: msg.id, data });
+
+  // Save the whole page (DOM + styles + images) as MHTML so it can be opened and inspected later.
+  if (msg.capturePage && tab && !data.error) {
+    try {
+      const blob = await chrome.pageCapture.saveAsMHTML({ tabId: tab.id });
+      send({ type: "page-capture", id: msg.id, data: await toBase64(blob) });
+    } catch (err) {
+      send({ type: "page-capture", id: msg.id, error: String(err) });
+    }
+  }
+}
+
+async function toBase64(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
 }
 
 // Content scripts declared in the manifest only reach tabs loaded after install, so inject into open ones.

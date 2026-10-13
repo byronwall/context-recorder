@@ -146,7 +146,22 @@ def element_line(label, el):
         bits.append(f"“{el['text']}”")
     if el.get("components"):
         bits.append("in " + " › ".join(reversed(el["components"][:5])))
-    return [f"- **{label}:** " + " · ".join(bits)]
+    lines = [f"- **{label}:** " + " · ".join(bits)]
+    src = source_text(el.get("source"))
+    if src:
+        lines.append(f"  - source: `{src}`")
+    if el.get("props"):
+        props = ", ".join(f"{k}={json.dumps(v)}" for k, v in el["props"].get("props", {}).items())
+        lines.append(f"  - `<{el['props'].get('component')}>` props: {props or '(none)'}")
+    return lines
+
+
+def source_text(src):
+    if not src or not src.get("file"):
+        return ""
+    loc = src["file"] + (f":{src['line']}" if src.get("line") else "") + (f":{src['column']}" if src.get("column") else "")
+    note = " (line is post-transform)" if src.get("via") == "react-debugStack" else ""
+    return loc + note
 
 
 def problem_text(e):
@@ -174,6 +189,19 @@ def browser_lines(browser):
     lines = ["", "**Page**", ""]
     lines += element_line("Under mouse", browser.get("hovered"))
     lines += element_line("Focused", browser.get("focused"))
+    region = browser.get("region") or {}
+    if region.get("elements"):
+        lines += ["", f"**Inside the screenshot region** _(mapped via {region.get('method')})_", ""]
+        for el in region["elements"][:15]:
+            src = source_text(el.get("source"))
+            comps = " › ".join(reversed((el.get("components") or [])[:3]))
+            lines.append(f"- `{el.get('selector')}`" + (f" “{el['text'][:80]}”" if el.get("text") else "")
+                         + (f" · {comps}" if comps else "") + (f" · `{src}`" if src else ""))
+        lines.append("")
+    elif region.get("note"):
+        lines.append(f"- _Region: {region['note']}_")
+    if browser.get("pageFile"):
+        lines.append(f"- **Saved page:** [{browser['pageFile']}](PAGE_PREFIX{browser['pageFile']}) — open in Chrome to inspect the DOM as it was")
     if browser.get("selection"):
         lines.append(f"- **Selected text:** {browser['selection']}")
     recent = browser.get("recent") or []
@@ -205,7 +233,7 @@ def mark_markdown(mark, image, narration, rel_prefix=""):
         lines += ["> " + narration, ""]
     lines += context_lines(mark["context"])
     lines += [f"- **Video:** `recording.mp4` @ {mark['offsetSeconds']:.1f}s", f"- **Kind:** {mark['kind']}"]
-    lines += browser_lines(mark.get("browser"))
+    lines += [l.replace("PAGE_PREFIX", rel_prefix) for l in browser_lines(mark.get("browser"))]
     lines.append("")
     return "\n".join(lines)
 

@@ -36,6 +36,13 @@ enum JSONValue: Codable {
         return nil
     }
 
+    /// Returns a copy with `key` set (no-op unless this is an object).
+    func setting(_ key: String, _ value: JSONValue) -> JSONValue {
+        guard case .object(var o) = self else { return self }
+        o[key] = value
+        return .object(o)
+    }
+
     var stringValue: String? {
         if case .string(let s) = self { return s }
         return nil

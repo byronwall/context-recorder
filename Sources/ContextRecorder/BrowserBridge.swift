@@ -4,8 +4,10 @@ import Network
 /// Local WebSocket server the Chrome extension connects to (ws://127.0.0.1:47823).
 ///
 /// Extension → app:  {"type":"event", "event":{...}}            streamed page events (clicks, nav, errors, failed requests)
-///                   {"type":"snapshot-result", "id", "data"}   reply to a snapshot request
-/// App → extension:  {"type":"snapshot", "id"}                  "what's under the mouse right now?"
+///                   {"type":"result", "id", "data"}            reply to a request
+///                   {"type":"page-capture", "id", "data"}      base64 MHTML of the page, after a snapshot with capturePage
+/// App → extension:  {"type":"snapshot", "id", "capturePage"}   "what's under the mouse right now?" (+ save the page)
+///                   {"type":"region", "id", "payload"}         "which elements are inside this screen rectangle?"
 ///
 /// Only connections whose Origin is a chrome-extension:// URL are accepted, so web pages can't connect.
 final class BrowserBridge {
@@ -13,6 +15,7 @@ final class BrowserBridge {
 
     var onEvent: ((JSONValue) -> Void)?          // main queue
     var onConnectionsChanged: ((Int) -> Void)?   // main queue
+    var onPageCapture: ((String, Data) -> Void)? // bridge queue; (request id, MHTML bytes)
 
     private let queue = DispatchQueue(label: "context-recorder.bridge")
     private var listener: NWListener?
@@ -22,7 +25,7 @@ final class BrowserBridge {
     func start() {
         let ws = NWProtocolWebSocket.Options()
         ws.autoReplyPing = true
-        ws.maximumMessageSize = 4 * 1024 * 1024
+        ws.maximumMessageSize = 128 * 1024 * 1024 // MHTML page captures can be large
         ws.setClientRequestHandler(queue) { _, headers in
             let origin = headers.first { $0.name.lowercased() == "origin" }?.value ?? ""
             let allowed = origin.isEmpty || origin.hasPrefix("chrome-extension://")
@@ -46,16 +49,20 @@ final class BrowserBridge {
         }
     }
 
-    /// Ask the extension for a page snapshot. Completes on main with nil if no extension answers in time.
-    func requestSnapshot(timeout: TimeInterval = 1.5, completion: @escaping (JSONValue?) -> Void) {
+    /// Send a request to the extension. Completes on main with nil if no extension answers in time.
+    func request(_ type: String, id: String = String(UUID().uuidString.prefix(8)).lowercased(),
+                 payload: [String: Any]? = nil, capturePage: Bool = false, timeout: TimeInterval = 1.5,
+                 completion: @escaping (JSONValue?) -> Void) {
         queue.async {
             guard !self.connections.isEmpty else {
                 DispatchQueue.main.async { completion(nil) }
                 return
             }
-            let id = UUID().uuidString
             self.pending[id] = { value in DispatchQueue.main.async { completion(value) } }
-            for conn in self.connections.values { self.send(["type": "snapshot", "id": id], on: conn) }
+            var message: [String: Any] = ["type": type, "id": id, "capturePage": capturePage]
+            if let payload { message["payload"] = payload }
+            // Only the first connection: multiple Chrome profiles would otherwise race.
+            if let conn = self.connections.values.first { self.send(message, on: conn) }
             self.queue.asyncAfter(deadline: .now() + timeout) {
                 self.pending.removeValue(forKey: id)?(nil)
             }
@@ -95,9 +102,14 @@ final class BrowserBridge {
         switch message["type"]?.stringValue {
         case "event":
             if let event = message["event"] { DispatchQueue.main.async { self.onEvent?(event) } }
-        case "snapshot-result":
+        case "result":
             if let id = message["id"]?.stringValue, let callback = pending.removeValue(forKey: id) {
                 callback(message["data"])
+            }
+        case "page-capture":
+            if let id = message["id"]?.stringValue, let b64 = message["data"]?.stringValue,
+               let bytes = Data(base64Encoded: b64) {
+                onPageCapture?(id, bytes)
             }
         default:
             break // hello / ping

@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let recorder = Recorder()
     private let bridge = BrowserBridge()
     private var chromeConnections = 0
+    /// Where MHTML page captures land. Kept after stop so captures that arrive late still get saved.
+    private var pageCaptureFolder: URL?
     private var session: Session?
     private var timer: Timer?
     private var activity: ActivityLog?
@@ -40,6 +42,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bridge.onConnectionsChanged = { [weak self] count in
             self?.chromeConnections = count
             self?.updateTitle()
+        }
+        bridge.onPageCapture = { [weak self] id, bytes in
+            DispatchQueue.main.async {
+                guard let folder = self?.pageCaptureFolder?.appendingPathComponent("pages") else { return }
+                try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                try? bytes.write(to: folder.appendingPathComponent("\(id).mhtml"))
+            }
         }
         bridge.start()
         rebuildMenu()
@@ -155,6 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             let session = try Session()
             self.session = session
+            pageCaptureFolder = session.folder
             rebuildMenu()
             updateTitle()
             Task { @MainActor in
@@ -209,9 +219,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Ask the extension what's under the mouse *now* (only meaningful when Chrome is in front).
         let snapshotReady = DispatchGroup()
         var browser: JSONValue?
-        if let bid = context.bundleID, ContextProbe.chromeBundleIDs.contains(bid) {
+        let inChrome = context.bundleID.map(ContextProbe.chromeBundleIDs.contains) ?? false
+        if inChrome {
             snapshotReady.enter()
-            bridge.requestSnapshot { browser = $0; snapshotReady.leave() }
+            let id = "m\(session.nextIndex())-\(Int(offset))"
+            bridge.request("snapshot", id: id, capturePage: true) { result in
+                browser = result
+                if let result, result["error"] == nil {
+                    browser = result.setting("pageFile", .string("pages/\(id).mhtml"))
+                }
+                snapshotReady.leave()
+            }
         }
 
         guard screenshot else {
@@ -228,24 +246,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self, let selection, self.session === session else { return }
             snapshotReady.notify(queue: .main) {
                 let region = Self.displayRect(fromScreen: selection)
-                let index = session.nextIndex()
-                let name = String(format: "screenshots/%03d.png", index)
-                let mark = Mark(index: index, kind: "screenshot", offsetSeconds: offset, wallTime: wallTime,
-                                screenshot: name, region: region.map {
-                                    ["x": $0.minX, "y": $0.minY, "width": $0.width, "height": $0.height]
-                                }, context: context, browser: browser)
-                session.add(mark)
-                NSSound(named: "Glass")?.play()
-                self.flash("📸 \(index)")
-                Task { @MainActor in
-                    do {
-                        try await self.recorder.screenshot(to: session.folder.appendingPathComponent(name), rect: region)
-                    } catch {
-                        NSLog("ContextRecorder: screenshot failed: \(error)")
-                    }
+                guard let snapshot = browser, snapshot["error"] == nil else {
+                    self.addRegionMark(session: session, offset: offset, wallTime: wallTime, region: region,
+                                       context: context, browser: browser)
+                    return
+                }
+                // Ask the page which elements sit inside the selected rectangle.
+                var payload = Self.regionPayload(region: region, context: context)
+                // Pointer position the page saw at keypress (the overlay may since have hidden it from the page).
+                if case .number(let cx)? = snapshot["mouse"]?["clientX"], case .number(let cy)? = snapshot["mouse"]?["clientY"] {
+                    payload["mouseClient"] = ["clientX": cx, "clientY": cy]
+                }
+                self.bridge.request("region", payload: payload) { result in
+                    let merged = result.map { snapshot.setting("region", $0) } ?? snapshot
+                    self.addRegionMark(session: session, offset: offset, wallTime: wallTime, region: region,
+                                       context: context, browser: merged)
                 }
             }
         }
+    }
+
+    private func addRegionMark(session: Session, offset: Double, wallTime: String, region: CGRect?,
+                               context: MarkContext, browser: JSONValue?) {
+        let index = session.nextIndex()
+        let name = String(format: "screenshots/%03d.png", index)
+        let mark = Mark(index: index, kind: "screenshot", offsetSeconds: offset, wallTime: wallTime,
+                        screenshot: name, region: region.map {
+                            ["x": $0.minX, "y": $0.minY, "width": $0.width, "height": $0.height]
+                        }, context: context, browser: browser)
+        session.add(mark)
+        NSSound(named: "Glass")?.play()
+        flash("📸 \(index)")
+        Task { @MainActor in
+            do {
+                try await recorder.screenshot(to: session.folder.appendingPathComponent(name), rect: region)
+            } catch {
+                NSLog("ContextRecorder: screenshot failed: \(error)")
+            }
+        }
+    }
+
+    /// Region in display points (top-left origin) + pointer position in the same space, so the page can
+    /// line up screen and viewport coordinates.
+    private static func regionPayload(region: CGRect?, context: MarkContext) -> [String: Any] {
+        let screen = NSScreen.main
+        let frame = screen?.frame ?? .zero
+        let rect = region ?? CGRect(origin: .zero, size: frame.size)
+        var payload: [String: Any] = [
+            "rect": ["x": rect.minX, "y": rect.minY, "width": rect.width, "height": rect.height],
+            "screenScale": screen?.backingScaleFactor ?? 2,
+        ]
+        if let m = context.mouse, let x = m["x"], let y = m["y"] {
+            payload["mouseScreen"] = ["x": x - frame.minX, "y": frame.maxY - y]
+        }
+        return payload
     }
 
     /// AppKit global coords (bottom-left origin) -> main-display points (top-left origin). nil = whole screen.
