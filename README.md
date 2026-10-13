@@ -19,7 +19,27 @@ The build script also installs the app to `/Applications`, so you can launch it 
 
 A floating control panel (shown at launch and whenever you open the app again) has the same actions, a live timer and the mark count, because the menu-bar item can be hidden when the bar is crowded. While recording, the menu bar shows a red record dot with `3:42  ⚑5` (elapsed time and number of marks). Use the menu's **Record Microphone** item to turn narration on or off. Turn it off for silent sessions: you still get video, screenshots and context.
 
-When you stop, the app transcribes your narration (if there is any), writes markdown and opens `viewer.html` for the session.
+When you stop, the app transcribes your narration (if there is any), writes markdown and opens the session in the **Sessions** window.
+
+## Sessions window
+
+A native library of every recording (menu bar → **Sessions…**, or the play button on the control panel). While it's open the app gets a Dock icon and menus; close it and the app goes back to living in the menu bar.
+
+- **Sidebar:** sessions by day, with thumbnail, length, mark count and the apps you used. Drop a session folder (or a folder of sessions) on the window, or use **File → Open Session Folder…**, to add one from elsewhere.
+- **Stage:** the recording, with floating playback controls.
+- **Timeline:** marks, active app, page events and narration on one time axis. Click or drag to seek; hover to see what's under the pointer.
+- **Now strip:** the app, window and URL at the playhead, and the sentence being spoken.
+- **Inspector:** marks (with the full page context for the selected one), transcript, page events and activity. **Copy as Markdown** is per mark and for the whole session (toolbar).
+
+| Key | Action |
+| --- | --- |
+| Space | Play / pause |
+| J / K | Next / previous mark |
+| → / ← | Skip 5 s |
+
+The window updates on its own when a session is re-processed. `viewer.html` is still written to every session folder as a portable copy (**Session → Open in Browser**).
+
+To work on the window without touching an installed copy of the app, run the debug build on a folder of sessions: `swift run ContextRecorder --library tmp/` (add `--mark 2` to open a mark). This skips recording, hotkeys and permission prompts. Set `CR_APPEARANCE=dark` to check dark mode.
 
 First run asks for **Screen Recording**, **Microphone** and (the first time you mark in Chrome) **Automation → Chrome** permissions. The build is signed with a stable local identity, so macOS keeps these permissions across rebuilds.
 
@@ -70,7 +90,7 @@ Input values are never recorded, only which field changed. The app accepts conne
 | `transcript.json` | Parakeet output, with timestamps for every sentence and token |
 | `marks/NNN.md`, `session.md` | Markdown for each mark, with the narration window (20 s before and 10 s after the mark; ⚑ shows where the mark landed) |
 | `session.json` | Everything above in one file, for the viewer and exporters |
-| `viewer.html` | The control center. Opens straight from disk, no server needed |
+| `viewer.html` | Portable web copy of the session. Opens straight from disk, no server needed |
 
 To re-run processing, for example with a different narration window:
 
@@ -83,10 +103,11 @@ Delete `transcript.json` first if you want the audio transcribed again.
 ## Layout
 
 - `Sources/ContextRecorder/`: Swift app. `Recorder` (ScreenCaptureKit and AVAssetWriter), `HotKeys` (Carbon), `ContextProbe` (front app, window, Chrome tab), `ActivityLog`, `Session`.
+- `Sources/ContextRecorder/Library/`: the Sessions window (SwiftUI, macOS 26). `SessionLibrary` scans the folders, `SessionModel` owns one open session and its player, `SessionData` decodes `session.json`, `MarkText` builds titles and the Markdown.
 - `scripts/process_session.py`: post-processing (ffmpeg, parakeet-mlx). Standard library only.
 - `scripts/viewer.html`: viewer template. The session data gets embedded in it.
 
-Requires the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `parakeet-mlx` on the login-shell `PATH`.
+Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `parakeet-mlx` on the login-shell `PATH`.
 
 ## Next
 

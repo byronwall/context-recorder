@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "ContextRecorder",
-    platforms: [.macOS("15.0")],
+    platforms: [.macOS("26.0")],
     targets: [
         .executableTarget(
             name: "ContextRecorder",
@@ -12,6 +12,8 @@ let package = Package(
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("Carbon"),
+                .linkedFramework("AVKit"),
+                .linkedFramework("QuickLook"),
             ]
         )
     ]
