@@ -8,6 +8,7 @@ import ScreenCaptureKit
 ///   ⌃⌥S  screenshot mark (full-res still + context)
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
+    private var panel: ControlPanel!
     private let recorder = Recorder()
     private var session: Session?
     private var timer: Timer?
@@ -21,8 +22,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         recorder.onError = { [weak self] error in self?.handleError(error) }
+        panel = ControlPanel(actions: .init(
+            toggleRecording: { [weak self] in self?.toggleRecording() },
+            mark: { [weak self] in self?.addMark(screenshot: false) },
+            screenshot: { [weak self] in self?.addMark(screenshot: true) },
+            toggleMicrophone: { [weak self] in self?.toggleMicrophone() },
+            openLastViewer: { [weak self] in self?.openLastViewer() },
+            quit: { [weak self] in self?.quit() }
+        ))
         rebuildMenu()
         updateTitle()
+        panel.show()
 
         let mods = controlKey | optionKey
         HotKeys.shared.register(keyCode: kVK_ANSI_R, modifiers: mods) { [weak self] in self?.toggleRecording() }
@@ -31,6 +41,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Ask for screen-recording permission up front so the first recording doesn't fail.
         if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
+    }
+
+    /// `open ContextRecorder.app` while running, or clicking it in Finder/Dock, brings the panel back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        panel.show()
+        return false
     }
 
     // MARK: Menu
@@ -51,12 +67,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mic.isEnabled = !recording
         menu.addItem(mic)
         menu.addItem(.separator())
+        menu.addItem(item("Show Control Panel", #selector(showPanel)))
         menu.addItem(item("Open Last Session Viewer", #selector(openLastViewer)))
         menu.addItem(item("Open Sessions Folder", #selector(openSessions)))
         menu.addItem(.separator())
         menu.addItem(item("Quit", #selector(quit)))
         menu.autoenablesItems = false
         statusItem.menu = menu
+        updateTitle()
     }
 
     private func item(_ title: String, _ action: Selector) -> NSMenuItem {
@@ -66,17 +84,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateTitle() {
-        guard let button = statusItem.button else { return }
+        let title: String
         if let session, let offset = recorder.currentOffset() {
             let t = Int(offset)
-            button.title = String(format: "● %d:%02d · %d", t / 60, t % 60, session.marks.count)
+            title = String(format: "● %d:%02d · %d", t / 60, t % 60, session.marks.count)
         } else if session != nil {
-            button.title = "● starting…"
+            title = "● starting…"
         } else if busy {
-            button.title = "◌ processing…"
+            title = "◌ processing…"
         } else {
-            button.title = "◎ CR"
+            title = "◎ CR"
         }
+        statusItem.button?.title = title
+        panel?.update(status: title == "◎ CR" ? "Ready" : title, recording: session != nil, busy: busy,
+                      microphone: recordMicrophone)
     }
 
     private func flash(_ text: String) {
@@ -86,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func markFromMenu() { addMark(screenshot: false) }
     @objc private func screenshotFromMenu() { addMark(screenshot: true) }
+    @objc private func showPanel() { panel.show() }
     @objc private func toggleMicrophone() {
         recordMicrophone.toggle()
         rebuildMenu()
