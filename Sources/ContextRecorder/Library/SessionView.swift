@@ -19,6 +19,7 @@ struct SessionView: View {
             }
             .toolbar { toolbar }
             .quickLookPreview($quickLook, in: quickLookItems)
+            .sheet(item: $model.export) { ExportSheet(model: $0) }
     }
 
     @ViewBuilder private var content: some View {
@@ -49,6 +50,12 @@ struct SessionView: View {
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
+            Button { model.export = ExportSheetModel(session: model) } label: {
+                Label("Export to Product Grid", systemImage: "square.and.arrow.up")
+            }
+            .help("Send this session's marks to a project's Product Grid")
+            .disabled(model.marks.isEmpty)
+
             Button {
                 copy(model.markdown)
                 withAnimation { copiedAll = true }
@@ -84,14 +91,7 @@ struct SessionView: View {
             .reduce(into: [URL]()) { if !$0.contains($1) { $0.append($1) } }
     }
 
-    private var title: String {
-        let name = model.folder.lastPathComponent
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = f.date(from: name) else { return name }
-        return date.formatted(.dateTime.month(.abbreviated).day().year()) + " · " + date.formatted(date: .omitted, time: .shortened)
-    }
+    private var title: String { SessionTitle.title(for: model.folder) }
 
     private var subtitle: String {
         guard model.data != nil else { return "" }

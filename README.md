@@ -37,9 +37,20 @@ A native library of every recording (menu bar → **Sessions…**, or the play b
 | J / K | Next / previous mark |
 | → / ← | Skip 5 s |
 
-The window updates on its own when a session is re-processed. `viewer.html` is still written to every session folder as a portable copy (**Session → Open in Browser**).
+The window updates on its own when a session is re-processed.
 
-To work on the window without touching an installed copy of the app, run the debug build on a folder of sessions: `swift run ContextRecorder --library tmp/` (add `--mark 2` to open a mark). This skips recording, hotkeys and permission prompts. Set `CR_APPEARANCE=dark` to check dark mode.
+### Export to Product Grid
+
+**Export to Product Grid** (toolbar) sends a session's marks to the grid stored in a project folder: `<folder>/pgm/data`, the folder `pgm viewer` uses by default, so the grid lives next to the code it describes. Exports only ever use `pgm --local`; nothing goes to a remote server.
+
+- Pick a recent project folder (or **Add Folder…**), a project in its grid (or **New Project…**) and optionally a top-level node to put the session under.
+- The session becomes one node (summary and narration) with one child per mark: context is the mark's Markdown, images are its screenshot and full frame.
+- Exporting again updates the same nodes: their context and the images this app added are replaced, and edits made in the grid (title, status, other images) are kept. Nodes deleted in the grid are recreated. The mapping is kept in `<session>/exports/pgm.json`.
+- **Open Grid** runs `pgm viewer` on the folder.
+
+Requires the `pgm` CLI (`npm install -g @byronwallrus/product-grid-cli`). `viewer.html` is still written to every session folder as a portable copy (**Session → Open in Browser**).
+
+To work on the window without touching an installed copy of the app, run the debug build on a folder of sessions: `swift run ContextRecorder --library tmp/` (add `--mark 2` to open a mark, or `--export <project-folder>` to open the export sheet; `--export-run` also starts the export). This skips recording, hotkeys and permission prompts. Set `CR_APPEARANCE=dark` to check dark mode.
 
 First run asks for **Screen Recording**, **Microphone** and (the first time you mark in Chrome) **Automation → Chrome** permissions. The build is signed with a stable local identity, so macOS keeps these permissions across rebuilds.
 
@@ -112,4 +123,3 @@ Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `p
 ## Next
 
 - rrweb DOM recording, to replay the DOM over time alongside the video.
-- Export marks to Product Grid (`pgm image add` plus a context node).
