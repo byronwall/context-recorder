@@ -129,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
     }
 
-    /// `open ContextRecorder.app` while running, or clicking it in Finder/Dock, brings the panel back
+    /// `open "Context Recorder.app"` while running, or clicking it in Finder/Dock, brings the panel back
     /// (or the session library, when it's open and the app has a Dock icon).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if library.window?.isVisible == true { library.show() } else { panel?.show() }
