@@ -7,10 +7,12 @@ struct MarkDetail: View {
     @Binding var quickLook: URL?
     var collapse: () -> Void
     @State private var copied = false
+    @State private var confirmDelete = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
+            NoteEditor(model: model, mark: mark)
             images
             if let n = MarkText.narration(mark.narration) {
                 GroupBlock(title: "Narration", symbol: "waveform") {
@@ -20,18 +22,31 @@ struct MarkDetail: View {
             ContextBlock(context: mark.context)
             if let b = mark.browser { PageContext(model: model, snapshot: b) }
         }
+        .confirmationDialog("Delete mark \(mark.index)?", isPresented: $confirmDelete) {
+            Button("Delete", role: .destructive) { Task { await model.deleteReviewMark(mark.index) } }
+        } message: {
+            Text("Its screenshot and Markdown are removed from the session folder.")
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 MarkGlyph(mark: mark, size: 22)
-                Text("\(mark.isShot ? "Region shot" : "Mark") \(mark.index)")
+                Text("\(mark.isShot ? "Shot" : "Mark") \(mark.index)")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(mark.isShot ? Color.shot : Color.mark)
                 Text(Format.time(mark.offsetSeconds))
                     .font(.system(size: 11, weight: .medium).monospacedDigit())
                     .foregroundStyle(.secondary)
+                if mark.isReview {
+                    Text("Review")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(.quaternary, in: .capsule)
+                        .help("Taken from the video afterwards: no live page snapshot")
+                }
                 Spacer()
                 HStack(spacing: 0) {
                     IconButton(symbol: "play.fill", help: "Play from 5 seconds before") { model.playFromBefore(mark) }
@@ -44,6 +59,9 @@ struct MarkDetail: View {
                         IconButton(symbol: "folder", help: "Reveal image in Finder") {
                             NSWorkspace.shared.activateFileViewerSelecting([url])
                         }
+                    }
+                    if mark.isReview {
+                        IconButton(symbol: "trash", help: "Delete this mark") { confirmDelete = true }
                     }
                     IconButton(symbol: "chevron.up", help: "Collapse", action: collapse)
                 }
@@ -395,5 +413,46 @@ struct SourceButton: View {
                     .help("React 19 stacks point at the transformed module, so the line can be off.")
             }
         }
+    }
+}
+
+/// A typed note for the mark; its first line becomes the title. Saved on Return or when focus leaves.
+struct NoteEditor: View {
+    var model: SessionModel
+    var mark: SessionMark
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: "square.and.pencil")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(focused ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+            TextField("Add a note…", text: $text, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .lineLimit(1...6)
+                .focused($focused)
+                .onSubmit { save() }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(.background.opacity(0.7), in: .rect(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(focused ? AnyShapeStyle(.tint.opacity(0.6)) : AnyShapeStyle(.separator.opacity(0.6)),
+                                                                lineWidth: focused ? 1.5 : 0.5))
+        .onAppear {
+            text = mark.note ?? ""
+            if model.focusNoteFor == mark.index {
+                model.focusNoteFor = nil
+                DispatchQueue.main.async { focused = true }
+            }
+        }
+        .onChange(of: mark.note) { _, note in if !focused || text.isEmpty { text = note ?? "" } }
+        .onChange(of: focused) { _, isFocused in if !isFocused { save() } }
+        .accessibilityLabel("Note for mark \(mark.index)")
+    }
+
+    private func save() {
+        let note = text
+        Task { await model.setNote(note, for: mark.index) }
     }
 }

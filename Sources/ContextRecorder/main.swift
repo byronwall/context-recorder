@@ -44,6 +44,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let i = args.firstIndex(of: "--mark"), i + 1 < args.count, let n = Int(args[i + 1]) {
                 library.state.model?.select(n)   // `--mark <n>` opens that mark too
             }
+            // Review hooks for testing without input: `--seek <s>`, then `--review-mark`,
+            // `--review-shot <x,y,w,h | full>` (normalized), `--note <text>` (for the new mark), `--delete-mark <n>`, or
+            // `--region-mode` (show the region picker).
+            if let model = library.state.model {
+                func value(_ flag: String) -> String? {
+                    args.firstIndex(of: flag).flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+                }
+                Task {
+                    try? await Task.sleep(for: .seconds(1))
+                    if let s = value("--seek").flatMap(Double.init) { model.seek(s) }
+                    if args.contains("--review-mark") { await model.addReviewMark() }
+                    if let shot = value("--review-shot") {
+                        let v = shot.split(separator: ",").compactMap { Double($0) }
+                        await model.addReviewShot(region: v.count == 4 ? CGRect(x: v[0], y: v[1], width: v[2], height: v[3]) : nil)
+                    }
+                    if let note = value("--note"), let index = model.selectedMark { await model.setNote(note, for: index) }
+                    if let n = value("--delete-mark").flatMap(Int.init) { await model.deleteReviewMark(n) }
+                    if args.contains("--region-mode") { model.regionMode = true }
+                }
+            }
             // `--export <folder>` opens the export sheet with that project folder chosen; add
             // `--export-run` to start the export too.
             if let i = args.firstIndex(of: "--export"), i + 1 < args.count, let model = library.state.model {

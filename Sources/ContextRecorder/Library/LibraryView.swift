@@ -201,6 +201,8 @@ struct ShortcutsSheet: View {
         ("Space", "Play or pause"),
         ("J", "Next mark"),
         ("K", "Previous mark"),
+        ("M", "Add a mark at the playhead"),
+        ("S", "Capture a region of the current frame"),
         ("→  ←", "Skip 5 seconds forward or back"),
         ("Esc", "Close Quick Look"),
         ("⌃⌥R", "Start or stop recording (anywhere)"),
