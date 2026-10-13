@@ -44,6 +44,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let i = args.firstIndex(of: "--mark"), i + 1 < args.count, let n = Int(args[i + 1]) {
                 library.state.model?.select(n)   // `--mark <n>` opens that mark too
             }
+            // `--export <folder>` opens the export sheet with that project folder chosen; add
+            // `--export-run` to start the export too.
+            if let i = args.firstIndex(of: "--export"), i + 1 < args.count, let model = library.state.model {
+                let sheet = ExportSheetModel(session: model)
+                let folder = URL(fileURLWithPath: args[i + 1]).standardizedFileURL
+                let target = sheet.targets.first { $0.folder == folder.path } ?? ExportTarget(folder: folder.path, lastUsed: .now)
+                if !sheet.targets.contains(target) { sheet.targets.insert(target, at: 0) }
+                sheet.choose(target)
+                model.export = sheet
+                if args.contains("--export-run") {
+                    Task {
+                        while sheet.loading || sheet.projectID == nil { try? await Task.sleep(for: .milliseconds(200)) }
+                        await sheet.export()
+                        print("export:", sheet.phase, sheet.error ?? "")
+                    }
+                }
+            }
             return
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)

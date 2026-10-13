@@ -23,6 +23,8 @@ final class SessionModel {
     var selectedMark: Int?
     var tab: Tab = .marks
     var markFilter: MarkFilter = .all
+    /// The open export sheet, if any.
+    var export: ExportSheetModel?
 
     enum Tab: String, CaseIterable, Identifiable {
         case marks = "Marks", transcript = "Transcript", page = "Page Events", activity = "Activity"
