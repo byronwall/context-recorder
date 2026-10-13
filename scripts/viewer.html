@@ -214,6 +214,7 @@ function renderList() {
         </div>
         <div class="detail">
           <img src="${esc(m.image)}" alt="Mark ${m.index}" data-zoom>
+          ${m.frame && m.frame !== m.image ? `<div class="sub">Full screen at this moment</div><img src="${esc(m.frame)}" alt="Full frame ${m.index}" data-zoom style="opacity:.85">` : ""}
           ${m.narration ? `<blockquote>${esc(m.narration)}</blockquote>` : ""}
           <dl class="kv">${kv(c)}</dl>
           <div class="actions"><button data-copy="${m.index}">Copy Markdown</button><button data-play="${m.index}">Play from 5s before</button></div>

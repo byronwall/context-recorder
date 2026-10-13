@@ -16,7 +16,7 @@ final class ControlPanel: NSObject {
     private let status = NSTextField(labelWithString: "Ready")
     private let recordButton = NSButton(title: "Start Recording", target: nil, action: nil)
     private let markButton = NSButton(title: "🚩 Mark", target: nil, action: nil)
-    private let shotButton = NSButton(title: "📸 Screenshot", target: nil, action: nil)
+    private let shotButton = NSButton(title: "📸 Region", target: nil, action: nil)
     private let micCheck = NSButton(checkboxWithTitle: "Record microphone", target: nil, action: nil)
     private let actions: Actions
 
@@ -34,7 +34,7 @@ final class ControlPanel: NSObject {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         status.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        let hint = NSTextField(labelWithString: "⌃⌥R start/stop · ⌃⌥M mark · ⌃⌥S screenshot")
+        let hint = NSTextField(labelWithString: "⌃⌥R start/stop · ⌃⌥M mark · ⌃⌥S region shot")
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .secondaryLabelColor
 

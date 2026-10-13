@@ -2,10 +2,11 @@ import Foundation
 
 struct Mark: Codable {
     var index: Int
-    var kind: String          // "mark" (context only; frame pulled from video later) or "screenshot" (full-res still)
+    var kind: String          // "mark" (context only; frame pulled from video later) or "screenshot" (region still)
     var offsetSeconds: Double // seconds into recording.mp4
     var wallTime: String      // ISO-8601
     var screenshot: String?   // relative path within the session folder
+    var region: [String: Double]? // screenshot area in display points, top-left origin (x, y, width, height)
     var context: MarkContext
 }
 

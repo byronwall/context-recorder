@@ -103,14 +103,20 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         return CMTimeGetSeconds(CMTimeSubtract(now, startPTS))
     }
 
-    /// Full-resolution still of the main display.
-    func screenshot(to url: URL) async throws {
+    /// Full-resolution still of part of the main display. `rect` is in display points with a top-left origin;
+    /// nil captures the whole display. Our own windows (panel, selection overlay) are excluded.
+    func screenshot(to url: URL, rect: CGRect?) async throws {
         guard let display else { return }
-        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        let ownApps = content.applications.filter { $0.processID == ProcessInfo.processInfo.processIdentifier }
+        let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
+        let scale = CGFloat(filter.pointPixelScale)
+        let area = rect ?? CGRect(x: 0, y: 0, width: display.width, height: display.height)
         let config = SCStreamConfiguration()
-        config.width = display.width * 2
-        config.height = display.height * 2
-        config.showsCursor = true
+        config.sourceRect = area
+        config.width = Int(area.width * scale)
+        config.height = Int(area.height * scale)
+        config.showsCursor = false
         let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
         let rep = NSBitmapImageRep(cgImage: image)
         try rep.representation(using: .png, properties: [:])?.write(to: url)

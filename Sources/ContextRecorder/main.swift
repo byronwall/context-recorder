@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.autosaveName = "ContextRecorder"
         recorder.onError = { [weak self] error in self?.handleError(error) }
         panel = ControlPanel(actions: .init(
             toggleRecording: { [weak self] in self?.toggleRecording() },
@@ -58,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mark = item("Mark Moment  (⌃⌥M)", #selector(markFromMenu))
         mark.isEnabled = recording
         menu.addItem(mark)
-        let shot = item("Screenshot Mark  (⌃⌥S)", #selector(screenshotFromMenu))
+        let shot = item("Screenshot Region  (⌃⌥S)", #selector(screenshotFromMenu))
         shot.isEnabled = recording
         menu.addItem(shot)
         menu.addItem(.separator())
@@ -95,7 +96,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             title = "◎ CR"
         }
-        statusItem.button?.title = title
+        if title == "◎ CR" {
+            statusItem.button?.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Context Recorder")
+            statusItem.button?.title = ""
+        } else {
+            statusItem.button?.image = nil
+            statusItem.button?.title = title
+        }
         panel?.update(status: title == "◎ CR" ? "Ready" : title, recording: session != nil, busy: busy,
                       microphone: recordMicrophone)
     }
@@ -180,26 +187,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private let regionSelector = RegionSelector()
+
     private func addMark(screenshot: Bool) {
         guard let session, let offset = recorder.currentOffset() else { NSSound.beep(); return }
-        let context = ContextProbe.capture() // capture first, before anything shifts focus
-        let index = session.nextIndex()
-        var mark = Mark(index: index, kind: screenshot ? "screenshot" : "mark", offsetSeconds: offset,
-                        wallTime: session.timestamp(), screenshot: nil, context: context)
-        if screenshot {
+        // Capture time + context at the keypress, before the region overlay takes focus.
+        let context = ContextProbe.capture()
+        let wallTime = session.timestamp()
+        guard screenshot else {
+            let mark = Mark(index: session.nextIndex(), kind: "mark", offsetSeconds: offset, wallTime: wallTime,
+                            screenshot: nil, region: nil, context: context)
+            session.add(mark)
+            NSSound(named: "Tink")?.play()
+            flash("🚩 \(mark.index)")
+            return
+        }
+        regionSelector.begin { [weak self] selection in
+            guard let self, let selection, self.session === session else { return }
+            let region = Self.displayRect(fromScreen: selection)
+            let index = session.nextIndex()
             let name = String(format: "screenshots/%03d.png", index)
-            mark.screenshot = name
+            let mark = Mark(index: index, kind: "screenshot", offsetSeconds: offset, wallTime: wallTime,
+                            screenshot: name, region: region.map {
+                                ["x": $0.minX, "y": $0.minY, "width": $0.width, "height": $0.height]
+                            }, context: context)
+            session.add(mark)
+            NSSound(named: "Glass")?.play()
+            self.flash("📸 \(index)")
             Task { @MainActor in
                 do {
-                    try await recorder.screenshot(to: session.folder.appendingPathComponent(name))
+                    try await self.recorder.screenshot(to: session.folder.appendingPathComponent(name), rect: region)
                 } catch {
                     NSLog("ContextRecorder: screenshot failed: \(error)")
                 }
             }
         }
-        session.add(mark)
-        NSSound(named: screenshot ? "Glass" : "Tink")?.play()
-        flash(screenshot ? "📸 \(index)" : "🚩 \(index)")
+    }
+
+    /// AppKit global coords (bottom-left origin) -> main-display points (top-left origin). nil = whole screen.
+    private static func displayRect(fromScreen rect: NSRect) -> CGRect? {
+        guard let screen = NSScreen.main else { return nil }
+        let f = screen.frame
+        if rect.size == f.size { return nil }
+        return CGRect(x: rect.minX - f.minX, y: f.maxY - rect.maxY, width: rect.width, height: rect.height)
     }
 
     /// Runs scripts/process_session.py (transcribe + per-mark markdown). Located next to the .app or via env var.

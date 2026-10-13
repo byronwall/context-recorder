@@ -184,9 +184,11 @@ def main():
     (folder / "marks").mkdir(exist_ok=True)
     sections = []
     for mark in marks:
+        frame = extract_frame(folder, mark)
         image = mark.get("screenshot")
         if not image or not (folder / image).exists():
-            image = extract_frame(folder, mark)
+            image = frame
+        mark["frame"] = frame
         narration = narration_window(tokens, mark["offsetSeconds"], args.before, args.after) if tokens else ""
         mark["image"] = image
         mark["narration"] = narration
