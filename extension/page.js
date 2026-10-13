@@ -36,38 +36,52 @@
   const looksGenerated = (s) => /\d{3,}|^[a-f0-9]{6,}$|^(css|sc|jsx|svelte)-|^_|:r\d/i.test(s);
   const TEST_ATTRS = ["data-testid", "data-test", "data-test-id", "data-cy", "data-qa"];
 
+  // Tailwind-style utility classes make brittle, unreadable selectors; keep only "semantic" ones.
+  const UTILITY_WORDS = new Set("flex grid block inline inline-block inline-flex inline-grid hidden relative absolute fixed sticky static group peer container truncate italic uppercase lowercase capitalize underline antialiased visible invisible contents isolate grow shrink".split(" "));
+  const UTILITY_PREFIX = /^-?(m|p|mx|my|mt|mb|ml|mr|ms|me|px|py|pt|pb|pl|pr|ps|pe|w|h|size|min-w|min-h|max-w|max-h|gap|gap-x|gap-y|space-x|space-y|text|font|leading|tracking|bg|border|rounded|shadow|ring|outline|opacity|z|top|left|right|bottom|inset|start|end|flex|grid|col|row|items|justify|content|self|place|overflow|cursor|select|pointer-events|transition|duration|delay|ease|animate|transform|translate|scale|rotate|skew|fill|stroke|object|aspect|order|shrink|grow|basis|whitespace|break|line-clamp|decoration|sr|not-sr|backdrop|blur|from|to|via|divide|list|align|origin|will-change|table|columns|auto-cols|auto-rows|scroll|snap|touch|resize|appearance|caret|accent|underline-offset|indent|hyphens|mix-blend|bg-blend|filter|drop-shadow|brightness|contrast|grayscale|saturate|sepia)(-|$)/;
+  const isSemanticClass = (c) => !/[:\[\]\/.%!@]/.test(c) && !UTILITY_WORDS.has(c) && !UTILITY_PREFIX.test(c) && !looksGenerated(c);
+
+  const isUnique = (sel) => {
+    try {
+      return document.querySelectorAll(sel).length === 1;
+    } catch {
+      return false;
+    }
+  };
+
+  function nodePart(node) {
+    const testAttr = TEST_ATTRS.find((a) => node.getAttribute(a));
+    if (testAttr) return `[${testAttr}="${node.getAttribute(testAttr)}"]`;
+    if (node.id && !looksGenerated(node.id)) return `#${cssEscape(node.id)}`;
+    let part = node.tagName.toLowerCase();
+    const label = node.getAttribute("aria-label");
+    if (label && label.length < 60) part += `[aria-label="${label.replace(/"/g, '\\"')}"]`;
+    const cls = [...node.classList].filter(isSemanticClass).slice(0, 2);
+    if (cls.length) part += "." + cls.map(cssEscape).join(".");
+    const parent = node.parentElement;
+    if (parent) {
+      const same = [...parent.children].filter((c) => c.tagName === node.tagName);
+      if (same.length > 1) part += `:nth-of-type(${same.indexOf(node) + 1})`;
+    }
+    return part;
+  }
+
+  // Shortest ancestor path (joined with " > ") that matches exactly this element.
   function selectorFor(el) {
     if (!(el instanceof Element)) return null;
-    for (const a of TEST_ATTRS) {
-      const v = el.getAttribute(a);
-      if (v) return `[${a}="${v}"]`;
-    }
-    if (el.id && !looksGenerated(el.id)) return `#${cssEscape(el.id)}`;
     const parts = [];
     let node = el;
-    while (node && node.nodeType === 1 && parts.length < 6) {
-      let part = node.tagName.toLowerCase();
-      const testAttr = TEST_ATTRS.find((a) => node.getAttribute(a));
-      if (testAttr) {
-        parts.unshift(`[${testAttr}="${node.getAttribute(testAttr)}"]`);
-        break;
-      }
-      if (node.id && !looksGenerated(node.id)) {
-        parts.unshift(`#${cssEscape(node.id)}`);
-        break;
-      }
-      const cls = [...node.classList].filter((c) => !looksGenerated(c)).slice(0, 2);
-      if (cls.length) part += "." + cls.map(cssEscape).join(".");
-      const parent = node.parentElement;
-      if (parent) {
-        const same = [...parent.children].filter((c) => c.tagName === node.tagName);
-        if (same.length > 1) part += `:nth-of-type(${same.indexOf(node) + 1})`;
-      }
-      parts.unshift(part);
-      node = parent;
+    while (node && node.nodeType === 1 && parts.length < 8) {
+      parts.unshift(nodePart(node));
+      const sel = parts.join(" > ");
+      if (isUnique(sel)) return sel;
+      node = node.parentElement;
     }
     return parts.join(" > ");
   }
+
+  // Production builds minify component names ("Qs", "i$e"); keep only readable ones.
+  const isReadableName = (n) => /^[A-Z][A-Za-z0-9_.]{3,}$/.test(n);
 
   function componentChain(el) {
     const names = [];
@@ -75,17 +89,17 @@
       // React: walk the fiber tree upward collecting component names.
       const key = Object.keys(el).find((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"));
       let fiber = key ? el[key] : null;
-      while (fiber && names.length < 8) {
+      for (let i = 0; fiber && names.length < 8 && i < 300; i++) {
         const t = fiber.type;
         const name = t && typeof t !== "string" ? t.displayName || t.name : null;
-        if (name && !names.includes(name)) names.push(name);
+        if (name && isReadableName(name) && !names.includes(name)) names.push(name);
         fiber = fiber.return;
       }
       // Vue 3
       let vue = el.__vueParentComponent;
       while (vue && names.length < 8) {
         const name = vue.type && (vue.type.name || vue.type.__name);
-        if (name) names.push(name);
+        if (name && isReadableName(name) && !names.includes(name)) names.push(name);
         vue = vue.parent;
       }
     } catch {}
@@ -248,14 +262,16 @@
   function snapshot() {
     const active = document.activeElement;
     const selection = String(getSelection() || "").trim();
+    const hovered = describe(lastHover);
+    const focused = active && active !== document.body ? describe(active) : null;
     return {
       url: location.href,
       title: document.title,
       viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, scrollX: Math.round(scrollX), scrollY: Math.round(scrollY) },
       // Where the page sits on screen, so a screen-space region can be mapped back to page coordinates.
       window: { screenX, screenY, outerWidth, outerHeight },
-      hovered: describe(lastHover),
-      focused: active && active !== document.body ? describe(active) : undefined,
+      hovered,
+      focused: focused && focused.selector !== (hovered && hovered.selector) ? focused : undefined,
       selection: selection ? trunc(selection, 500) : undefined,
       recent: ring.slice(-40),
     };
