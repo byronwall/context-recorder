@@ -6,90 +6,161 @@
 <title>Session Viewer</title>
 <style>
 :root {
-  --bg: #0e1013; --panel: #161a1f; --panel-2: #1d2228; --line: #2a3038; --text: #e6e9ee; --muted: #8b95a3;
-  --accent: #5aa7ff; --mark: #ffb547; --shot: #6ee7a8; --now: #ff5d6c;
-  --radius: 8px; --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+  --bg: #0b0c0e; --panel: #121418; --panel-2: #181b20; --raised: #1e2228; --line: #23272e; --line-2: #2e333b;
+  --text: #ecedef; --text-2: #b4b9c1; --muted: #7d848f;
+  --accent: #6e8bff; --accent-ink: #fff; --accent-soft: rgba(110, 139, 255, .14);
+  --mark: #f5b041; --shot: #3ecf8e; --now: #ff5a5f; --now-soft: rgba(255, 90, 95, .12);
+  --radius: 10px; --radius-sm: 6px;
+  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px -12px rgba(0,0,0,.6);
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: light) {
-  :root { --bg: #f4f5f7; --panel: #ffffff; --panel-2: #f0f2f5; --line: #dde1e7; --text: #16191d; --muted: #5f6977;
-          --accent: #1d6fd6; --mark: #c97a00; --shot: #148a55; --now: #d92d40; }
+  :root { color-scheme: light;
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f3f4f6; --raised: #ffffff; --line: #e6e8ec; --line-2: #d9dce2;
+    --text: #111316; --text-2: #3d434c; --muted: #6b727d;
+    --accent: #4458e8; --accent-soft: rgba(68, 88, 232, .10);
+    --mark: #c27c0e; --shot: #14945c; --now: #e5383b; --now-soft: rgba(229, 56, 59, .08);
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 20px -10px rgba(16,24,40,.12); }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
-body { background: var(--bg); color: var(--text); font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-button { font: inherit; color: inherit; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
-button:hover { border-color: var(--accent); }
-button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-a { color: var(--accent); }
+body { background: var(--bg); color: var(--text); font: 13px/1.5 var(--sans); -webkit-font-smoothing: antialiased; letter-spacing: -.003em; }
+::selection { background: var(--accent-soft); }
+a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+svg.i { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+button { font: 500 12px/1 var(--sans); color: var(--text-2); background: transparent; border: 1px solid var(--line-2); border-radius: var(--radius-sm);
+  height: 28px; padding: 0 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s, border-color .12s, color .12s; }
+button:hover { background: var(--panel-2); color: var(--text); }
+button.primary { background: var(--text); color: var(--bg); border-color: transparent; }
+button.primary:hover { opacity: .9; }
+button.done { color: var(--shot); border-color: color-mix(in srgb, var(--shot) 40%, transparent); }
 
 .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
-header h1 { font-size: 14px; margin: 0; font-weight: 600; }
-header .stats { color: var(--muted); }
+
+/* Header */
+header { display: flex; align-items: center; gap: 14px; padding: 0 20px; height: 56px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.logo { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(145deg, #2a2f38, #15181d); display: grid; place-items: center; box-shadow: 0 0 0 1px rgba(255,255,255,.06) inset; flex: none; }
+.logo::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--now); box-shadow: 0 0 0 3px rgba(255,90,95,.22); }
+.brand .eyebrow { font-size: 11px; color: var(--muted); line-height: 1.2; }
+header h1 { font-size: 14px; margin: 0; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text-2); font-size: 12px; white-space: nowrap; }
+.chip b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.chip .i { width: 12px; height: 12px; color: var(--muted); }
 header .spacer { flex: 1; }
-.main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; min-height: 0; }
-.stage { display: flex; flex-direction: column; min-height: 0; padding: 12px 16px; gap: 10px; overflow: auto; }
-video { width: 100%; max-height: 62vh; background: #000; border-radius: var(--radius); }
+.keys { color: var(--muted); font-size: 11px; display: flex; gap: 10px; white-space: nowrap; }
+kbd { font: 500 10px/1 var(--mono); min-width: 18px; height: 18px; display: inline-grid; place-items: center; padding: 0 4px; margin-right: 3px;
+  border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 4px; color: var(--text-2); background: var(--panel-2); }
 
-.timeline { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; user-select: none; }
-.lane { position: relative; height: 22px; margin: 4px 0; border-radius: 4px; background: var(--panel-2); cursor: pointer; }
-.lane-label { font-size: 11px; color: var(--muted); margin-top: 6px; }
-.seg { position: absolute; top: 0; bottom: 0; border-right: 1px solid var(--bg); overflow: hidden; white-space: nowrap; font-size: 10px; padding: 3px 4px; color: #fff; text-overflow: ellipsis; }
-.pin { position: absolute; top: -2px; width: 10px; height: 26px; margin-left: -5px; border-radius: 3px; cursor: pointer; border: 2px solid var(--panel); }
-.pin.mark { background: var(--mark); } .pin.screenshot { background: var(--shot); }
-.pin.sel { outline: 2px solid var(--text); }
+/* Stage */
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 0; }
+.stage { display: flex; flex-direction: column; min-height: 0; padding: 20px; gap: 14px; overflow: auto; }
+.player { border-radius: var(--radius); overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--line), var(--shadow); }
+video { display: block; width: 100%; max-height: 60vh; background: #000; }
+
+.section-label, .card h3 { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0; }
+
+/* Timeline: label column + lanes so everything shares one x-axis */
+.timeline { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px 10px; user-select: none; box-shadow: var(--shadow);
+  display: grid; grid-template-columns: 92px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; align-items: center; }
+.lane-label { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lane-label .hint { display: none; }
+.lane { position: relative; height: 20px; border-radius: 5px; background: var(--panel-2); cursor: pointer; box-shadow: 0 0 0 1px var(--line) inset; }
+.lane:hover { box-shadow: 0 0 0 1px var(--line-2) inset; }
+.seg { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; overflow: hidden; white-space: nowrap; font: 500 10px/16px var(--sans); padding: 0 6px; color: rgba(255,255,255,.95); text-overflow: ellipsis; box-shadow: 1px 0 0 var(--panel) ; }
+.pin { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 2px var(--panel); transition: transform .12s; z-index: 1; }
+.pin:hover { transform: scale(1.25); }
+.pin.mark { background: var(--mark); } .pin.screenshot { background: var(--shot); border-radius: 3px; }
+.pin.sel { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--text); }
+.dot { position: absolute; top: 4px; bottom: 4px; width: 4px; margin-left: -2px; border-radius: 2px; cursor: pointer; }
+.dot:hover { width: 6px; margin-left: -3px; }
 .tick { position: absolute; top: 4px; bottom: 4px; width: 2px; background: var(--accent); opacity: .55; }
-.playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--now); pointer-events: none; }
-.ruler { display: flex; justify-content: space-between; color: var(--muted); font: 10px var(--mono); margin-top: 2px; }
+.playhead { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--now); pointer-events: none; border-radius: 1px; z-index: 2; box-shadow: 0 0 0 1px var(--panel); }
+.ruler { grid-column: 2; display: flex; justify-content: space-between; color: var(--muted); font: 10px var(--mono); font-variant-numeric: tabular-nums; margin-top: 2px; }
 
-.now { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; min-width: 0; }
-.card h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
-.kv { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 2px 8px; }
-.kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; }
-.said { font-size: 14px; }
-.empty { color: var(--muted); font-style: italic; }
-
-aside { border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
-.tabs { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
-.list { overflow: auto; flex: 1; padding: 8px; }
-.item { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; padding: 8px; border-radius: var(--radius); cursor: pointer; border: 1px solid transparent; }
-.item:hover { background: var(--panel-2); }
-.item.sel { border-color: var(--accent); background: var(--panel-2); }
-.item img { width: 112px; height: 70px; object-fit: cover; border-radius: 4px; background: #000; }
-.item .meta { min-width: 0; }
-.item .top { display: flex; gap: 6px; align-items: center; font: 11px var(--mono); color: var(--muted); }
-.badge { font: 10px var(--mono); padding: 0 5px; border-radius: 3px; color: #111; }
-.badge.mark { background: var(--mark); } .badge.screenshot { background: var(--shot); }
-.item .title { font-weight: 600; margin: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.item .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.detail { grid-column: 1 / -1; display: none; }
-.item.sel .detail { display: block; }
-.detail img { width: 100%; height: auto; object-fit: contain; cursor: zoom-in; margin: 6px 0; }
-.detail blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 4px; }
-.detail .actions { display: flex; gap: 6px; margin-top: 6px; }
-.row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
-.row:hover { background: var(--panel-2); }
-.row.cur { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.row .t { font: 11px var(--mono); color: var(--muted); padding-top: 1px; }
-.row .sub { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
-
-.dot { position: absolute; top: 5px; width: 8px; height: 12px; margin-left: -4px; border-radius: 2px; cursor: pointer; }
+/* Event kinds */
 .k-click { background: var(--accent); } .k-nav { background: var(--muted); } .k-console, .k-error { background: var(--now); } .k-request { background: var(--mark); }
-.problems { margin: 6px 0 0; padding-left: 16px; font: 11px/1.4 var(--mono); color: var(--now); }
-.problems li { overflow-wrap: anywhere; margin-bottom: 2px; }
-code { font: 11px var(--mono); background: var(--bg); padding: 1px 4px; border-radius: 3px; overflow-wrap: anywhere; }
-.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 10; cursor: zoom-out; }
-.lightbox.open { display: flex; }
-.lightbox img { max-width: 96vw; max-height: 96vh; }
-.keys { color: var(--muted); font-size: 11px; }
-kbd { font: 10px var(--mono); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
 
+/* Now cards */
+.now { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; box-shadow: var(--shadow); }
+.card h3 { margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.card h3 .live { width: 6px; height: 6px; border-radius: 50%; background: var(--now); }
+.kv { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
+.said { font-size: 15px; line-height: 1.55; color: var(--text); }
+.empty { color: var(--muted); }
+.empty-state { padding: 40px 24px; text-align: center; color: var(--muted); }
+.empty-state .i { width: 22px; height: 22px; display: block; margin: 0 auto 10px; opacity: .7; }
+
+/* Sidebar */
+aside { border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+.tabs { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid var(--line); }
+.segmented { display: flex; padding: 3px; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
+.segmented button { flex: 1; border: 0; height: 26px; justify-content: center; border-radius: 6px; color: var(--muted); }
+.segmented button:hover { background: transparent; color: var(--text); }
+.segmented button.on { background: var(--raised); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 0 0 1px var(--line-2); }
+.filters { display: flex; gap: 6px; }
+.filters button { height: 24px; border-radius: 999px; padding: 0 10px; font-size: 11.5px; }
+.filters button .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.filters button.on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.filters button.on .n { color: inherit; opacity: .75; }
+.list { overflow: auto; flex: 1; padding: 10px; }
+
+.item { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px; padding: 10px; border-radius: var(--radius); cursor: pointer; border: 1px solid transparent; transition: background .12s, border-color .12s; }
+.item + .item { margin-top: 2px; }
+.item:hover { background: var(--panel-2); }
+.item.sel { border-color: var(--line-2); background: var(--panel-2); box-shadow: inset 3px 0 0 var(--accent); }
+.item > img { width: 104px; height: 66px; object-fit: cover; border-radius: 6px; background: #000; box-shadow: 0 0 0 1px var(--line); }
+.item .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.item .top { display: flex; gap: 8px; align-items: center; font: 11px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font: 600 10px/18px var(--sans); letter-spacing: .03em; text-transform: uppercase; padding: 0 7px; border-radius: 999px; }
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.mark { color: var(--mark); background: color-mix(in srgb, var(--mark) 14%, transparent); }
+.badge.screenshot { color: var(--shot); background: color-mix(in srgb, var(--shot) 14%, transparent); }
+.badge.screenshot::before { border-radius: 2px; }
+.item .title { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .warn { color: var(--now); display: inline-flex; align-items: center; gap: 4px; }
+.item .warn .i { width: 12px; height: 12px; }
+.detail { grid-column: 1 / -1; display: none; cursor: default; padding-top: 4px; }
+.item.sel .detail { display: block; }
+.detail img { display: block; width: 100%; height: auto; object-fit: contain; cursor: zoom-in; margin: 6px 0 10px; border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
+.detail .caption { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; margin-top: 4px; }
+.detail blockquote { margin: 4px 0 12px; padding: 10px 12px; border-left: 2px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; color: var(--text); font-size: 13px; }
+.detail .kv { padding: 10px 0; border-top: 1px solid var(--line); }
+.detail .actions { display: flex; gap: 8px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+.row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
+.row:hover { background: var(--panel-2); }
+.row.cur { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+.row .t { font: 11px/20px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.row .sub { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 8px; vertical-align: 0; }
+
+.problems { margin: 10px 0 0; padding: 10px 12px; list-style: none; font: 11px/1.5 var(--mono); color: var(--now); background: var(--now-soft); border-radius: 6px; }
+.problems li { overflow-wrap: anywhere; } .problems li + li { margin-top: 4px; }
+code { font: 11px var(--mono); background: var(--panel-2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; color: var(--text-2); }
+
+.lightbox { position: fixed; inset: 0; background: rgba(5,6,8,.82); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 10; cursor: zoom-out; }
+.lightbox.open { display: flex; animation: fade .15s ease-out; }
+.lightbox img { max-width: 94vw; max-height: 94vh; border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+@keyframes fade { from { opacity: 0; } }
+
+@media (max-width: 1200px) { .keys { display: none; } }
 @media (max-width: 900px) {
+  header { height: auto; padding: 12px 16px; flex-wrap: wrap; }
   .main { grid-template-columns: 1fr; }
+  .stage { padding: 16px; }
   aside { border-left: 0; border-top: 1px solid var(--line); min-height: 60vh; }
   .now { grid-template-columns: 1fr; }
+  .timeline { grid-template-columns: 64px minmax(0, 1fr); }
   .app { height: auto; }
 }
 </style>
@@ -97,21 +168,24 @@ kbd { font: 10px var(--mono); border: 1px solid var(--line); border-radius: 3px;
 <body>
 <div class="app">
   <header>
-    <h1 id="name">Session</h1>
-    <span class="stats" id="stats"></span>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div style="min-width:0"><div class="eyebrow">Context Recorder</div><h1 id="name">Session</h1></div>
+    </div>
+    <div class="stats" id="stats"></div>
     <span class="spacer"></span>
-    <span class="keys"><kbd>space</kbd> play · <kbd>j</kbd>/<kbd>k</kbd> marks · <kbd>←</kbd>/<kbd>→</kbd> 5s</span>
-    <button id="copyAll">Copy all as Markdown</button>
+    <span class="keys"><span><kbd>space</kbd>play</span><span><kbd>j</kbd><kbd>k</kbd>marks</span><span><kbd>←</kbd><kbd>→</kbd>5s</span></span>
+    <button id="copyAll" class="primary">Copy all as Markdown</button>
   </header>
   <div class="main">
     <section class="stage">
-      <video id="video" src="recording.mp4" controls preload="metadata"></video>
+      <div class="player"><video id="video" src="recording.mp4" controls preload="metadata"></video></div>
       <div class="timeline" id="timeline">
         <div class="lane-label">Marks</div>
         <div class="lane" id="laneMarks"></div>
         <div class="lane-label">Active app</div>
         <div class="lane" id="laneApps"></div>
-        <div class="lane-label" id="pageLabel">Page events <span style="opacity:.7">(click · nav · error · failed request)</span></div>
+        <div class="lane-label" id="pageLabel" title="click · nav · error · failed request">Page events</div>
         <div class="lane" id="lanePage"></div>
         <div class="lane-label" id="speechLabel">Narration</div>
         <div class="lane" id="laneSpeech"></div>
@@ -119,19 +193,22 @@ kbd { font: 10px var(--mono); border: 1px solid var(--line); border-radius: 3px;
       </div>
       <div class="now">
         <div class="card"><h3>On screen now</h3><dl class="kv" id="nowCtx"></dl></div>
-        <div class="card"><h3>Said now</h3><div class="said" id="nowSaid"></div></div>
+        <div class="card"><h3><span class="live"></span>Said now</h3><div class="said" id="nowSaid"></div></div>
       </div>
     </section>
     <aside>
       <div class="tabs">
-        <button data-tab="marks" class="on">Marks</button>
-        <button data-tab="transcript">Transcript</button>
-        <button data-tab="activity">Activity</button>
-        <button data-tab="browser">Page</button>
-        <span class="spacer" style="flex:1"></span>
-        <button data-filter="all" class="on">All</button>
-        <button data-filter="screenshot">📸</button>
-        <button data-filter="mark">🚩</button>
+        <div class="segmented" role="tablist">
+          <button data-tab="marks" class="on">Marks</button>
+          <button data-tab="transcript">Transcript</button>
+          <button data-tab="activity">Activity</button>
+          <button data-tab="browser">Page</button>
+        </div>
+        <div class="filters" id="filters">
+          <button data-filter="all" class="on">All</button>
+          <button data-filter="screenshot">Screenshots</button>
+          <button data-filter="mark">Marks</button>
+        </div>
       </div>
       <div class="list" id="list"></div>
     </aside>
@@ -146,7 +223,20 @@ const video = $("#video");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const hue = (str) => { let h = 0; for (const c of str || "") h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
-const appColor = (name) => `hsl(${hue(name)} 55% 42%)`;
+const appColor = (name) => `hsl(${hue(name)} 38% 46%)`;
+const ICONS = {
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  flag: '<path d="M5 21V4m0 0h11l-2 4 2 4H5"/>',
+  app: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  alert: '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4m0 3v.01"/>',
+  copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+  play: '<path d="M7 4v16l13-8z"/>',
+  check: '<path d="m5 12 5 5 9-10"/>',
+  inbox: '<path d="M3 13h5l2 3h4l2-3h5M5 5h14l2 8v6H3v-6z"/>',
+};
+const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+const emptyState = (ic, text) => `<div class="empty-state">${icon(ic)}${text}</div>`;
 
 let tab = "marks", filter = "all", selected = null;
 const marks = DATA.marks || [];
@@ -220,9 +310,14 @@ function markdownFor(m) {
 function renderHeader() {
   document.title = `Session ${DATA.name}`;
   $("#name").textContent = DATA.name;
+  $("#copyAll").innerHTML = `${icon("copy")}Copy all as Markdown`;
   const shots = marks.filter((m) => m.kind === "screenshot").length;
   const apps = new Set(activity.map((a) => a.context?.appName)).size;
-  $("#stats").textContent = `${fmt(duration)} · ${marks.length} marks (${shots} screenshots) · ${apps} apps · ${transcript.length ? `${transcript.length} spoken lines` : "silent"}`;
+  const chip = (ic, value, label) => `<span class="chip">${icon(ic)}<b>${value}</b>${label}</span>`;
+  $("#stats").innerHTML = chip("clock", fmt(duration), "") + chip("flag", marks.length, marks.length === 1 ? "mark" : "marks") +
+    chip("app", apps, apps === 1 ? "app" : "apps") + (transcript.length ? chip("mic", transcript.length, "lines spoken") : `<span class="chip">Silent</span>`);
+  const count = { all: marks.length, screenshot: shots, mark: marks.length - shots };
+  document.querySelectorAll("[data-filter]").forEach((b) => (b.innerHTML = `${b.textContent.trim()} <span class="n">${count[b.dataset.filter]}</span>`));
 }
 
 function renderTimeline() {
@@ -257,36 +352,36 @@ function renderList() {
       return `<div class="item ${selected === m.index ? "sel" : ""}" data-mark="${m.index}">
         <img src="${esc(m.image)}" alt="" loading="lazy">
         <div class="meta">
-          <div class="top"><span class="badge ${m.kind}">${m.kind === "screenshot" ? "SHOT" : "MARK"}</span>#${m.index} · ${fmt(m.offsetSeconds)}</div>
+          <div class="top"><span class="badge ${m.kind}">${m.kind === "screenshot" ? "Shot" : "Mark"}</span><span>#${m.index}</span><span>${fmt(m.offsetSeconds)}</span></div>
           <div class="title">${esc(titleOf(m))}</div>
           <div class="sub">${esc(c.browserURL || c.windowTitle || c.appName || "")}</div>
           ${m.browser?.hovered ? `<div class="sub"><code>${esc(m.browser.hovered.selector)}</code></div>` : ""}
-          ${(m.browser?.recent || []).some(isProblem) ? `<div class="sub" style="color:var(--now)">⚠ ${(m.browser.recent || []).filter(isProblem).length} recent errors</div>` : ""}
+          ${(m.browser?.recent || []).some(isProblem) ? `<div class="sub warn">${icon("alert")}${(m.browser.recent || []).filter(isProblem).length} recent errors</div>` : ""}
         </div>
         <div class="detail">
           <img src="${esc(m.image)}" alt="Mark ${m.index}" data-zoom>
-          ${m.frame && m.frame !== m.image ? `<div class="sub">Full screen at this moment</div><img src="${esc(m.frame)}" alt="Full frame ${m.index}" data-zoom style="opacity:.85">` : ""}
+          ${m.frame && m.frame !== m.image ? `<div class="caption">Full screen at this moment</div><img src="${esc(m.frame)}" alt="Full frame ${m.index}" data-zoom>` : ""}
           ${m.narration ? `<blockquote>${esc(m.narration)}</blockquote>` : ""}
           <dl class="kv">${kv(c)}</dl>
           ${pageHtml(m.browser)}
-          <div class="actions"><button data-copy="${m.index}">Copy Markdown</button><button data-play="${m.index}">Play from 5s before</button></div>
+          <div class="actions"><button data-copy="${m.index}">${icon("copy")}Copy Markdown</button><button data-play="${m.index}">${icon("play")}Play from 5s before</button></div>
         </div>
       </div>`;
-    }).join("") : `<p class="empty" style="padding:12px">No marks yet. Press ⌃⌥M or ⌃⌥S while recording.</p>`;
+    }).join("") : emptyState("flag", filter === "all" ? "No marks yet. Press <kbd>⌃⌥M</kbd> or <kbd>⌃⌥S</kbd> while recording." : "Nothing matches this filter.");
   } else if (tab === "transcript") {
     list.innerHTML = transcript.length ? transcript.map((s, i) =>
       `<div class="row" data-seek="${s.start}" data-sent="${i}"><span class="t">${fmt(s.start)}</span><span>${esc(s.text)}</span></div>`).join("")
-      : `<p class="empty" style="padding:12px">Silent recording: no narration.</p>`;
+      : emptyState("mic", "Silent recording: no narration.");
   } else if (tab === "browser") {
     list.innerHTML = browserEvents.map((b) => {
       const e = b.event || {};
-      return `<div class="row" data-seek="${b.offsetSeconds}"><span class="t">${fmt(b.offsetSeconds)}</span><span><span class="swatch k-${e.kind}"></span>${esc(e.kind)}<div class="sub" style="${isProblem(e) ? "color:var(--now)" : ""}">${esc(pageEventText(e))}</div></span></div>`;
-    }).join("") || `<p class="empty" style="padding:12px">No page events. Install the Chrome extension (see README) to capture clicks, console errors and failed requests.</p>`;
+      return `<div class="row" data-seek="${b.offsetSeconds}"><span class="t">${fmt(b.offsetSeconds)}</span><span><span class="swatch k-${e.kind}"></span>${esc({ click: "Click", nav: "Navigation", console: "Console", error: "Error", request: "Request" }[e.kind] || e.kind)}<div class="sub" style="${isProblem(e) ? "color:var(--now)" : ""}">${esc(pageEventText(e))}</div></span></div>`;
+    }).join("") || emptyState("inbox", "No page events. Install the Chrome extension (see README) to capture clicks, console errors and failed requests.");
   } else {
     list.innerHTML = activity.map((a) => {
       const c = a.context || {};
       return `<div class="row" data-seek="${a.offsetSeconds}"><span class="t">${fmt(a.offsetSeconds)}</span><span><span class="swatch" style="background:${appColor(c.appName)}"></span>${esc(c.appName)}<div class="sub">${esc(c.browserURL || c.windowTitle || "")}</div></span></div>`;
-    }).join("") || `<p class="empty" style="padding:12px">No activity recorded.</p>`;
+    }).join("") || emptyState("app", "No activity recorded.");
   }
 }
 
@@ -324,28 +419,29 @@ function step(dir) {
 function setTab(t) {
   tab = t;
   document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
-  document.querySelectorAll("[data-filter]").forEach((b) => (b.style.display = t === "marks" ? "" : "none"));
+  $("#filters").style.display = t === "marks" ? "" : "none";
   renderList(); renderNow();
 }
 
 async function copy(text, btn) {
   try { await navigator.clipboard.writeText(text); } catch { const ta = Object.assign(document.createElement("textarea"), { value: text }); document.body.append(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
-  if (btn) { const old = btn.textContent; btn.textContent = "Copied"; setTimeout(() => (btn.textContent = old), 900); }
+  if (btn) { const old = btn.innerHTML; btn.innerHTML = `${icon("check")}Copied`; btn.classList.add("done"); setTimeout(() => { btn.innerHTML = old; btn.classList.remove("done"); }, 1100); }
 }
 
 document.addEventListener("click", (e) => {
   const el = e.target;
-  if (el.matches("[data-tab]")) return setTab(el.dataset.tab);
-  if (el.matches("[data-filter]")) {
-    filter = el.dataset.filter;
-    document.querySelectorAll("[data-filter]").forEach((b) => b.classList.toggle("on", b === el));
+  const btn = el.closest("button");
+  if (btn?.matches("[data-tab]")) return setTab(btn.dataset.tab);
+  if (btn?.matches("[data-filter]")) {
+    filter = btn.dataset.filter;
+    document.querySelectorAll("[data-filter]").forEach((b) => b.classList.toggle("on", b === btn));
     return renderList();
   }
   if (el.matches("[data-zoom]")) { $("#lightbox img").src = el.src; return $("#lightbox").classList.add("open"); }
   if (el.closest("#lightbox")) return $("#lightbox").classList.remove("open");
-  if (el.matches("[data-copy]")) return copy(markdownFor(marks.find((m) => m.index === +el.dataset.copy)), el);
-  if (el.matches("[data-play]")) { const m = marks.find((x) => x.index === +el.dataset.play); video.currentTime = Math.max(0, m.offsetSeconds - 5); return video.play(); }
-  if (el.id === "copyAll") return copy(`# Session ${DATA.name}\n\n` + marks.map(markdownFor).join("\n\n"), el);
+  if (btn?.matches("[data-copy]")) return copy(markdownFor(marks.find((m) => m.index === +btn.dataset.copy)), btn);
+  if (btn?.matches("[data-play]")) { const m = marks.find((x) => x.index === +btn.dataset.play); video.currentTime = Math.max(0, m.offsetSeconds - 5); return video.play(); }
+  if (btn?.id === "copyAll") return copy(`# Session ${DATA.name}\n\n` + marks.map(markdownFor).join("\n\n"), btn);
   const pin = el.closest("[data-mark]");
   if (pin && !el.closest(".detail")) return select(+pin.dataset.mark, { scroll: !!pin.classList.contains("pin") });
   const row = el.closest("[data-seek]");
