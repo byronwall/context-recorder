@@ -24,6 +24,7 @@ Stdlib only.
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -252,13 +253,18 @@ def mark_markdown(mark, image, narration, rel_prefix=""):
 
 
 def narration_title(narration, limit=70):
-    """Short heading from the words spoken just before the mark."""
+    """Short heading: the sentence being spoken when the mark was made (the one containing ⚑)."""
     if not narration:
         return ""
-    before = narration.split("⚑")[0].strip() or narration.replace("⚑", "").strip()
-    # Last sentence before the mark tends to be the "this is broken because…" line.
-    parts = [p.strip() for p in before.replace("?", ".").replace("!", ".").split(".") if p.strip()]
-    text = parts[-1] if parts else before
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+", narration.strip()) if s.strip()]
+    clean = lambda s: " ".join(s.replace("⚑", " ").split()).replace(" ,", ",").replace(" .", ".")
+    i = next((n for n, s in enumerate(sentences) if "⚑" in s), None)
+    if i is None:
+        text = clean(sentences[-1]) if sentences else ""
+    else:
+        text = clean(sentences[i])
+        if not text and i > 0:  # "…broken. ⚑" - the mark landed right after a sentence ended
+            text = clean(sentences[i - 1])
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 

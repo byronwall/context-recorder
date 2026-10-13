@@ -6,6 +6,7 @@ import ScreenCaptureKit
 ///   ⌃⌥R  start / stop recording
 ///   ⌃⌥M  mark this moment (context + frame pulled from the video afterwards)
 ///   ⌃⌥S  screenshot mark (full-res still + context)
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: ControlPanel!
@@ -14,7 +15,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var chromeConnections = 0
     /// Where MHTML page captures land. Kept after stop so captures that arrive late still get saved.
     private var pageCaptureFolder: URL?
-    private var session: Session?
+    private var session: Session? {
+        didSet { library.state.library.recordingFolder = session?.folder }
+    }
+    /// `--library <folder>` opens only the session library on that folder (no recording, hotkeys or
+    /// permission prompts), for working on the library UI next to an installed copy of the app.
+    private let devLibraryFolder: URL? = {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--library"), i + 1 < args.count else { return nil }
+        return URL(fileURLWithPath: args[i + 1]).standardizedFileURL
+    }()
+    private lazy var library = LibraryWindowController(includeDefaultRoot: devLibraryFolder == nil)
     private var timer: Timer?
     private var activity: ActivityLog?
     private var busy = false
@@ -24,6 +35,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let devLibraryFolder {
+            if let look = ProcessInfo.processInfo.environment["CR_APPEARANCE"] {   // light | dark, for screenshots
+                NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
+            }
+            library.show(session: devLibraryFolder)
+            let args = CommandLine.arguments
+            if let i = args.firstIndex(of: "--mark"), i + 1 < args.count, let n = Int(args[i + 1]) {
+                library.state.model?.select(n)   // `--mark <n>` opens that mark too
+            }
+            return
+        }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.autosaveName = "ContextRecorder"
         recorder.onError = { [weak self] error in self?.handleError(error) }
@@ -70,9 +92,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
     }
 
-    /// `open ContextRecorder.app` while running, or clicking it in Finder/Dock, brings the panel back.
+    /// `open ContextRecorder.app` while running, or clicking it in Finder/Dock, brings the panel back
+    /// (or the session library, when it's open and the app has a Dock icon).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        panel.show()
+        if library.window?.isVisible == true { library.show() } else { panel?.show() }
         return false
     }
 
@@ -96,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(mic)
         menu.addItem(.separator())
         menu.addItem(item("Show Control Panel", #selector(showPanel), symbol: "macwindow"))
-        menu.addItem(item("Open Last Session", #selector(openLastViewer), symbol: "play.rectangle"))
+        menu.addItem(item("Sessions…", #selector(openLastViewer), symbol: "play.rectangle"))
         menu.addItem(item("Open Sessions Folder", #selector(openSessions), symbol: "folder"))
         menu.addItem(.separator())
         menu.addItem(item("Quit Context Recorder", #selector(quit), key: "q", modifiers: .command))
@@ -162,12 +185,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recordMicrophone.toggle()
         rebuildMenu()
     }
-    @objc private func openLastViewer() {
-        let folders = (try? FileManager.default.contentsOfDirectory(at: Session.root, includingPropertiesForKeys: nil)) ?? []
-        guard let last = folders.filter({ $0.hasDirectoryPath }).map(\.path).sorted().last else { NSSound.beep(); return }
-        let viewer = URL(fileURLWithPath: last).appendingPathComponent("viewer.html")
-        NSWorkspace.shared.open(FileManager.default.fileExists(atPath: viewer.path) ? viewer : URL(fileURLWithPath: last))
-    }
+    @objc private func openLastViewer() { library.show() }
+    @objc func openSessionFolder() { library.openFolder() }
+    @objc func showShortcuts() { library.state.showShortcuts = true }
+    @objc func quitFromMenu() { quit() }
     @objc private func openSessions() {
         try? FileManager.default.createDirectory(at: Session.root, withIntermediateDirectories: true)
         NSWorkspace.shared.open(Session.root)
@@ -198,7 +219,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                     activity.start()
                     self.activity = activity
-                    timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.updateTitle() }
+                    timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.updateTitle() } }
                     NSSound(named: "Tink")?.play()
                 } catch {
                     handleError(error)
@@ -224,8 +245,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             runPostProcessing(for: session) { [weak self] in
                 self?.busy = false
                 self?.updateTitle()
-                let viewer = session.folder.appendingPathComponent("viewer.html")
-                NSWorkspace.shared.open(FileManager.default.fileExists(atPath: viewer.path) ? viewer : session.folder)
+                if !thenQuit { self?.library.show(session: session.folder) }
                 if thenQuit { NSApp.terminate(nil) }
             }
         }
@@ -376,8 +396,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.setActivationPolicy(.accessory)
-app.run()
+MainActor.assumeIsolated {
+    let app = NSApplication.shared
+    let delegate = AppDelegate()
+    app.delegate = delegate
+    app.setActivationPolicy(.accessory)
+    app.run()
+}

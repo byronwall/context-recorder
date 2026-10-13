@@ -79,7 +79,7 @@ final class ControlPanel: NSObject {
         let micLabel = NSTextField(labelWithString: "Microphone")
         micLabel.font = .systemFont(ofSize: 12)
         micLabel.textColor = .secondaryLabelColor
-        let viewer = iconButton("play.rectangle", tip: "Open last session viewer", action: #selector(onViewer))
+        let viewer = iconButton("play.rectangle", tip: "Sessions", action: #selector(onViewer))
         let quit = iconButton("power", tip: "Quit Context Recorder", action: #selector(onQuit))
         let footer = NSStackView(views: [micSwitch, micLabel, NSView(), viewer, quit])
         footer.alignment = .centerY
