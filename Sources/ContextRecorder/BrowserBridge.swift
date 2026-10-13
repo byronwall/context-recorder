@@ -47,7 +47,7 @@ final class BrowserBridge {
     }
 
     /// Ask the extension for a page snapshot. Completes on main with nil if no extension answers in time.
-    func requestSnapshot(timeout: TimeInterval = 0.6, completion: @escaping (JSONValue?) -> Void) {
+    func requestSnapshot(timeout: TimeInterval = 1.5, completion: @escaping (JSONValue?) -> Void) {
         queue.async {
             guard !self.connections.isEmpty else {
                 DispatchQueue.main.async { completion(nil) }

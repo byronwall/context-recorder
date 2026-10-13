@@ -64,8 +64,15 @@ async function handle(msg) {
       try {
         data = await chrome.tabs.sendMessage(tab.id, { type: "snapshot" });
       } catch {
-        // chrome:// pages, the Web Store, or tabs opened before the extension was installed/reloaded
-        data = { error: "content script not available on this tab (reload the tab?)" };
+        // Tab was open before the extension loaded: inject now and retry once.
+        try {
+          await injectInto(tab.id);
+          data = await chrome.tabs.sendMessage(tab.id, { type: "snapshot" });
+          data = { ...data, lateInjection: true };
+        } catch {
+          // chrome:// pages, the Web Store, PDFs, etc.
+          data = { error: "page can't be inspected (chrome:// or restricted page)" };
+        }
       }
       data = { ...data, tabId: tab.id, windowId: tab.windowId };
     }
@@ -73,6 +80,17 @@ async function handle(msg) {
     data = { error: String(err) };
   }
   send({ type: "snapshot-result", id: msg.id, data });
+}
+
+// Content scripts declared in the manifest only reach tabs loaded after install, so inject into open ones.
+async function injectInto(tabId) {
+  await chrome.scripting.executeScript({ target: { tabId }, files: ["page.js"], world: "MAIN" });
+  await chrome.scripting.executeScript({ target: { tabId }, files: ["relay.js"] });
+}
+
+async function injectIntoOpenTabs() {
+  const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*", "file:///*"] });
+  await Promise.all(tabs.map((t) => injectInto(t.id).catch(() => {})));
 }
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
@@ -87,5 +105,8 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 chrome.alarms.create("reconnect", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener(connect);
 chrome.runtime.onStartup.addListener(connect);
-chrome.runtime.onInstalled.addListener(connect);
+chrome.runtime.onInstalled.addListener(() => {
+  connect();
+  injectIntoOpenTabs();
+});
 connect();

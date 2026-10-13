@@ -1,4 +1,7 @@
 // Isolated-world content script: bridges page.js (window.postMessage) <-> background.js (chrome.runtime).
+// May be injected twice (manifest + programmatic injection into already-open tabs), so guard.
+if (!globalThis.__contextRecorderRelay) {
+globalThis.__contextRecorderRelay = true;
 const SRC_PAGE = "context-recorder:page";
 const SRC_RELAY = "context-recorder:relay";
 const waiting = new Map();
@@ -28,3 +31,4 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   window.postMessage({ source: SRC_RELAY, type: "snapshot", id }, "*");
   return true; // async sendResponse
 });
+}
