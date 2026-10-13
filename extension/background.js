@@ -49,8 +49,10 @@ function send(msg) {
 }
 
 function setBadge(connected) {
-  chrome.action.setBadgeText({ text: connected ? "" : "off" });
-  chrome.action.setBadgeBackgroundColor({ color: "#888" });
+  // A small amber dot when the app isn't reachable; no badge when connected.
+  chrome.action.setBadgeText({ text: connected ? "" : " " });
+  chrome.action.setBadgeBackgroundColor({ color: "#f5b041" });
+  chrome.action.setTitle({ title: connected ? "Context Recorder: connected" : "Context Recorder: app not running" });
 }
 
 async function handle(msg) {
@@ -96,6 +98,8 @@ async function injectIntoOpenTabs() {
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg.type === "event") {
     send({ type: "event", event: { ...msg.event, tabId: sender.tab && sender.tab.id } });
+  } else if (msg.type === "connect") {
+    connect();
   } else if (msg.type === "status") {
     return Promise.resolve({ connected: !!(socket && socket.readyState === WebSocket.OPEN) });
   }
