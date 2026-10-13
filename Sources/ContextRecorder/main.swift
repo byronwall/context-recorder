@@ -73,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         }
     }
 
-    /// `open ContextRecorder.app` while running, or clicking it in Finder/Dock, brings the Sessions window back.
+    /// `open "Context Recorder.app"` while running, or clicking it in Finder/Dock, brings the Sessions window back.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         library.show()
         return false
