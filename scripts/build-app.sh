@@ -7,8 +7,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 IDENTITY="${CODESIGN_IDENTITY:-RegionShot Local Development}"
-NAME="Context Recorder.app"
-APP="build/$NAME"
+# Launchers such as Raycast and Spotlight show the bundle file name, so it has the space.
+APP_NAME="Context Recorder.app"
+APP="build/$APP_NAME"
 INSTALL_DIR="${INSTALL_DIR-/Applications}"
 
 swift build -c release
@@ -16,6 +17,7 @@ rm -rf "$APP" build/ContextRecorder.app
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/ContextRecorder "$APP/Contents/MacOS/ContextRecorder"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 cp scripts/process_session.py scripts/viewer.html "$APP/Contents/Resources/"
 
 codesign --force --sign "$IDENTITY" --identifier com.byronwall.ContextRecorder "$APP"
@@ -34,10 +36,12 @@ if [ -n "$INSTALL_DIR" ]; then
       exit 1
     fi
   fi
-  rm -rf "$INSTALL_DIR/$NAME"
-  # Older builds installed without the space; two copies with one bundle ID confuse Spotlight.
-  rm -rf "$INSTALL_DIR/ContextRecorder.app"
-  ditto "$APP" "$INSTALL_DIR/$NAME"
-  echo "Installed $INSTALL_DIR/$NAME"
-  if $was_running; then open "$INSTALL_DIR/$NAME"; echo "Reopened it"; fi
+  # Older builds were installed as ContextRecorder.app; remove that copy too.
+  rm -rf "$INSTALL_DIR/ContextRecorder.app" "$INSTALL_DIR/$APP_NAME"
+  ditto "$APP" "$INSTALL_DIR/$APP_NAME"
+  # Ask Launch Services/Spotlight to pick up the new name and icon right away.
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$INSTALL_DIR/$APP_NAME" || true
+  touch "$INSTALL_DIR/$APP_NAME"
+  echo "Installed $INSTALL_DIR/$APP_NAME"
+  if $was_running; then open "$INSTALL_DIR/$APP_NAME"; echo "Reopened it"; fi
 fi

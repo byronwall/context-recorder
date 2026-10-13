@@ -23,6 +23,19 @@ final class SessionModel {
     var selectedMark: Int?
     var tab: Tab = .marks
     var markFilter: MarkFilter = .all
+    /// The open export sheet, if any.
+    var export: ExportSheetModel?
+
+    // Review (marking up the recording afterwards)
+    /// Dragging out a region on the video for a shot.
+    var regionMode = false
+    /// "Adding mark…" while a review change is being processed.
+    var reviewStatus: String?
+    var reviewError: String?
+    /// The mark whose note field should take focus once it appears.
+    var focusNoteFor: Int?
+    /// Select this mark once re-processing brings it in.
+    @ObservationIgnored var pendingSelect: Int?
 
     enum Tab: String, CaseIterable, Identifiable {
         case marks = "Marks", transcript = "Transcript", page = "Page Events", activity = "Activity"
@@ -95,11 +108,13 @@ final class SessionModel {
         return max(1, (marks.map(\.offsetSeconds).max() ?? 0) + 5)
     }
 
+    /// In time order: marks added while reviewing get later numbers but belong where they happened.
     var filteredMarks: [SessionMark] {
+        let sorted = marks.sorted { $0.offsetSeconds < $1.offsetSeconds }
         switch markFilter {
-        case .all: return marks
-        case .mark: return marks.filter { !$0.isShot }
-        case .screenshot: return marks.filter(\.isShot)
+        case .all: return sorted
+        case .mark: return sorted.filter { !$0.isShot }
+        case .screenshot: return sorted.filter(\.isShot)
         }
     }
 
