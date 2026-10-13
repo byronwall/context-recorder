@@ -116,6 +116,17 @@ def narration_window(tokens, offset, before, after):
     return "".join(out).strip()
 
 
+def check_page_file(folder, mark):
+    """Drop pageFile if the MHTML never arrived, recording why when the extension reported an error."""
+    browser = mark.get("browser") or {}
+    page = browser.get("pageFile")
+    if not page or (folder / page).exists():
+        return
+    err = (folder / page).with_suffix(".error.txt")
+    browser["pageError"] = err.read_text().strip() if err.exists() else "page capture never arrived"
+    del browser["pageFile"]
+
+
 def extract_frame(folder, mark):
     frames = folder / "frames"
     frames.mkdir(exist_ok=True)
@@ -200,6 +211,8 @@ def browser_lines(browser):
         lines.append("")
     elif region.get("note"):
         lines.append(f"- _Region: {region['note']}_")
+    if browser.get("pageError"):
+        lines.append(f"- **Saved page:** _missing ({browser['pageError']})_")
     if browser.get("pageFile"):
         lines.append(f"- **Saved page:** [{browser['pageFile']}](PAGE_PREFIX{browser['pageFile']}) — open in Chrome to inspect the DOM as it was")
     if browser.get("selection"):
@@ -271,6 +284,7 @@ def main():
     (folder / "marks").mkdir(exist_ok=True)
     sections = []
     for mark in marks:
+        check_page_file(folder, mark)
         frame = extract_frame(folder, mark)
         image = mark.get("screenshot")
         if not image or not (folder / image).exists():

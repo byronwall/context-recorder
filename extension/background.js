@@ -41,7 +41,8 @@ function send(msg) {
     socket.send(JSON.stringify(msg));
     return;
   }
-  if (msg.type === "event") {
+  // Hold everything but keepalives until the socket is back (results and page captures included).
+  if (msg.type !== "ping" && msg.type !== "hello") {
     queue.push(msg);
     if (queue.length > MAX_QUEUE) queue.shift();
   }
@@ -88,13 +89,25 @@ async function handle(msg) {
 
   // Save the whole page (DOM + styles + images) as MHTML so it can be opened and inspected later.
   if (msg.capturePage && tab && !data.error) {
+    send(await capturePage(tab.id, msg.id));
+  }
+}
+
+// Save the whole page (DOM + styles + images) as MHTML so it can be opened and inspected later.
+// One retry: the first capture after a service-worker restart occasionally fails.
+async function capturePage(tabId, id) {
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const blob = await chrome.pageCapture.saveAsMHTML({ tabId: tab.id });
-      send({ type: "page-capture", id: msg.id, data: await toBase64(blob) });
+      const blob = await chrome.pageCapture.saveAsMHTML({ tabId });
+      if (!blob || !blob.size) throw new Error("empty capture");
+      return { type: "page-capture", id, data: await toBase64(blob) };
     } catch (err) {
-      send({ type: "page-capture", id: msg.id, error: String(err) });
+      lastError = err;
+      await new Promise((r) => setTimeout(r, 400));
     }
   }
+  return { type: "page-capture", id, error: String((lastError && lastError.message) || lastError) };
 }
 
 async function toBase64(blob) {

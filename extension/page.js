@@ -428,6 +428,20 @@
         if (el && el !== document.body && el !== document.documentElement) seen.set(el, (seen.get(el) || 0) + 1);
       }
     }
+    // Text nodes inside the rect catch thin lines (labels, single-line paragraphs) the grid can miss.
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+    });
+    const range = document.createRange();
+    for (let n = walker.nextNode(), i = 0; n && i < 5000; n = walker.nextNode(), i++) {
+      range.selectNodeContents(n);
+      const b = range.getBoundingClientRect();
+      if (!b.width || !b.height) continue;
+      const overlap = b.right > clip.left && b.left < clip.right && b.bottom > clip.top && b.top < clip.bottom;
+      if (!overlap || !n.parentElement) continue;
+      const el = n.parentElement.closest(MEANINGFUL) || n.parentElement;
+      if (el !== document.body && !seen.has(el)) seen.set(el, 1);
+    }
     // Drop elements whose descendants were also hit (keep the most specific), then rank by coverage.
     const els = [...seen.keys()];
     const specific = els.filter((el) => !els.some((other) => other !== el && el.contains(other)));

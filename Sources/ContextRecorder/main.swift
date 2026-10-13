@@ -43,11 +43,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.chromeConnections = count
             self?.updateTitle()
         }
-        bridge.onPageCapture = { [weak self] id, bytes in
+        bridge.onPageCapture = { [weak self] id, capture in
             DispatchQueue.main.async {
                 guard let folder = self?.pageCaptureFolder?.appendingPathComponent("pages") else { return }
                 try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-                try? bytes.write(to: folder.appendingPathComponent("\(id).mhtml"))
+                switch capture {
+                case .success(let bytes):
+                    try? bytes.write(to: folder.appendingPathComponent("\(id).mhtml"))
+                case .failure(let error):
+                    // Leave a note so the processor/viewer can say why the saved page is missing.
+                    try? error.write(to: folder.appendingPathComponent("\(id).error.txt"), atomically: true, encoding: .utf8)
+                }
             }
         }
         bridge.start()

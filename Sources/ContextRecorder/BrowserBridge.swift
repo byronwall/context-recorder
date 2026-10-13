@@ -15,7 +15,8 @@ final class BrowserBridge {
 
     var onEvent: ((JSONValue) -> Void)?          // main queue
     var onConnectionsChanged: ((Int) -> Void)?   // main queue
-    var onPageCapture: ((String, Data) -> Void)? // bridge queue; (request id, MHTML bytes)
+    enum PageCapture { case success(Data), failure(String) }
+    var onPageCapture: ((String, PageCapture) -> Void)? // bridge queue; (request id, MHTML bytes or error)
 
     private let queue = DispatchQueue(label: "context-recorder.bridge")
     private var listener: NWListener?
@@ -107,9 +108,13 @@ final class BrowserBridge {
                 callback(message["data"])
             }
         case "page-capture":
-            if let id = message["id"]?.stringValue, let b64 = message["data"]?.stringValue,
-               let bytes = Data(base64Encoded: b64) {
-                onPageCapture?(id, bytes)
+            guard let id = message["id"]?.stringValue else { break }
+            if let b64 = message["data"]?.stringValue, let bytes = Data(base64Encoded: b64) {
+                onPageCapture?(id, .success(bytes))
+            } else {
+                let error = message["error"]?.stringValue ?? "capture arrived without data"
+                NSLog("ContextRecorder: page capture \(id) failed: \(error)")
+                onPageCapture?(id, .failure(error))
             }
         default:
             break // hello / ping
