@@ -21,6 +21,21 @@ When you stop, the app transcribes your narration (if there is any), writes mark
 
 First run asks for **Screen Recording**, **Microphone** and (the first time you mark in Chrome) **Automation → Chrome** permissions. The build is signed with a stable local identity, so macOS keeps these permissions across rebuilds.
 
+## Chrome extension (page context)
+
+`extension/` is an unpacked MV3 extension. It sends page context to the app over `ws://127.0.0.1:47823`. Your web apps don't need any changes.
+
+1. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the `extension/` folder.
+2. Reload any tabs that were already open.
+3. The panel shows **Chrome ● connected** once the extension finds the running app. It retries every 30 s, so the app and Chrome can start in either order.
+
+What it records:
+
+- **As it happens** (`browser.jsonl`): clicks (selector, text, React/Vue component chain), SPA navigation, `console.error`/`console.warn`, uncaught exceptions and unhandled promise rejections, and failed or slow `fetch`/XHR requests (status, timing and the first 800 characters of an error response body).
+- **On each mark when Chrome is in front** (`mark.browser`): the element under the mouse, the focused element, the selected text, the viewport and window position, and the page's last 40 events.
+
+Input values are never recorded, only which field changed. The app accepts connections only from `chrome-extension://` origins, so web pages can't connect to it.
+
 ## Session output
 
 `~/Movies/ContextRecorder/<timestamp>/`
@@ -30,6 +45,7 @@ First run asks for **Screen Recording**, **Microphone** and (the first time you 
 | `recording.mp4` | Main display at 15 fps, ≤1920 px wide, plus mic audio when enabled |
 | `marks.jsonl` | One line per mark: time offset, kind, context (app, window, Chrome URL and title, mouse position) |
 | `activity.jsonl` | A new line whenever the front app, window title or Chrome tab changes |
+| `browser.jsonl` | Page events from the Chrome extension |
 | `screenshots/` | Region screenshots |
 | `frames/` | Full-screen video frame for every mark |
 | `transcript.json` | Parakeet output, with timestamps for every sentence and token |
@@ -55,5 +71,5 @@ Requires the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `parakeet-ml
 
 ## Next
 
-- A Chrome extension that sends DOM context (clicked element selectors, console errors, failed requests) to the app.
+- Map a region screenshot back to the DOM elements inside it, using the `window` and `viewport` values in the snapshot.
 - Export marks to Product Grid (`pgm image add` plus a context node).

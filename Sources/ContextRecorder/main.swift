@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: ControlPanel!
     private let recorder = Recorder()
+    private let bridge = BrowserBridge()
+    private var chromeConnections = 0
     private var session: Session?
     private var timer: Timer?
     private var activity: ActivityLog?
@@ -31,6 +33,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             openLastViewer: { [weak self] in self?.openLastViewer() },
             quit: { [weak self] in self?.quit() }
         ))
+        bridge.onEvent = { [weak self] event in
+            guard let self, let session = self.session, let offset = self.recorder.currentOffset() else { return }
+            session.addBrowserEvent(event, offset: offset)
+        }
+        bridge.onConnectionsChanged = { [weak self] count in
+            self?.chromeConnections = count
+            self?.updateTitle()
+        }
+        bridge.start()
         rebuildMenu()
         updateTitle()
         panel.show()
@@ -104,7 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             statusItem.button?.title = title
         }
         panel?.update(status: title == "◎ CR" ? "Ready" : title, recording: session != nil, busy: busy,
-                      microphone: recordMicrophone)
+                      microphone: recordMicrophone, chromeConnected: chromeConnections > 0)
     }
 
     private func flash(_ text: String) {
@@ -194,31 +205,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Capture time + context at the keypress, before the region overlay takes focus.
         let context = ContextProbe.capture()
         let wallTime = session.timestamp()
+
+        // Ask the extension what's under the mouse *now* (only meaningful when Chrome is in front).
+        let snapshotReady = DispatchGroup()
+        var browser: JSONValue?
+        if let bid = context.bundleID, ContextProbe.chromeBundleIDs.contains(bid) {
+            snapshotReady.enter()
+            bridge.requestSnapshot { browser = $0; snapshotReady.leave() }
+        }
+
         guard screenshot else {
-            let mark = Mark(index: session.nextIndex(), kind: "mark", offsetSeconds: offset, wallTime: wallTime,
-                            screenshot: nil, region: nil, context: context)
-            session.add(mark)
-            NSSound(named: "Tink")?.play()
-            flash("🚩 \(mark.index)")
+            snapshotReady.notify(queue: .main) { [weak self] in
+                let mark = Mark(index: session.nextIndex(), kind: "mark", offsetSeconds: offset, wallTime: wallTime,
+                                screenshot: nil, region: nil, context: context, browser: browser)
+                session.add(mark)
+                NSSound(named: "Tink")?.play()
+                self?.flash("🚩 \(mark.index)")
+            }
             return
         }
         regionSelector.begin { [weak self] selection in
             guard let self, let selection, self.session === session else { return }
-            let region = Self.displayRect(fromScreen: selection)
-            let index = session.nextIndex()
-            let name = String(format: "screenshots/%03d.png", index)
-            let mark = Mark(index: index, kind: "screenshot", offsetSeconds: offset, wallTime: wallTime,
-                            screenshot: name, region: region.map {
-                                ["x": $0.minX, "y": $0.minY, "width": $0.width, "height": $0.height]
-                            }, context: context)
-            session.add(mark)
-            NSSound(named: "Glass")?.play()
-            self.flash("📸 \(index)")
-            Task { @MainActor in
-                do {
-                    try await self.recorder.screenshot(to: session.folder.appendingPathComponent(name), rect: region)
-                } catch {
-                    NSLog("ContextRecorder: screenshot failed: \(error)")
+            snapshotReady.notify(queue: .main) {
+                let region = Self.displayRect(fromScreen: selection)
+                let index = session.nextIndex()
+                let name = String(format: "screenshots/%03d.png", index)
+                let mark = Mark(index: index, kind: "screenshot", offsetSeconds: offset, wallTime: wallTime,
+                                screenshot: name, region: region.map {
+                                    ["x": $0.minX, "y": $0.minY, "width": $0.width, "height": $0.height]
+                                }, context: context, browser: browser)
+                session.add(mark)
+                NSSound(named: "Glass")?.play()
+                self.flash("📸 \(index)")
+                Task { @MainActor in
+                    do {
+                        try await self.recorder.screenshot(to: session.folder.appendingPathComponent(name), rect: region)
+                    } catch {
+                        NSLog("ContextRecorder: screenshot failed: \(error)")
+                    }
                 }
             }
         }

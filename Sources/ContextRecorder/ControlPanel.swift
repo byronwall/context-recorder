@@ -17,6 +17,7 @@ final class ControlPanel: NSObject {
     private let recordButton = NSButton(title: "Start Recording", target: nil, action: nil)
     private let markButton = NSButton(title: "🚩 Mark", target: nil, action: nil)
     private let shotButton = NSButton(title: "📸 Region", target: nil, action: nil)
+    private let chromeLabel = NSTextField(labelWithString: "")
     private let micCheck = NSButton(checkboxWithTitle: "Record microphone", target: nil, action: nil)
     private let actions: Actions
 
@@ -50,14 +51,18 @@ final class ControlPanel: NSObject {
         let quit = NSButton(title: "Quit", target: self, action: #selector(onQuit))
         for b in [viewer, quit] { b.controlSize = .small; b.font = .systemFont(ofSize: 11) }
 
+        chromeLabel.font = .systemFont(ofSize: 11)
+        chromeLabel.textColor = .secondaryLabelColor
+        let statusRow = NSStackView(views: [status, NSView(), chromeLabel])
         let row1 = NSStackView(views: [recordButton, markButton, shotButton])
         let row2 = NSStackView(views: [micCheck, NSView(), viewer, quit])
-        let stack = NSStackView(views: [status, row1, row2, hint])
+        let stack = NSStackView(views: [statusRow, row1, row2, hint])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 8
         stack.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
         row2.widthAnchor.constraint(equalTo: row1.widthAnchor).isActive = true
+        statusRow.widthAnchor.constraint(equalTo: row1.widthAnchor).isActive = true
         panel.contentView = stack
     }
 
@@ -70,8 +75,10 @@ final class ControlPanel: NSObject {
         panel.orderFrontRegardless()
     }
 
-    func update(status text: String, recording: Bool, busy: Bool, microphone: Bool) {
+    func update(status text: String, recording: Bool, busy: Bool, microphone: Bool, chromeConnected: Bool) {
         status.stringValue = text
+        chromeLabel.stringValue = chromeConnected ? "Chrome ● connected" : "Chrome ○ no extension"
+        chromeLabel.textColor = chromeConnected ? .systemGreen : .secondaryLabelColor
         recordButton.title = recording ? "Stop" : "Start Recording"
         recordButton.isEnabled = !busy
         markButton.isEnabled = recording

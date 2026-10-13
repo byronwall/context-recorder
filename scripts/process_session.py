@@ -4,12 +4,14 @@
 Input (written by the app):
   recording.mp4      screen + mic
   marks.jsonl        one JSON object per mark
-  screenshots/*.png  full-res stills for "screenshot" marks
+  screenshots/*.png  region stills for "screenshot" marks
+  activity.jsonl     front app / window / Chrome tab changes
+  browser.jsonl      page events streamed by the Chrome extension (optional)
 
 Output:
   audio.wav, transcript.json      (parakeet-mlx)
   frames/NNN.jpg                  video frame for every mark
-  marks/NNN.md                    one file per mark: image, narration window, context
+  marks/NNN.md                    one file per mark: image, narration window, context, page snapshot
   session.md                      all marks + full timestamped transcript
   session.json                    everything above, machine-readable
   viewer.html                     "control center" UI (open directly in a browser)
@@ -136,6 +138,61 @@ def context_lines(ctx):
     return [f"- **{k}:** {v}" for k, v in rows if v]
 
 
+def element_line(label, el):
+    if not el:
+        return []
+    bits = [f"`{el.get('selector')}`"]
+    if el.get("text"):
+        bits.append(f"“{el['text']}”")
+    if el.get("components"):
+        bits.append("in " + " › ".join(reversed(el["components"][:5])))
+    return [f"- **{label}:** " + " · ".join(bits)]
+
+
+def problem_text(e):
+    if e.get("kind") == "request":
+        tail = f" {e.get('error') or ''}{(' — ' + e['body']) if e.get('body') else ''}"
+        return f"{e.get('method')} {e.get('requestUrl')} → {e.get('status')} ({e.get('ms')} ms){tail}"
+    if e.get("kind") == "console":
+        return f"console.{e.get('level')}: {e.get('message')}"
+    if e.get("kind") == "error":
+        return f"{e.get('type')}: {e.get('message') or e.get('source')}"
+    return json.dumps(e)
+
+
+def is_problem(e):
+    k = e.get("kind")
+    return (k in ("console", "error")) or (k == "request" and (e.get("error") or (e.get("status") or 0) >= 400
+                                                                or e.get("status") == 0 or e.get("slow")))
+
+
+def browser_lines(browser):
+    if not browser:
+        return []
+    if browser.get("error"):
+        return ["", f"_Browser snapshot unavailable: {browser['error']}_"]
+    lines = ["", "**Page**", ""]
+    lines += element_line("Under mouse", browser.get("hovered"))
+    lines += element_line("Focused", browser.get("focused"))
+    if browser.get("selection"):
+        lines.append(f"- **Selected text:** {browser['selection']}")
+    recent = browser.get("recent") or []
+    clicks = [e for e in recent if e.get("kind") == "click"][-3:]
+    for c in clicks:
+        el = c.get("element") or {}
+        lines.append(f"- **Recent click:** `{el.get('selector')}`" + (f" “{el['text']}”" if el.get("text") else ""))
+    problems = [e for e in recent if is_problem(e)][-8:]
+    if problems:
+        lines += ["", "**Recent errors / failed requests**", ""]
+        lines += [f"- {trunc_line(problem_text(e))}" for e in problems]
+    return lines
+
+
+def trunc_line(s, n=400):
+    s = " ".join(str(s).split())
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
 def mark_markdown(mark, image, narration, rel_prefix=""):
     title = narration_title(narration) or (mark["context"].get("browserTitle") or mark["context"].get("windowTitle") or "Mark")
     lines = [
@@ -147,7 +204,9 @@ def mark_markdown(mark, image, narration, rel_prefix=""):
     if narration:
         lines += ["> " + narration, ""]
     lines += context_lines(mark["context"])
-    lines += [f"- **Video:** `recording.mp4` @ {mark['offsetSeconds']:.1f}s", f"- **Kind:** {mark['kind']}", ""]
+    lines += [f"- **Video:** `recording.mp4` @ {mark['offsetSeconds']:.1f}s", f"- **Kind:** {mark['kind']}"]
+    lines += browser_lines(mark.get("browser"))
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -202,6 +261,7 @@ def main():
         "duration": duration_of(folder / "recording.mp4"),
         "marks": marks,
         "activity": load_jsonl(folder / "activity.jsonl"),
+        "browser": load_jsonl(folder / "browser.jsonl"),
         "transcript": [{"start": s_["start"], "end": s_["end"], "text": s_["text"].strip()}
                        for s_ in (transcript or {}).get("sentences", [])],
     }
