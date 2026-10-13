@@ -5,11 +5,22 @@ import SwiftUI
 /// One session: the video on a stage, the shared timeline and the "now" strip, marks in the inspector.
 struct SessionView: View {
     @Bindable var model: SessionModel
+    @Environment(RecorderController.self) private var recorder
     @State private var showInspector = true
     @State private var quickLook: URL?
     @State private var copiedAll = false
 
     var body: some View {
+        if model.data == nil && model.loadError == nil {
+            SessionPendingView(folder: model.folder)
+                .navigationTitle(title)
+                .toolbar { sessionMenu }
+        } else {
+            loaded
+        }
+    }
+
+    private var loaded: some View {
         content
             .navigationTitle(title)
             .navigationSubtitle(subtitle)
@@ -24,13 +35,6 @@ struct SessionView: View {
     @ViewBuilder private var content: some View {
         if let error = model.loadError {
             ContentUnavailableView("Can't Open Session", systemImage: "exclamationmark.triangle", description: Text(error))
-        } else if model.data == nil {
-            ContentUnavailableView {
-                Label("Processing", systemImage: "waveform.badge.magnifyingglass")
-                    .symbolEffect(.pulse)
-            } description: {
-                Text("Transcribing narration and pulling frames. The session opens here when it's done.")
-            }
         } else {
             VStack(spacing: 0) {
                 Stage(model: model)
@@ -48,6 +52,15 @@ struct SessionView: View {
     }
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        if recorder.processing.contains(model.folder) {
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Processing…").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                .help("Re-processing this session; it refreshes when done")
+            }
+        }
         ToolbarItemGroup(placement: .primaryAction) {
             Button {
                 copy(model.markdown)
@@ -59,23 +72,34 @@ struct SessionView: View {
             }
             .help("Copy every mark as Markdown, for an agent or an issue")
             .disabled(model.marks.isEmpty)
+        }
+        sessionMenu
+        ToolbarItem(placement: .primaryAction) {
+            Button { withAnimation { showInspector.toggle() } } label: { Label("Marks", systemImage: "sidebar.trailing") }
+                .help(showInspector ? "Hide marks" : "Show marks")
+        }
+    }
 
+    @ToolbarContentBuilder private var sessionMenu: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
             Menu {
                 Button("Reveal in Finder", systemImage: "folder") { NSWorkspace.shared.activateFileViewerSelecting([model.folder]) }
                 if FileManager.default.fileExists(atPath: model.folder.appendingPathComponent("viewer.html").path) {
                     Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(model.folder.appendingPathComponent("viewer.html")) }
                 }
-                Button("Open session.md", systemImage: "doc.text") { NSWorkspace.shared.open(model.folder.appendingPathComponent("session.md")) }
-                Divider()
+                if FileManager.default.fileExists(atPath: model.folder.appendingPathComponent("session.md").path) {
+                    Button("Open session.md", systemImage: "doc.text") { NSWorkspace.shared.open(model.folder.appendingPathComponent("session.md")) }
+                }
                 Button("Copy Folder Path", systemImage: "link") { copy(model.folder.path) }
+                Divider()
+                Button(model.data == nil ? "Process Now" : "Process Again", systemImage: "arrow.clockwise") {
+                    recorder.process(model.folder)
+                }
+                .disabled(!recorder.canRecord || recorder.processing.contains(model.folder))
             } label: {
                 Label("Session", systemImage: "ellipsis.circle")
             }
             .help(model.folder.path)
-        }
-        ToolbarItem(placement: .primaryAction) {
-            Button { withAnimation { showInspector.toggle() } } label: { Label("Marks", systemImage: "sidebar.trailing") }
-                .help(showInspector ? "Hide marks" : "Show marks")
         }
     }
 

@@ -1,23 +1,13 @@
 import AppKit
 import Carbon
-import ScreenCaptureKit
 
-/// Menu-bar app. Hotkeys:
-///   ⌃⌥R  start / stop recording
-///   ⌃⌥M  mark this moment (context + frame pulled from the video afterwards)
-///   ⌃⌥S  screenshot mark (full-res still + context)
+/// One app, three views of the same recorder:
+///   - the Sessions window: home. Record from its sidebar, watch a recording live, review sessions.
+///   - the recording HUD: floats over your work only while recording.
+///   - the menu-bar item: status at a glance, quick actions and recent sessions.
+/// Hotkeys (global): ⌃⌥R start / stop, ⌃⌥M mark, ⌃⌥S region screenshot.
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var statusItem: NSStatusItem!
-    private var panel: ControlPanel!
-    private let recorder = Recorder()
-    private let bridge = BrowserBridge()
-    private var chromeConnections = 0
-    /// Where MHTML page captures land. Kept after stop so captures that arrive late still get saved.
-    private var pageCaptureFolder: URL?
-    private var session: Session? {
-        didSet { library.state.library.recordingFolder = session?.folder }
-    }
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemValidation {
     /// `--library <folder>` opens only the session library on that folder (no recording, hotkeys or
     /// permission prompts), for working on the library UI next to an installed copy of the app.
     private let devLibraryFolder: URL? = {
@@ -25,374 +15,247 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let i = args.firstIndex(of: "--library"), i + 1 < args.count else { return nil }
         return URL(fileURLWithPath: args[i + 1]).standardizedFileURL
     }()
-    private lazy var library = LibraryWindowController(includeDefaultRoot: devLibraryFolder == nil)
-    private var timer: Timer?
-    private var activity: ActivityLog?
-    private var busy = false
-    private var recordMicrophone: Bool {
-        get { UserDefaults.standard.object(forKey: "recordMicrophone") as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "recordMicrophone") }
-    }
+    private lazy var recorder = RecorderController(canRecord: devLibraryFolder == nil)
+    private lazy var library = LibraryWindowController(recorder: recorder, includeDefaultRoot: devLibraryFolder == nil)
+    private var hud: RecordingHUDController?
+    private var statusItem: NSStatusItem?
+    private var flashText: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        library.onVisibilityChange = { [weak self] in self?.updatePresence() }
+        // Stopping always lands you on the new session: processing progress first, then the session itself.
+        recorder.onFinished = { [weak self] folder in self?.library.show(session: folder, reload: true) }
+        recorder.onProcessed = { [weak self] folder, ok in self?.didProcess(folder, ok: ok) }
+        recorder.onFlash = { [weak self] text in self?.flash(text) }
+        MainMenu.install()
+
         if let devLibraryFolder {
-            if let look = ProcessInfo.processInfo.environment["CR_APPEARANCE"] {   // light | dark, for screenshots
-                NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
-            }
-            library.show(session: devLibraryFolder)
-            let args = CommandLine.arguments
-            if let i = args.firstIndex(of: "--mark"), i + 1 < args.count, let n = Int(args[i + 1]) {
-                library.state.model?.select(n)   // `--mark <n>` opens that mark too
-            }
+            startDevRun(devLibraryFolder)
             return
         }
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.autosaveName = "ContextRecorder"
-        recorder.onError = { [weak self] error in self?.handleError(error) }
-        panel = ControlPanel(actions: .init(
-            toggleRecording: { [weak self] in self?.toggleRecording() },
-            mark: { [weak self] in self?.addMark(screenshot: false) },
-            screenshot: { [weak self] in self?.addMark(screenshot: true) },
-            toggleMicrophone: { [weak self] in self?.toggleMicrophone() },
-            openLastViewer: { [weak self] in self?.openLastViewer() },
-            quit: { [weak self] in self?.quit() }
-        ))
-        bridge.onEvent = { [weak self] event in
-            guard let self, let session = self.session, let offset = self.recorder.currentOffset() else { return }
-            session.addBrowserEvent(event, offset: offset)
+
+        setUpStatusItem()
+        hud = RecordingHUDController(recorder: recorder) { [weak self] in self?.library.show() }
+        observeContinuously { [weak self] in
+            self?.updateStatusTitle()
+            self?.updatePresence()
         }
-        bridge.onConnectionsChanged = { [weak self] count in
-            self?.chromeConnections = count
-            self?.updateTitle()
-        }
-        bridge.onPageCapture = { [weak self] id, capture in
-            DispatchQueue.main.async {
-                guard let folder = self?.pageCaptureFolder?.appendingPathComponent("pages") else { return }
-                try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-                switch capture {
-                case .success(let bytes):
-                    try? bytes.write(to: folder.appendingPathComponent("\(id).mhtml"))
-                case .failure(let error):
-                    // Leave a note so the processor/viewer can say why the saved page is missing.
-                    try? error.write(to: folder.appendingPathComponent("\(id).error.txt"), atomically: true, encoding: .utf8)
-                }
-            }
-        }
-        bridge.start()
-        rebuildMenu()
-        updateTitle()
-        panel.show()
 
         let mods = controlKey | optionKey
-        HotKeys.shared.register(keyCode: kVK_ANSI_R, modifiers: mods) { [weak self] in self?.toggleRecording() }
-        HotKeys.shared.register(keyCode: kVK_ANSI_M, modifiers: mods) { [weak self] in self?.addMark(screenshot: false) }
-        HotKeys.shared.register(keyCode: kVK_ANSI_S, modifiers: mods) { [weak self] in self?.addMark(screenshot: true) }
+        HotKeys.shared.register(keyCode: kVK_ANSI_R, modifiers: mods) { [weak self] in self?.recorder.toggle() }
+        HotKeys.shared.register(keyCode: kVK_ANSI_M, modifiers: mods) { [weak self] in self?.recorder.mark() }
+        HotKeys.shared.register(keyCode: kVK_ANSI_S, modifiers: mods) { [weak self] in self?.recorder.screenshot() }
 
         // Ask for screen-recording permission up front so the first recording doesn't fail.
         if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
+        library.show()
     }
 
-    /// `open ContextRecorder.app` while running, or clicking it in Finder/Dock, brings the panel back
-    /// (or the session library, when it's open and the app has a Dock icon).
+    private func startDevRun(_ folder: URL) {
+        if let look = ProcessInfo.processInfo.environment["CR_APPEARANCE"] {   // light | dark, for screenshots
+            NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
+        }
+        library.show(session: folder)
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--mark"), i + 1 < args.count, let n = Int(args[i + 1]) {
+            library.state.model?.select(n)   // `--mark <n>` opens that mark too
+        }
+        // `--demo recording|processing|failed` fakes that state on the open session, to work on those views.
+        if let i = args.firstIndex(of: "--demo"), i + 1 < args.count, let open = library.state.selection {
+            switch args[i + 1] {
+            case "recording":
+                recorder.demoRecording(in: open)
+                hud = RecordingHUDController(recorder: recorder) { [weak self] in self?.library.show() }
+            case "processing": recorder.demoPending(open, failed: false)
+            case "failed": recorder.demoPending(open, failed: true)
+            default: break
+            }
+        }
+    }
+
+    /// `open ContextRecorder.app` while running, or clicking it in Finder/Dock, brings the Sessions window back.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if library.window?.isVisible == true { library.show() } else { panel?.show() }
+        library.show()
         return false
     }
 
-    // MARK: Menu
+    /// Quitting mid-recording finishes the video first, so it's never left unplayable.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard recorder.isRecording else { return .terminateNow }
+        Task { @MainActor in
+            await recorder.stopForQuit()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
 
-    private func rebuildMenu() {
+    /// Dock icon and menus while the Sessions window is open or a recording is running; menu bar only otherwise.
+    private func updatePresence() {
+        guard devLibraryFolder == nil else { return }
+        let regular = library.isVisible || recorder.phase != .idle
+        let policy: NSApplication.ActivationPolicy = regular ? .regular : .accessory
+        if NSApp.activationPolicy() != policy { NSApp.setActivationPolicy(policy) }
+    }
+
+    private func didProcess(_ folder: URL, ok: Bool) {
+        library.state.library.refresh()
+        if library.state.selection == folder { library.state.model?.reload() }
+        // Nudge the Dock icon if you've moved on to something else.
+        if !NSApp.isActive, library.isVisible { NSApp.requestUserAttention(.informationalRequest) }
+    }
+
+    // MARK: Menu-bar item
+
+    private func setUpStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.autosaveName = "ContextRecorder"
         let menu = NSMenu()
-        let recording = session != nil
-        menu.addItem(item(recording ? "Stop Recording" : "Start Recording", #selector(toggleRecording),
-                          symbol: recording ? "stop.fill" : "record.circle", key: "r"))
-        let mark = item("Mark Moment", #selector(markFromMenu), symbol: "flag", key: "m")
-        mark.isEnabled = recording
-        menu.addItem(mark)
-        let shot = item("Screenshot Region", #selector(screenshotFromMenu), symbol: "viewfinder", key: "s")
-        shot.isEnabled = recording
-        menu.addItem(shot)
+        menu.delegate = self
+        item.menu = menu
+        statusItem = item
+    }
+
+    /// Built each time it opens, so the status line and recent sessions are current.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let header = NSMenuItem(title: statusLine, action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
         menu.addItem(.separator())
-        let mic = item("Record Microphone", #selector(toggleMicrophone), symbol: "mic")
-        mic.state = recordMicrophone ? .on : .off
-        mic.isEnabled = !recording
-        menu.addItem(mic)
+        menu.addItem(item("Start Recording", #selector(toggleRecording), symbol: "record.circle", key: "r"))
+        menu.addItem(item("Mark Moment", #selector(markMoment), symbol: "flag", key: "m"))
+        menu.addItem(item("Screenshot Region", #selector(screenshotRegion), symbol: "viewfinder", key: "s"))
         menu.addItem(.separator())
-        menu.addItem(item("Show Control Panel", #selector(showPanel), symbol: "macwindow"))
-        menu.addItem(item("Sessions…", #selector(openLastViewer), symbol: "play.rectangle"))
-        menu.addItem(item("Open Sessions Folder", #selector(openSessions), symbol: "folder"))
+        menu.addItem(item("Record Microphone", #selector(toggleMicrophone), symbol: "mic"))
+        if recorder.isRecording {
+            menu.addItem(item("Show Recording Controls", #selector(showRecordingControls), symbol: "macwindow"))
+        }
         menu.addItem(.separator())
-        menu.addItem(item("Quit Context Recorder", #selector(quit), key: "q", modifiers: .command))
-        menu.autoenablesItems = false
-        statusItem.menu = menu
-        updateTitle()
+        menu.addItem(item("Open Sessions", #selector(openLibrary), symbol: "rectangle.stack"))
+        let recent = library.state.library.entries.filter { !library.state.isLive($0.url) }.prefix(5)
+        if !recent.isEmpty {
+            menu.addItem(.sectionHeader(title: "Recent"))
+            for entry in recent {
+                let row = item(recentTitle(entry), #selector(openRecent(_:)))
+                row.subtitle = recentSubtitle(entry)
+                row.representedObject = entry.url
+                menu.addItem(row)
+            }
+        }
+        menu.addItem(.separator())
+        menu.addItem(item("Open Sessions Folder", #selector(openSessionsFolder), symbol: "folder"))
+        menu.addItem(item("Quit Context Recorder", #selector(NSApplication.terminate(_:)), key: "q", modifiers: .command, target: NSApp))
     }
 
     /// `key` only displays the global hotkey (⌃⌥ by default) next to the item; HotKeys does the real work.
     private func item(_ title: String, _ action: Selector, symbol: String? = nil, key: String = "",
-                      modifiers: NSEvent.ModifierFlags = [.control, .option]) -> NSMenuItem {
+                      modifiers: NSEvent.ModifierFlags = [.control, .option], target: AnyObject? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.keyEquivalentModifierMask = modifiers
-        item.target = self
+        item.target = target ?? self
         if let symbol { item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) }
         return item
     }
 
-    private func updateTitle() {
-        let state: ControlPanel.State
-        if let session, let offset = recorder.currentOffset() {
-            state = .recording(elapsed: offset, marks: session.marks.count)
-        } else if session != nil {
-            state = .starting
-        } else if busy {
-            state = .processing
-        } else {
-            state = .ready
+    private var statusLine: String {
+        switch recorder.phase {
+        case .starting: return "Starting…"
+        case .stopping: return "Saving recording…"
+        case .recording:
+            let n = recorder.liveMarks.count
+            return "Recording · \(Format.time(recorder.elapsed)) · " + (n == 1 ? "1 mark" : "\(n) marks")
+        case .idle:
+            let n = recorder.processing.count
+            if n > 0 { return n == 1 ? "Processing a session…" : "Processing \(n) sessions…" }
+            return recorder.chromeConnected ? "Ready · Chrome connected" : "Ready"
         }
-        let button = statusItem.button
-        button?.imagePosition = .imageLeading
-        button?.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        switch state {
-        case .ready:
-            button?.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Context Recorder")
-            button?.title = ""
-        case .starting, .recording:
-            let red = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
-            button?.image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")?
-                .withSymbolConfiguration(red)
-            if case let .recording(elapsed, marks) = state {
-                let t = Int(elapsed)
-                button?.title = String(format: " %d:%02d", t / 60, t % 60) + (marks > 0 ? "  ⚑\(marks)" : "")
-            } else {
-                button?.title = ""
-            }
-        case .processing:
-            button?.image = NSImage(systemSymbolName: "hourglass", accessibilityDescription: "Processing")
-            button?.title = ""
+    }
+
+    private func recentTitle(_ entry: SessionEntry) -> String {
+        guard let d = entry.date else { return entry.url.lastPathComponent }
+        let day = Calendar.current.isDateInToday(d) ? "Today"
+            : Calendar.current.isDateInYesterday(d) ? "Yesterday" : d.formatted(.dateTime.month(.abbreviated).day())
+        return "\(day), \(d.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private func recentSubtitle(_ entry: SessionEntry) -> String {
+        if recorder.processing.contains(entry.url) { return "Processing…" }
+        if !entry.processed { return "Not processed" }
+        let n = entry.markCount
+        return [entry.duration.map(Format.time), n == 1 ? "1 mark" : "\(n) marks"].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// Titles, checkmarks and enabled state for both the menu-bar menu and the main menu's Recording menu.
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        switch item.action {
+        case #selector(toggleRecording):
+            let recording = recorder.isRecording
+            item.title = recording ? "Stop Recording" : "Start Recording"
+            item.image = NSImage(systemSymbolName: recording ? "stop.fill" : "record.circle", accessibilityDescription: nil)
+            return recorder.canRecord && !recorder.isBusy
+        case #selector(markMoment), #selector(screenshotRegion):
+            return recorder.phase == .recording
+        case #selector(toggleMicrophone):
+            item.state = recorder.recordMicrophone ? .on : .off
+            return recorder.canRecord && recorder.phase == .idle
+        case #selector(showRecordingControls):
+            return recorder.isRecording
+        default:
+            return true
         }
-        panel?.update(state: state, microphone: recordMicrophone, chromeConnected: chromeConnections > 0)
+    }
+
+    private func updateStatusTitle() {
+        guard let button = statusItem?.button else { return }
+        button.imagePosition = .imageLeading
+        button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        let title: String
+        switch recorder.phase {
+        case .idle where !recorder.processing.isEmpty:
+            button.image = NSImage(systemSymbolName: "hourglass", accessibilityDescription: "Processing")
+            title = ""
+        case .idle:
+            button.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Context Recorder")
+            title = ""
+        case .starting, .recording, .stopping:
+            button.image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")?
+                .withSymbolConfiguration(.init(paletteColors: [.systemRed]))
+            let n = recorder.liveMarks.count
+            title = recorder.phase == .recording ? " \(Format.time(recorder.elapsed))" + (n > 0 ? "  ⚑\(n)" : "") : ""
+        }
+        button.title = flashText.map { " \($0)" } ?? title
     }
 
     private func flash(_ text: String) {
-        statusItem.button?.title = text
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.updateTitle() }
+        flashText = text
+        updateStatusTitle()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+            guard self?.flashText == text else { return }
+            self?.flashText = nil
+            self?.updateStatusTitle()
+        }
     }
 
-    @objc private func markFromMenu() { addMark(screenshot: false) }
-    @objc private func screenshotFromMenu() { addMark(screenshot: true) }
-    @objc private func showPanel() { panel.show() }
-    @objc private func toggleMicrophone() {
-        recordMicrophone.toggle()
-        rebuildMenu()
-    }
-    @objc private func openLastViewer() { library.show() }
+    // MARK: Actions (menu-bar menu and main menu)
+
+    @objc func toggleRecording() { recorder.toggle() }
+    @objc func markMoment() { recorder.mark() }
+    @objc func screenshotRegion() { recorder.screenshot() }
+    @objc func toggleMicrophone() { recorder.recordMicrophone.toggle() }
+    @objc func showRecordingControls() { hud?.show() }
+    @objc func openLibrary() { library.show() }
     @objc func openSessionFolder() { library.openFolder() }
-    @objc func showShortcuts() { library.state.showShortcuts = true }
-    @objc func quitFromMenu() { quit() }
-    @objc private func openSessions() {
+    @objc func showShortcuts() {
+        library.show()
+        library.state.showShortcuts = true
+    }
+    @objc private func openRecent(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        library.show(session: url)
+    }
+    @objc private func openSessionsFolder() {
         try? FileManager.default.createDirectory(at: Session.root, withIntermediateDirectories: true)
         NSWorkspace.shared.open(Session.root)
-    }
-    @objc private func quit() {
-        if session != nil { stopRecording(thenQuit: true) } else { NSApp.terminate(nil) }
-    }
-
-    // MARK: Recording
-
-    @objc private func toggleRecording() {
-        guard !busy else { return }
-        if session == nil { startRecording() } else { stopRecording(thenQuit: false) }
-    }
-
-    private func startRecording() {
-        do {
-            let session = try Session()
-            self.session = session
-            pageCaptureFolder = session.folder
-            rebuildMenu()
-            updateTitle()
-            Task { @MainActor in
-                do {
-                    try await recorder.start(outputURL: session.videoURL, recordMicrophone: recordMicrophone)
-                    let activity = ActivityLog(url: session.folder.appendingPathComponent("activity.jsonl")) { [weak self] in
-                        self?.recorder.currentOffset()
-                    }
-                    activity.start()
-                    self.activity = activity
-                    timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.updateTitle() } }
-                    NSSound(named: "Tink")?.play()
-                } catch {
-                    handleError(error)
-                }
-            }
-        } catch {
-            handleError(error)
-        }
-    }
-
-    private func stopRecording(thenQuit: Bool) {
-        guard let session else { return }
-        busy = true
-        self.session = nil
-        timer?.invalidate()
-        activity?.stop()
-        activity = nil
-        rebuildMenu()
-        updateTitle()
-        Task { @MainActor in
-            await recorder.stop()
-            NSSound(named: "Pop")?.play()
-            runPostProcessing(for: session) { [weak self] in
-                self?.busy = false
-                self?.updateTitle()
-                if !thenQuit { self?.library.show(session: session.folder) }
-                if thenQuit { NSApp.terminate(nil) }
-            }
-        }
-    }
-
-    private let regionSelector = RegionSelector()
-
-    private func addMark(screenshot: Bool) {
-        guard let session, let offset = recorder.currentOffset() else { NSSound.beep(); return }
-        // Capture time + context at the keypress, before the region overlay takes focus.
-        let context = ContextProbe.capture()
-        let wallTime = session.timestamp()
-
-        // Ask the extension what's under the mouse *now* (only meaningful when Chrome is in front).
-        let snapshotReady = DispatchGroup()
-        var browser: JSONValue?
-        let inChrome = context.bundleID.map(ContextProbe.chromeBundleIDs.contains) ?? false
-        if inChrome {
-            snapshotReady.enter()
-            let id = "m\(session.nextIndex())-\(Int(offset))"
-            bridge.request("snapshot", id: id, payload: Self.pointerPayload(context: context), capturePage: true) { result in
-                browser = result
-                if let result, result["error"] == nil {
-                    browser = result.setting("pageFile", .string("pages/\(id).mhtml"))
-                }
-                snapshotReady.leave()
-            }
-        }
-
-        guard screenshot else {
-            snapshotReady.notify(queue: .main) { [weak self] in
-                let mark = Mark(index: session.nextIndex(), kind: "mark", offsetSeconds: offset, wallTime: wallTime,
-                                screenshot: nil, region: nil, context: context, browser: browser)
-                session.add(mark)
-                NSSound(named: "Tink")?.play()
-                self?.flash(" Marked #\(mark.index)")
-            }
-            return
-        }
-        regionSelector.begin { [weak self] selection in
-            guard let self, let selection, self.session === session else { return }
-            snapshotReady.notify(queue: .main) {
-                let region = Self.displayRect(fromScreen: selection)
-                guard let snapshot = browser, snapshot["error"] == nil else {
-                    self.addRegionMark(session: session, offset: offset, wallTime: wallTime, region: region,
-                                       context: context, browser: browser)
-                    return
-                }
-                // Ask the page which elements sit inside the selected rectangle.
-                var payload = Self.regionPayload(region: region, context: context)
-                // Pointer position the page saw at keypress (the overlay may since have hidden it from the page).
-                if case .number(let cx)? = snapshot["mouse"]?["clientX"], case .number(let cy)? = snapshot["mouse"]?["clientY"] {
-                    payload["mouseClient"] = ["clientX": cx, "clientY": cy]
-                }
-                self.bridge.request("region", payload: payload) { result in
-                    let merged = result.map { snapshot.setting("region", $0) } ?? snapshot
-                    self.addRegionMark(session: session, offset: offset, wallTime: wallTime, region: region,
-                                       context: context, browser: merged)
-                }
-            }
-        }
-    }
-
-    private func addRegionMark(session: Session, offset: Double, wallTime: String, region: CGRect?,
-                               context: MarkContext, browser: JSONValue?) {
-        let index = session.nextIndex()
-        let name = String(format: "screenshots/%03d.png", index)
-        let mark = Mark(index: index, kind: "screenshot", offsetSeconds: offset, wallTime: wallTime,
-                        screenshot: name, region: region.map {
-                            ["x": $0.minX, "y": $0.minY, "width": $0.width, "height": $0.height]
-                        }, context: context, browser: browser)
-        session.add(mark)
-        NSSound(named: "Glass")?.play()
-        flash(" Captured #\(index)")
-        Task { @MainActor in
-            do {
-                try await recorder.screenshot(to: session.folder.appendingPathComponent(name), rect: region)
-            } catch {
-                NSLog("ContextRecorder: screenshot failed: \(error)")
-            }
-        }
-    }
-
-    /// Region in display points (top-left origin) + pointer position in the same space, so the page can
-    /// line up screen and viewport coordinates.
-    private static func regionPayload(region: CGRect?, context: MarkContext) -> [String: Any] {
-        let frame = NSScreen.main?.frame ?? .zero
-        let rect = region ?? CGRect(origin: .zero, size: frame.size)
-        var payload = pointerPayload(context: context)
-        payload["rect"] = ["x": rect.minX, "y": rect.minY, "width": rect.width, "height": rect.height]
-        return payload
-    }
-
-    /// Pointer position at keypress in display points (top-left origin) + backing scale, so the page can
-    /// find the element under the real pointer and convert screen coordinates to viewport coordinates.
-    private static func pointerPayload(context: MarkContext) -> [String: Any] {
-        let screen = NSScreen.main
-        let frame = screen?.frame ?? .zero
-        var payload: [String: Any] = ["screenScale": screen?.backingScaleFactor ?? 2]
-        if let m = context.mouse, let x = m["x"], let y = m["y"] {
-            payload["mouseScreen"] = ["x": x - frame.minX, "y": frame.maxY - y]
-        }
-        return payload
-    }
-
-    /// AppKit global coords (bottom-left origin) -> main-display points (top-left origin). nil = whole screen.
-    private static func displayRect(fromScreen rect: NSRect) -> CGRect? {
-        guard let screen = NSScreen.main else { return nil }
-        let f = screen.frame
-        if rect.size == f.size { return nil }
-        return CGRect(x: rect.minX - f.minX, y: f.maxY - rect.maxY, width: rect.width, height: rect.height)
-    }
-
-    /// Runs scripts/process_session.py (transcribe + per-mark markdown). Located next to the .app or via env var.
-    private func runPostProcessing(for session: Session, completion: @escaping () -> Void) {
-        guard let script = Self.processScriptURL() else {
-            NSLog("ContextRecorder: process_session.py not found; skipping post-processing")
-            completion(); return
-        }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        // Login shell so PATH includes uv / parakeet-mlx / ffmpeg.
-        process.arguments = ["-lc", "python3 \"$0\" \"$1\" >> \"$1/process.log\" 2>&1", script.path, session.folder.path]
-        process.terminationHandler = { _ in DispatchQueue.main.async { completion() } }
-        do { try process.run() } catch { NSLog("ContextRecorder: \(error)"); completion() }
-    }
-
-    static func processScriptURL() -> URL? {
-        let fm = FileManager.default
-        if let env = ProcessInfo.processInfo.environment["CONTEXT_RECORDER_SCRIPT"], fm.fileExists(atPath: env) {
-            return URL(fileURLWithPath: env)
-        }
-        if let bundled = Bundle.main.url(forResource: "process_session", withExtension: "py") { return bundled }
-        // Dev fallback: running the bare binary from the repo.
-        let repo = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("scripts/process_session.py")
-        if fm.fileExists(atPath: repo.path) { return repo }
-        return nil
-    }
-
-    private func handleError(_ error: Error) {
-        NSLog("ContextRecorder error: \(error)")
-        let alert = NSAlert()
-        alert.messageText = "Context Recorder"
-        alert.informativeText = error.localizedDescription
-        NSApp.activate(ignoringOtherApps: true)
-        alert.runModal()
-        if session != nil { stopRecording(thenQuit: false) }
     }
 }
 

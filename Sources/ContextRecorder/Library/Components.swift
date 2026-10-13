@@ -39,14 +39,24 @@ struct MarkGlyph: View {
     var size: CGFloat = 20
     var selected = false
 
+    var body: some View { MarkDisc(index: mark.index, isShot: mark.isShot, size: size, selected: selected) }
+}
+
+/// The disc itself, for marks that aren't processed yet (a recording in progress).
+struct MarkDisc: View {
+    var index: Int
+    var isShot: Bool
+    var size: CGFloat = 20
+    var selected = false
+
     var body: some View {
-        Text("\(mark.index)")
+        Text("\(index)")
             .font(.system(size: size * 0.52, weight: .bold, design: .rounded).monospacedDigit())
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background {
                 Circle()
-                    .fill((mark.isShot ? Color.shot : Color.mark).gradient)
+                    .fill((isShot ? Color.shot : Color.mark).gradient)
                     .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
             }
             .overlay {

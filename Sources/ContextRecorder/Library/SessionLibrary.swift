@@ -28,7 +28,6 @@ final class SessionLibrary {
     private(set) var entries: [SessionEntry] = []
     /// Bumped when a session's session.json changes, so an open session can reload itself.
     private(set) var changeToken = 0
-    var recordingFolder: URL?      // the session being recorded right now, if any
 
     private var timer: Timer?
     private static let extraFoldersKey = "libraryFolders"

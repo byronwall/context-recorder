@@ -9,14 +9,18 @@ struct LibraryView: View {
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
         } detail: {
             if let model = state.model {
-                SessionView(model: model)
-                    .id(model.folder)
+                if state.isLive(model.folder) {
+                    LiveSessionView(folder: model.folder)
+                } else {
+                    SessionView(model: model)
+                        .id(ObjectIdentifier(model))
+                }
             } else {
                 ContentUnavailableView {
                     Label("No Session Selected", systemImage: "play.rectangle")
                 } description: {
                     Text(state.library.entries.isEmpty
-                         ? "Press ⌃⌥R to start recording. Finished sessions appear here."
+                         ? "Press Record (or ⌃⌥R anywhere) to capture your screen. Sessions appear here."
                          : "Choose a session from the sidebar.")
                 }
             }
@@ -40,7 +44,7 @@ struct SessionSidebar: View {
             ForEach(groups, id: \.title) { group in
                 Section(group.title) {
                     ForEach(group.entries) { entry in
-                        SessionRow(entry: entry, recording: entry.url == state.library.recordingFolder)
+                        SessionRow(entry: entry, status: status(of: entry))
                             .tag(entry.url)
                             .contextMenu { menu(for: entry) }
                     }
@@ -54,6 +58,23 @@ struct SessionSidebar: View {
                                        description: Text("Recordings are saved to ~/Movies/ContextRecorder."))
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            RecordCard(startFromWindow: state.startFromWindow)
+        }
+        // A new recording shows up at the top of the list and is opened, so you see it live.
+        .onChange(of: state.recorder.recordingFolder) { _, folder in
+            guard let folder, state.recorder.isRecording else { return }
+            state.library.refresh()
+            state.selection = folder
+        }
+    }
+
+    private func status(of entry: SessionEntry) -> SessionRow.Status {
+        let r = state.recorder
+        if state.isLive(entry.url) { return .recording(r.elapsed) }
+        if r.processing.contains(entry.url) { return .processing }
+        if r.failed.contains(entry.url) { return .failed }
+        return entry.processed ? .ready : .unprocessed
     }
 
     @ViewBuilder private func menu(for entry: SessionEntry) -> some View {
@@ -61,12 +82,27 @@ struct SessionSidebar: View {
         if FileManager.default.fileExists(atPath: entry.url.appendingPathComponent("viewer.html").path) {
             Button("Open in Browser") { NSWorkspace.shared.open(entry.url.appendingPathComponent("viewer.html")) }
         }
+        if !state.isLive(entry.url) {
+            Button(entry.processed ? "Process Again" : "Process Now") { state.recorder.process(entry.url) }
+                .disabled(!state.recorder.canRecord || state.recorder.processing.contains(entry.url))
+        }
+        Divider()
         if state.library.isExternal(entry) {
-            Divider()
             Button("Remove from Library") {
                 if state.selection == entry.url { state.selection = nil }
                 state.library.remove(entry)
             }
+        } else if !state.isLive(entry.url) {
+            Button("Move to Trash", role: .destructive) {
+                NSWorkspace.shared.recycle([entry.url]) { _, error in
+                    if let error { NSLog("ContextRecorder: trash failed: \(error)"); return }
+                    Task { @MainActor in
+                        if state.selection == entry.url { state.selection = nil }
+                        state.library.refresh()
+                    }
+                }
+            }
+            .disabled(state.recorder.processing.contains(entry.url))
         }
     }
 
@@ -96,8 +132,9 @@ struct SessionSidebar: View {
 }
 
 struct SessionRow: View {
+    enum Status: Equatable { case recording(Double), processing, failed, unprocessed, ready }
     var entry: SessionEntry
-    var recording: Bool
+    var status: Status
 
     var body: some View {
         HStack(spacing: 10) {
@@ -106,7 +143,7 @@ struct SessionRow: View {
                 .clipShape(.rect(cornerRadius: 6))
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator.opacity(0.7), lineWidth: 0.5))
                 .overlay(alignment: .bottomTrailing) {
-                    if let d = entry.duration {
+                    if let d = liveElapsed ?? entry.duration {
                         Text(Format.time(d))
                             .font(.system(size: 9, weight: .semibold).monospacedDigit())
                             .foregroundStyle(.white)
@@ -117,9 +154,15 @@ struct SessionRow: View {
                 }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
-                    if recording {
+                    switch status {
+                    case .recording:
                         Circle().fill(.red).frame(width: 7, height: 7)
-                            .symbolEffect(.pulse)
+                    case .processing:
+                        ProgressView().controlSize(.mini)
+                    case .failed:
+                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundStyle(.orange)
+                    default:
+                        EmptyView()
                     }
                     Text(timeTitle)
                         .font(.system(size: 13, weight: .semibold))
@@ -142,15 +185,26 @@ struct SessionRow: View {
         .accessibilityElement(children: .combine)
     }
 
+    private var liveElapsed: Double? {
+        if case .recording(let t) = status { return t }
+        return nil
+    }
+
     private var timeTitle: String {
         guard let d = entry.date else { return entry.url.lastPathComponent }
         return d.formatted(date: .omitted, time: .shortened)
     }
 
     private var detail: String {
-        if recording { return "Recording…" }
-        if !entry.processed { return entry.markCount > 0 ? "Processing · \(entry.markCount) marks" : "Not processed" }
         let marks = entry.markCount
+        let count = marks == 1 ? "1 mark" : "\(marks) marks"
+        switch status {
+        case .recording: return "Recording…"
+        case .processing: return marks > 0 ? "Processing · \(count)" : "Processing…"
+        case .failed: return "Processing failed"
+        case .unprocessed: return marks > 0 ? "Not processed · \(count)" : "Not processed"
+        case .ready: break
+        }
         return marks == 0 ? "No marks" : (marks == 1 ? "1 mark" : "\(marks) marks")
     }
 }
