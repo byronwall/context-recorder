@@ -6,8 +6,10 @@ A macOS menu-bar app that records your screen while you use your apps. You mark 
 
 ```bash
 ./scripts/build-app.sh
-open build/ContextRecorder.app
+open /Applications/ContextRecorder.app
 ```
+
+The build script also installs the app to `/Applications`, so you can launch it from Spotlight or Raycast. Set `INSTALL_DIR=` (empty) to skip that step, or point it somewhere else such as `~/Applications`.
 
 | Hotkey | Action |
 | --- | --- |

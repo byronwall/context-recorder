@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Context Recorder Bridge",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Sends page context (clicked elements, console errors, failed requests) to the Context Recorder macOS app on localhost.",
   "background": {
     "service_worker": "background.js"

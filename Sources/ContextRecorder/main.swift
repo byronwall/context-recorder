@@ -240,7 +240,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if inChrome {
             snapshotReady.enter()
             let id = "m\(session.nextIndex())-\(Int(offset))"
-            bridge.request("snapshot", id: id, capturePage: true) { result in
+            bridge.request("snapshot", id: id, payload: Self.pointerPayload(context: context), capturePage: true) { result in
                 browser = result
                 if let result, result["error"] == nil {
                     browser = result.setting("pageFile", .string("pages/\(id).mhtml"))
@@ -306,13 +306,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Region in display points (top-left origin) + pointer position in the same space, so the page can
     /// line up screen and viewport coordinates.
     private static func regionPayload(region: CGRect?, context: MarkContext) -> [String: Any] {
+        let frame = NSScreen.main?.frame ?? .zero
+        let rect = region ?? CGRect(origin: .zero, size: frame.size)
+        var payload = pointerPayload(context: context)
+        payload["rect"] = ["x": rect.minX, "y": rect.minY, "width": rect.width, "height": rect.height]
+        return payload
+    }
+
+    /// Pointer position at keypress in display points (top-left origin) + backing scale, so the page can
+    /// find the element under the real pointer and convert screen coordinates to viewport coordinates.
+    private static func pointerPayload(context: MarkContext) -> [String: Any] {
         let screen = NSScreen.main
         let frame = screen?.frame ?? .zero
-        let rect = region ?? CGRect(origin: .zero, size: frame.size)
-        var payload: [String: Any] = [
-            "rect": ["x": rect.minX, "y": rect.minY, "width": rect.width, "height": rect.height],
-            "screenScale": screen?.backingScaleFactor ?? 2,
-        ]
+        var payload: [String: Any] = ["screenScale": screen?.backingScaleFactor ?? 2]
         if let m = context.mouse, let x = m["x"], let y = m["y"] {
             payload["mouseScreen"] = ["x": x - frame.minX, "y": frame.maxY - y]
         }

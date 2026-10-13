@@ -81,7 +81,9 @@
   }
 
   // Production builds minify component names ("Qs", "i$e"); keep only readable ones.
-  const isReadableName = (n) => /^[A-Z][A-Za-z0-9_.]{3,}$/.test(n);
+  // Library plumbing (routers, providers, Radix primitives) appears on every element and says nothing about the app.
+  const LIBRARY_NAME = /^(Location|Navigation|Router|BrowserRouter|Routes|Route|RenderedRoute|Outlet|DataRoutes|RouterProvider|Suspense|StrictMode|Fragment|Portal|Presence|Slot|SlotClone|Slottable|ErrorBoundary|Primitive\..*|.*Provider|.*Context|.*Consumer)$/;
+  const isReadableName = (n) => /^[A-Z][A-Za-z0-9_.]{3,}$/.test(n) && !LIBRARY_NAME.test(n);
 
   function componentChain(el) {
     const names = [];
@@ -349,10 +351,23 @@
 
   // ---------- snapshot on demand ----------
 
-  function snapshot() {
+  // The element under the real pointer: the app sends the pointer's screen position, which we map into the
+  // viewport. Falls back to the last mouseover target (stale after scrolling or leaving the page).
+  function elementUnderPointer(req) {
+    if (!req || !req.mouseScreen) return null;
+    const o = viewportOrigin({ mouseScreen: req.mouseScreen, screenScale: req.screenScale });
+    const x = (req.mouseScreen.x - o.x) / o.zoom;
+    const y = (req.mouseScreen.y - o.y) / o.zoom;
+    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return null;
+    return document.elementFromPoint(x, y);
+  }
+
+  function snapshot(req) {
     const active = document.activeElement;
     const selection = String(getSelection() || "").trim();
-    const hovered = describe(lastHover, { deep: true });
+    const underPointer = elementUnderPointer(req);
+    const hovered = describe(underPointer || lastHover, { deep: true });
+    if (hovered) hovered.via = underPointer ? "pointer" : "last-mouseover";
     const focused = active && active !== document.body ? describe(active, { deep: true }) : null;
     return {
       url: location.href,
@@ -371,9 +386,11 @@
   // ---------- elements inside a screen region ----------
   // req: { rect: {x,y,width,height} in screen points (top-left origin), mouseScreen: {x,y}|null, screenScale }
 
+  // Where the viewport's top-left sits on screen (points). Pointer pairing is only trusted when both positions
+  // were taken at the same moment (keypress); otherwise use window geometry (toolbar above the viewport).
   function viewportOrigin(req) {
     const zoom = req.screenScale ? devicePixelRatio / req.screenScale : 1;
-    const client = req.mouseClient || lastMouse;
+    const client = req.mouseClient;
     if (req.mouseScreen && client) {
       // Most robust: the pointer is in both coordinate spaces (handles toolbars, docked DevTools, etc.).
       return { x: req.mouseScreen.x - client.clientX * zoom, y: req.mouseScreen.y - client.clientY * zoom, zoom, method: "pointer" };
@@ -424,7 +441,7 @@
     };
   }
 
-  const HANDLERS = { snapshot: () => snapshot(), region: (payload) => regionElements(payload) };
+  const HANDLERS = { snapshot: (payload) => snapshot(payload), region: (payload) => regionElements(payload) };
 
   addEventListener("message", (e) => {
     if (e.source !== window || !e.data || e.data.source !== SRC_RELAY) return;
