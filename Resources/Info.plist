@@ -6,6 +6,10 @@
     <string>com.byronwall.ContextRecorder</string>
     <key>CFBundleName</key>
     <string>Context Recorder</string>
+    <key>CFBundleDisplayName</key>
+    <string>Context Recorder</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleExecutable</key>
     <string>ContextRecorder</string>
     <key>CFBundlePackageType</key>

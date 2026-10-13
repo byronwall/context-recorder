@@ -6,7 +6,7 @@ A macOS menu-bar app that records your screen while you use your apps. You mark 
 
 ```bash
 ./scripts/build-app.sh
-open /Applications/ContextRecorder.app
+open "/Applications/Context Recorder.app"
 ```
 
 The build script also installs the app to `/Applications`, so you can launch it from Spotlight or Raycast. Set `INSTALL_DIR=` (empty) to skip that step, or point it somewhere else such as `~/Applications`.
@@ -125,6 +125,7 @@ Delete `transcript.json` first if you want the audio transcribed again.
 - `Sources/ContextRecorder/Library/`: the Sessions window (SwiftUI, macOS 26). `SessionLibrary` scans the folders, `SessionModel` owns one open session and its player, `SessionData` decodes `session.json`, `MarkText` builds titles and the Markdown.
 - `scripts/process_session.py`: post-processing (ffmpeg, parakeet-mlx). Standard library only.
 - `scripts/viewer.html`: viewer template. The session data gets embedded in it.
+- `scripts/make-icon.swift`: draws the app icon and writes `Resources/AppIcon.icns` (`swift scripts/make-icon.swift`).
 
 Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `parakeet-mlx` on the login-shell `PATH`.
 
