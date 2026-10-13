@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Session Viewer</title>
+<style>
+:root {
+  --bg: #0e1013; --panel: #161a1f; --panel-2: #1d2228; --line: #2a3038; --text: #e6e9ee; --muted: #8b95a3;
+  --accent: #5aa7ff; --mark: #ffb547; --shot: #6ee7a8; --now: #ff5d6c;
+  --radius: 8px; --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #f4f5f7; --panel: #ffffff; --panel-2: #f0f2f5; --line: #dde1e7; --text: #16191d; --muted: #5f6977;
+          --accent: #1d6fd6; --mark: #c97a00; --shot: #148a55; --now: #d92d40; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+button { font: inherit; color: inherit; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+a { color: var(--accent); }
+
+.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 14px; margin: 0; font-weight: 600; }
+header .stats { color: var(--muted); }
+header .spacer { flex: 1; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; min-height: 0; }
+.stage { display: flex; flex-direction: column; min-height: 0; padding: 12px 16px; gap: 10px; overflow: auto; }
+video { width: 100%; max-height: 62vh; background: #000; border-radius: var(--radius); }
+
+.timeline { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; user-select: none; }
+.lane { position: relative; height: 22px; margin: 4px 0; border-radius: 4px; background: var(--panel-2); cursor: pointer; }
+.lane-label { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.seg { position: absolute; top: 0; bottom: 0; border-right: 1px solid var(--bg); overflow: hidden; white-space: nowrap; font-size: 10px; padding: 3px 4px; color: #fff; text-overflow: ellipsis; }
+.pin { position: absolute; top: -2px; width: 10px; height: 26px; margin-left: -5px; border-radius: 3px; cursor: pointer; border: 2px solid var(--panel); }
+.pin.mark { background: var(--mark); } .pin.screenshot { background: var(--shot); }
+.pin.sel { outline: 2px solid var(--text); }
+.tick { position: absolute; top: 4px; bottom: 4px; width: 2px; background: var(--accent); opacity: .55; }
+.playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--now); pointer-events: none; }
+.ruler { display: flex; justify-content: space-between; color: var(--muted); font: 10px var(--mono); margin-top: 2px; }
+
+.now { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; min-width: 0; }
+.card h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.kv { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 2px 8px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; }
+.said { font-size: 14px; }
+.empty { color: var(--muted); font-style: italic; }
+
+aside { border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+.tabs { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.list { overflow: auto; flex: 1; padding: 8px; }
+.item { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; padding: 8px; border-radius: var(--radius); cursor: pointer; border: 1px solid transparent; }
+.item:hover { background: var(--panel-2); }
+.item.sel { border-color: var(--accent); background: var(--panel-2); }
+.item img { width: 112px; height: 70px; object-fit: cover; border-radius: 4px; background: #000; }
+.item .meta { min-width: 0; }
+.item .top { display: flex; gap: 6px; align-items: center; font: 11px var(--mono); color: var(--muted); }
+.badge { font: 10px var(--mono); padding: 0 5px; border-radius: 3px; color: #111; }
+.badge.mark { background: var(--mark); } .badge.screenshot { background: var(--shot); }
+.item .title { font-weight: 600; margin: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail { grid-column: 1 / -1; display: none; }
+.item.sel .detail { display: block; }
+.detail img { width: 100%; height: auto; object-fit: contain; cursor: zoom-in; margin: 6px 0; }
+.detail blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 4px; }
+.detail .actions { display: flex; gap: 6px; margin-top: 6px; }
+.row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+.row:hover { background: var(--panel-2); }
+.row.cur { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.row .t { font: 11px var(--mono); color: var(--muted); padding-top: 1px; }
+.row .sub { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 10; cursor: zoom-out; }
+.lightbox.open { display: flex; }
+.lightbox img { max-width: 96vw; max-height: 96vh; }
+.keys { color: var(--muted); font-size: 11px; }
+kbd { font: 10px var(--mono); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+
+@media (max-width: 900px) {
+  .main { grid-template-columns: 1fr; }
+  aside { border-left: 0; border-top: 1px solid var(--line); min-height: 60vh; }
+  .now { grid-template-columns: 1fr; }
+  .app { height: auto; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 id="name">Session</h1>
+    <span class="stats" id="stats"></span>
+    <span class="spacer"></span>
+    <span class="keys"><kbd>space</kbd> play · <kbd>j</kbd>/<kbd>k</kbd> marks · <kbd>←</kbd>/<kbd>→</kbd> 5s</span>
+    <button id="copyAll">Copy all as Markdown</button>
+  </header>
+  <div class="main">
+    <section class="stage">
+      <video id="video" src="recording.mp4" controls preload="metadata"></video>
+      <div class="timeline" id="timeline">
+        <div class="lane-label">Marks</div>
+        <div class="lane" id="laneMarks"></div>
+        <div class="lane-label">Active app</div>
+        <div class="lane" id="laneApps"></div>
+        <div class="lane-label" id="speechLabel">Narration</div>
+        <div class="lane" id="laneSpeech"></div>
+        <div class="ruler" id="ruler"></div>
+      </div>
+      <div class="now">
+        <div class="card"><h3>On screen now</h3><dl class="kv" id="nowCtx"></dl></div>
+        <div class="card"><h3>Said now</h3><div class="said" id="nowSaid"></div></div>
+      </div>
+    </section>
+    <aside>
+      <div class="tabs">
+        <button data-tab="marks" class="on">Marks</button>
+        <button data-tab="transcript">Transcript</button>
+        <button data-tab="activity">Activity</button>
+        <span class="spacer" style="flex:1"></span>
+        <button data-filter="all" class="on">All</button>
+        <button data-filter="screenshot">📸</button>
+        <button data-filter="mark">🚩</button>
+      </div>
+      <div class="list" id="list"></div>
+    </aside>
+  </div>
+</div>
+<div class="lightbox" id="lightbox"><img alt=""></div>
+
+<script>
+const DATA = /*__SESSION_DATA__*/null;
+const $ = (s) => document.querySelector(s);
+const video = $("#video");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const hue = (str) => { let h = 0; for (const c of str || "") h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const appColor = (name) => `hsl(${hue(name)} 55% 42%)`;
+
+let tab = "marks", filter = "all", selected = null;
+const marks = DATA.marks || [];
+const activity = DATA.activity || [];
+const transcript = DATA.transcript || [];
+let duration = DATA.duration || Math.max(1, ...marks.map((m) => m.offsetSeconds + 5));
+
+const pct = (t) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%`;
+const titleOf = (m) => {
+  const said = (m.narration || "").split("⚑")[0].trim();
+  const last = said.split(/(?<=[.!?])\s+/).filter(Boolean).pop();
+  return last || m.context?.browserTitle || m.context?.windowTitle || m.context?.appName || `Mark ${m.index}`;
+};
+const contextAt = (t) => { let cur = activity[0]; for (const a of activity) { if (a.offsetSeconds <= t) cur = a; else break; } return cur?.context; };
+const sentenceAt = (t) => transcript.find((s) => t >= s.start - 0.2 && t <= s.end + 0.6);
+
+function kv(ctx) {
+  if (!ctx) return `<span class="empty">No context recorded</span>`;
+  const rows = [["App", ctx.appName], ["Window", ctx.windowTitle], ["URL", ctx.browserURL && `<a href="${esc(ctx.browserURL)}" target="_blank">${esc(ctx.browserURL)}</a>`], ["Page", ctx.browserTitle]];
+  return rows.filter(([, v]) => v).map(([k, v]) => `<dt>${k}</dt><dd>${k === "URL" ? v : esc(v)}</dd>`).join("");
+}
+
+function markdownFor(m) {
+  const c = m.context || {};
+  return [
+    `## ${String(m.index).padStart(3, "0")} · ${fmt(m.offsetSeconds)} · ${titleOf(m)}`,
+    "", `![mark ${m.index}](${m.image})`, "",
+    m.narration ? `> ${m.narration}\n` : "",
+    c.appName && `- **App:** ${c.appName} (\`${c.bundleID}\`)`,
+    c.windowTitle && `- **Window:** ${c.windowTitle}`,
+    c.browserURL && `- **URL:** ${c.browserURL}`,
+    c.browserTitle && `- **Page title:** ${c.browserTitle}`,
+    `- **Video:** \`${DATA.folder}/recording.mp4\` @ ${m.offsetSeconds.toFixed(1)}s`,
+  ].filter((x) => x !== undefined && x !== null && x !== false).join("\n");
+}
+
+function renderHeader() {
+  document.title = `Session ${DATA.name}`;
+  $("#name").textContent = DATA.name;
+  const shots = marks.filter((m) => m.kind === "screenshot").length;
+  const apps = new Set(activity.map((a) => a.context?.appName)).size;
+  $("#stats").textContent = `${fmt(duration)} · ${marks.length} marks (${shots} screenshots) · ${apps} apps · ${transcript.length ? `${transcript.length} spoken lines` : "silent"}`;
+}
+
+function renderTimeline() {
+  $("#laneMarks").innerHTML = marks.map((m) =>
+    `<div class="pin ${m.kind} ${selected === m.index ? "sel" : ""}" data-mark="${m.index}" style="left:${pct(m.offsetSeconds)}" title="${esc(fmt(m.offsetSeconds) + " · " + titleOf(m))}"></div>`).join("") + `<div class="playhead" style="left:${pct(video.currentTime)}"></div>`;
+  $("#laneApps").innerHTML = activity.map((a, i) => {
+    const end = activity[i + 1]?.offsetSeconds ?? duration;
+    const c = a.context || {};
+    const tip = [c.appName, c.windowTitle, c.browserURL].filter(Boolean).join("\n");
+    return `<div class="seg" style="left:${pct(a.offsetSeconds)};width:calc(${pct(end - a.offsetSeconds)});background:${appColor(c.appName)}" title="${esc(tip)}">${esc(c.appName)}</div>`;
+  }).join("") + `<div class="playhead" style="left:${pct(video.currentTime)}"></div>`;
+  const speech = $("#laneSpeech");
+  $("#speechLabel").style.display = speech.style.display = transcript.length ? "" : "none";
+  speech.innerHTML = transcript.map((s) => `<div class="seg" style="left:${pct(s.start)};width:${pct(s.end - s.start)};background:var(--accent);opacity:.6" title="${esc(s.text)}"></div>`).join("") + `<div class="playhead" style="left:${pct(video.currentTime)}"></div>`;
+  const n = 6;
+  $("#ruler").innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${fmt((duration * i) / n)}</span>`).join("");
+}
+
+function renderList() {
+  const list = $("#list");
+  if (tab === "marks") {
+    const shown = marks.filter((m) => filter === "all" || m.kind === filter);
+    list.innerHTML = shown.length ? shown.map((m) => {
+      const c = m.context || {};
+      return `<div class="item ${selected === m.index ? "sel" : ""}" data-mark="${m.index}">
+        <img src="${esc(m.image)}" alt="" loading="lazy">
+        <div class="meta">
+          <div class="top"><span class="badge ${m.kind}">${m.kind === "screenshot" ? "SHOT" : "MARK"}</span>#${m.index} · ${fmt(m.offsetSeconds)}</div>
+          <div class="title">${esc(titleOf(m))}</div>
+          <div class="sub">${esc(c.browserURL || c.windowTitle || c.appName || "")}</div>
+        </div>
+        <div class="detail">
+          <img src="${esc(m.image)}" alt="Mark ${m.index}" data-zoom>
+          ${m.narration ? `<blockquote>${esc(m.narration)}</blockquote>` : ""}
+          <dl class="kv">${kv(c)}</dl>
+          <div class="actions"><button data-copy="${m.index}">Copy Markdown</button><button data-play="${m.index}">Play from 5s before</button></div>
+        </div>
+      </div>`;
+    }).join("") : `<p class="empty" style="padding:12px">No marks yet. Press ⌃⌥M or ⌃⌥S while recording.</p>`;
+  } else if (tab === "transcript") {
+    list.innerHTML = transcript.length ? transcript.map((s, i) =>
+      `<div class="row" data-seek="${s.start}" data-sent="${i}"><span class="t">${fmt(s.start)}</span><span>${esc(s.text)}</span></div>`).join("")
+      : `<p class="empty" style="padding:12px">Silent recording: no narration.</p>`;
+  } else {
+    list.innerHTML = activity.map((a) => {
+      const c = a.context || {};
+      return `<div class="row" data-seek="${a.offsetSeconds}"><span class="t">${fmt(a.offsetSeconds)}</span><span><span class="swatch" style="background:${appColor(c.appName)}"></span>${esc(c.appName)}<div class="sub">${esc(c.browserURL || c.windowTitle || "")}</div></span></div>`;
+    }).join("") || `<p class="empty" style="padding:12px">No activity recorded.</p>`;
+  }
+}
+
+function renderNow() {
+  const t = video.currentTime;
+  $("#nowCtx").innerHTML = kv(contextAt(t));
+  const s = sentenceAt(t);
+  $("#nowSaid").innerHTML = transcript.length ? (s ? esc(s.text) : `<span class="empty">…</span>`) : `<span class="empty">Silent recording</span>`;
+  document.querySelectorAll(".playhead").forEach((p) => (p.style.left = pct(t)));
+  if (tab === "transcript") {
+    const idx = transcript.indexOf(s);
+    document.querySelectorAll(".row.cur").forEach((r) => r.classList.remove("cur"));
+    const row = document.querySelector(`.row[data-sent="${idx}"]`);
+    if (row) row.classList.add("cur");
+  }
+}
+
+function select(index, { seek = true, scroll = true } = {}) {
+  selected = index;
+  const m = marks.find((x) => x.index === index);
+  if (m && seek) { video.pause(); video.currentTime = m.offsetSeconds; }
+  renderTimeline(); renderNow();
+  // Toggle classes rather than re-rendering so images don't reload and flicker.
+  document.querySelectorAll(".item[data-mark]").forEach((el) => el.classList.toggle("sel", +el.dataset.mark === index));
+  if (scroll) document.querySelector(`.item[data-mark="${index}"]`)?.scrollIntoView({ block: "nearest" });
+}
+
+function step(dir) {
+  const t = video.currentTime;
+  const sorted = [...marks].sort((a, b) => a.offsetSeconds - b.offsetSeconds);
+  const next = dir > 0 ? sorted.find((m) => m.offsetSeconds > t + 0.3) : [...sorted].reverse().find((m) => m.offsetSeconds < t - 0.3);
+  if (next) { if (tab !== "marks") setTab("marks"); select(next.index); }
+}
+
+function setTab(t) {
+  tab = t;
+  document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
+  document.querySelectorAll("[data-filter]").forEach((b) => (b.style.display = t === "marks" ? "" : "none"));
+  renderList(); renderNow();
+}
+
+async function copy(text, btn) {
+  try { await navigator.clipboard.writeText(text); } catch { const ta = Object.assign(document.createElement("textarea"), { value: text }); document.body.append(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+  if (btn) { const old = btn.textContent; btn.textContent = "Copied"; setTimeout(() => (btn.textContent = old), 900); }
+}
+
+document.addEventListener("click", (e) => {
+  const el = e.target;
+  if (el.matches("[data-tab]")) return setTab(el.dataset.tab);
+  if (el.matches("[data-filter]")) {
+    filter = el.dataset.filter;
+    document.querySelectorAll("[data-filter]").forEach((b) => b.classList.toggle("on", b === el));
+    return renderList();
+  }
+  if (el.matches("[data-zoom]")) { $("#lightbox img").src = el.src; return $("#lightbox").classList.add("open"); }
+  if (el.closest("#lightbox")) return $("#lightbox").classList.remove("open");
+  if (el.matches("[data-copy]")) return copy(markdownFor(marks.find((m) => m.index === +el.dataset.copy)), el);
+  if (el.matches("[data-play]")) { const m = marks.find((x) => x.index === +el.dataset.play); video.currentTime = Math.max(0, m.offsetSeconds - 5); return video.play(); }
+  if (el.id === "copyAll") return copy(`# Session ${DATA.name}\n\n` + marks.map(markdownFor).join("\n\n"), el);
+  const pin = el.closest("[data-mark]");
+  if (pin && !el.closest(".detail")) return select(+pin.dataset.mark, { scroll: !!pin.classList.contains("pin") });
+  const row = el.closest("[data-seek]");
+  if (row) { video.currentTime = +row.dataset.seek; return renderNow(); }
+  const lane = el.closest(".lane");
+  if (lane) { const r = lane.getBoundingClientRect(); video.currentTime = ((e.clientX - r.left) / r.width) * duration; renderNow(); }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input, textarea")) return;
+  if (e.key === "Escape") $("#lightbox").classList.remove("open");
+  else if (e.key === " " && e.target !== video) { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+  else if (e.key === "j") step(1);
+  else if (e.key === "k") step(-1);
+  else if (e.key === "ArrowRight" && e.target !== video) video.currentTime += 5;
+  else if (e.key === "ArrowLeft" && e.target !== video) video.currentTime -= 5;
+});
+
+video.addEventListener("timeupdate", renderNow);
+video.addEventListener("seeked", renderNow);
+video.addEventListener("loadedmetadata", () => { if (isFinite(video.duration)) { duration = video.duration; renderTimeline(); } });
+
+renderHeader(); renderTimeline(); setTab("marks");
+</script>
+</body>
+</html>
