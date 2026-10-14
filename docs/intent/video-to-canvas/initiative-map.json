@@ -1,0 +1,663 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Video to canvas",
+    "slug": "video-to-canvas",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-13",
+    "summary": "Turn a narrated screen recording into a spatial, source-linked canvas reviewed in the portable HTML viewer; storyboard first, verified scroll joining second.",
+    "status": "planned",
+    "next_action": "Start M1 when implementation is requested"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    }
+  },
+  "sources": [
+    {
+      "id": "SRC-001",
+      "type": "direct-user-input",
+      "location": "sources/intent-brief.md",
+      "anchor": "Desired outcome; Experiences to preserve",
+      "authority": "direct current intent",
+      "supports": [
+        "INT-001",
+        "INT-002",
+        "INT-003",
+        "INT-004",
+        "INT-005"
+      ]
+    },
+    {
+      "id": "SRC-002",
+      "type": "external-research",
+      "location": "sources/pro-output/video-to-canvas-report.md",
+      "anchor": "ChatGPT Pro report, recommendations VC-01..VC-09",
+      "authority": "implementation research",
+      "supports": [
+        "INT-006",
+        "SHAPE-001"
+      ]
+    },
+    {
+      "id": "SRC-003",
+      "type": "accepted-decision",
+      "location": "sources/research-review.md",
+      "anchor": "Recommendation decisions",
+      "authority": "reviewed research decisions",
+      "supports": [
+        "INT-006",
+        "INT-007",
+        "INT-008"
+      ]
+    },
+    {
+      "id": "SRC-004",
+      "type": "proposed-design",
+      "location": "sources/design.md and sources/proof-plan.md",
+      "anchor": "First proof; Repository fit; Decide whether to continue",
+      "authority": "prior proposal",
+      "supports": [
+        "SHAPE-001"
+      ]
+    },
+    {
+      "id": "SRC-005",
+      "type": "repository",
+      "location": "scripts/process_session.py (write_viewer, extract_frame), scripts/viewer.html (DATA, video)",
+      "anchor": "6c74158",
+      "authority": "current implementation reality",
+      "supports": [
+        "REAL-001",
+        "REAL-002",
+        "REAL-003"
+      ]
+    },
+    {
+      "id": "SRC-006",
+      "type": "external-primary-documentation",
+      "location": "OpenCV motion API, FFmpeg showinfo, opencv-python-headless 4.14.0.94, scrollsnap",
+      "anchor": "checked 2026-10-13 in sources/research-review.md",
+      "authority": "implementation research",
+      "supports": [
+        "DEP-001",
+        "DEP-002"
+      ]
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "3",
+      "authority": "direct current intent"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "INT-001",
+        "type": "outcome",
+        "statement": "A narrated recording becomes a canvas explored in space, with every part linked back to its source video moment.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-002",
+        "type": "required-behavior",
+        "statement": "Displayed pixels come from real frames at known times; unobserved areas are never filled and different moments are never blended across text.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-001",
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "INT-003",
+        "type": "scope",
+        "statement": "Primary case is a narrated product walkthrough over scrolling static content; lecture is second; general video is a research question.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-004",
+        "type": "experience",
+        "statement": "Changed states sit to the right, frequent changes collapse into stacks, motion plays in place, returns are linked, narration sits near its visit, and large regions can be captured.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "later",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-005",
+        "type": "implementation-hypothesis",
+        "statement": "Fixed 1/5/10 second sampling intervals.",
+        "commitment": "illustrative",
+        "importance": "supporting",
+        "status": "superseded",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-006",
+        "type": "constraint",
+        "statement": "First version needs no browser instrumentation, cloud service, or new frontend stack; analysis is offline and on request.",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-002",
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "INT-007",
+        "type": "constraint",
+        "statement": "The canvas must beat ordinary video and a change-selected storyboard on real tasks, or the simpler view wins.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "superseded",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "INT-008",
+        "type": "decision",
+        "statement": "The portable HTML viewer is the first surface; native SwiftUI waits for proven value.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "superseded",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "REAL-001",
+        "type": "current-repository-reality",
+        "statement": "process_session.py already embeds session data into viewer.html via write_viewer and uses ffmpeg/ffprobe.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "current",
+        "sources": [
+          "SRC-005"
+        ]
+      },
+      {
+        "id": "REAL-002",
+        "type": "current-repository-reality",
+        "statement": "Mark images and browser event offsets are not exact frame-exposure times; extract_frame discards actual output time.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "current",
+        "sources": [
+          "SRC-005"
+        ]
+      },
+      {
+        "id": "REAL-003",
+        "type": "current-repository-reality",
+        "statement": "No test suite or tracked sample recording; OpenCV is not installed locally; FFmpeg is.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "current",
+        "sources": [
+          "SRC-005"
+        ]
+      },
+      {
+        "id": "INT-009",
+        "type": "decision",
+        "statement": "The first canvas surface is the native Sessions window, not viewer.html.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "INT-010",
+        "type": "priority",
+        "statement": "Lead job: find content passed through faster than scrubbing; sole user is Byron.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "INT-011",
+        "type": "scope",
+        "statement": "First slice: tall column per scrolled page left to right; changes, returns, and motion are plain cards. Recordings under 5 minutes. Built on request.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "qa-round-2"
+        ]
+      },
+      {
+        "id": "INT-012",
+        "type": "scope",
+        "statement": "First version includes copy/export of a column PNG and adding a review mark from canvas content; narration uses the existing now strip and inspector; continuation decided by personal use.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "qa-round-3"
+        ]
+      }
+    ],
+    "themes": [
+      "time into space",
+      "source truth",
+      "beat the simpler storyboard",
+      "offline and optional"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Experiment-sized slice for recordings under 5 minutes in the native Sessions window; enough for Byron to judge from own use whether spatial review beats scrubbing.",
+    "problem": "Ordinary video review hides how much content was traversed, where it changed, and what was said about it.",
+    "recommended_shape": {
+      "summary": "Canvas stage mode in the Sessions window, built on request with one manual content box: storyboard cards first, then tall verified columns, with click-to-video, hover narration via existing now strip, column PNG export, and mark-from-canvas.",
+      "selected_option": null,
+      "provisional_choices": [
+        "Python+OpenCV vs Apple Vision engine",
+        "scrollsnap reuse"
+      ]
+    },
+    "success_moves": [
+      "Ship the storyboard in Canvas mode first; it is the refusal fallback and a useful result if stitching fails.",
+      "Develop joining against synthetic scroll clips cut from tall screenshots with FFmpeg so every offset is known exactly.",
+      "Burn a frame counter into synthetic clips to verify click-to-video lands on the true source frame.",
+      "Keep canvas.json + canvas/ as the single engine-neutral seam read by SessionModel; absent or mismatched data leaves the Sessions window unchanged.",
+      "Decide Python+OpenCV vs Apple Vision with one bake-off on the same fixtures, then keep only one engine.",
+      "Reuse RegionPicker, SessionModel.seek, NowStrip, and addReviewShot instead of new UI paths."
+    ],
+    "first_proof": {
+      "question": "Can verified joining reconstruct scrolled content with zero false joins, and do scripted walkthroughs produce readable columns that click back to the right frame?",
+      "artifact": "Synthetic fixture suite plus 2-3 scripted recordings under 5 minutes in Canvas mode.",
+      "decision_rule": "Use it on own sessions if synthetic p95 <= 2 px with zero false joins and scripted clips yield readable columns; otherwise keep the storyboard and stop stitching."
+    },
+    "rabbit_holes": [
+      "general video support",
+      "DOM replay or scroll instrumentation",
+      "return detection",
+      "long-session tiling",
+      "HTML viewer canvas",
+      "maintaining two analysis engines"
+    ],
+    "open_decisions": [
+      "engine-bakeoff"
+    ]
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "context-recorder",
+      "revision": "6c74158ca96abd36819d2a58f75bacdc44107bb0",
+      "worktree_status": "clean before this run",
+      "subsystems": [
+        "Sources/ContextRecorder/Library/SessionView.swift (Stage, RegionPicker, NowStrip)",
+        "Sources/ContextRecorder/Library/SessionModel.swift (player, seek)",
+        "Sources/ContextRecorder/Library/Review.swift (addReviewShot, reprocess)",
+        "scripts/analyze_canvas.py (proposed)",
+        "scripts/canvas/ fixtures and tests (proposed)"
+      ],
+      "test_commands": [
+        "python3 scripts/canvas/test_canvas.py (proposed)",
+        "swift build"
+      ],
+      "deployment_surfaces": [
+        "local app build via scripts/build-app.sh",
+        "session folder canvas.json + canvas/"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "DEP-001",
+        "name": "Stitching engine (Python+OpenCV or Apple Vision)",
+        "material": true,
+        "application_seam": "canvas.json written by the analyzer, read by SessionModel",
+        "semantic_contract": [
+          "estimate translation",
+          "verify overlap",
+          "refuse with reason"
+        ],
+        "failure_modes": [
+          "false join on repeated text",
+          "fixed header bias",
+          "cursor motion",
+          "insufficient overlap",
+          "install incompatibility"
+        ],
+        "proof_rungs": [
+          "deterministic-fake",
+          "contract-test",
+          "live-sandbox"
+        ],
+        "local_proof": "Synthetic FFmpeg-cut scroll clips with known offsets, same contract for both candidates.",
+        "live_proof": "2-3 scripted recordings, then own sessions.",
+        "rollout": "Bake-off in M2; keep one engine; analyzer runs only on request.",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Joining accuracy is the core uncertainty; exercised on synthetic clips with exact ground truth."
+        }
+      },
+      {
+        "id": "DEP-002",
+        "name": "FFmpeg decode timing (showinfo)",
+        "material": true,
+        "application_seam": "frame index in canvas.json",
+        "semantic_contract": [
+          "frame number",
+          "presentation time",
+          "time base",
+          "size"
+        ],
+        "failure_modes": [
+          "irregular frame gaps",
+          "seek lands on neighbor frame",
+          "first/last frame offsets"
+        ],
+        "proof_rungs": [
+          "deterministic-fake",
+          "live-sandbox"
+        ],
+        "local_proof": "Synthetic clip with burned-in frame counter.",
+        "live_proof": "Spot-check seeks on a real recording.",
+        "rollout": "Already a project dependency.",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Already installed and used; mapping is verified directly in M1."
+        }
+      }
+    ],
+    "fast_local_loop": {
+      "command": "python3 scripts/canvas/test_canvas.py",
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "dependencies_started": [],
+      "failure_injection": [
+        "generated fixtures: fixed header, cursor, repeated rows, blank gap, fast jump, mid-scroll edit"
+      ],
+      "slower_confirmation": "swift build and Canvas mode on scripted recordings."
+    },
+    "milestones": [
+      {
+        "id": "M1",
+        "title": "Storyboard in Canvas mode",
+        "outcome": "Build canvas + content box produce change cards in a Canvas stage mode; click returns to video at the exact frame.",
+        "dependencies_introduced": [],
+        "proof": "Burned-in counter matches card frame after click; synthetic change clip yields expected cards.",
+        "valid_intermediate_state": "Useful storyboard; sessions without canvas unchanged.",
+        "rollback": "Delete canvas.json and canvas/.",
+        "status": "planned"
+      },
+      {
+        "id": "M2",
+        "title": "Engine choice and joining on fake clips",
+        "outcome": "One engine chosen; joins verified or refused with reasons.",
+        "dependencies_introduced": [
+          "DEP-001"
+        ],
+        "proof": "Fixture suite: p95 <= 2 px, zero false joins, refusal on every jump/edit fixture.",
+        "valid_intermediate_state": "Storyboard still works; joining validated offline.",
+        "rollback": "Disable joining; storyboard only.",
+        "status": "planned"
+      },
+      {
+        "id": "M3",
+        "title": "Tall columns in Canvas mode",
+        "outcome": "Scripted clips show readable columns with cards between; every point clicks to its source frame.",
+        "dependencies_introduced": [],
+        "proof": "Click-to-frame spot checks and seam inspection.",
+        "valid_intermediate_state": "Canvas usable on short real recordings.",
+        "rollback": "Storyboard only.",
+        "status": "planned"
+      },
+      {
+        "id": "M4",
+        "title": "Export a column and mark from the canvas",
+        "outcome": "Columns copy/export as PNG; canvas selection creates a normal review mark.",
+        "dependencies_introduced": [],
+        "proof": "Mark time and crop match selection and survive reprocess.",
+        "valid_intermediate_state": "Extras on existing paths.",
+        "rollback": "Hide menu items.",
+        "status": "planned"
+      },
+      {
+        "id": "M5",
+        "title": "Decide from real use",
+        "outcome": "Go/narrow/stop decision recorded from own sessions.",
+        "dependencies_introduced": [],
+        "proof": "Written judgment in the initiative map.",
+        "valid_intermediate_state": "Decision recorded; storyboard kept regardless.",
+        "rollback": "Keep storyboard.",
+        "status": "planned"
+      }
+    ],
+    "cut_line": [
+      "changed states beside earlier states",
+      "return arrows",
+      "motion posters and stacks",
+      "automatic content-area detection",
+      "long-session tiling",
+      "lecture mode",
+      "Product Grid canvas export",
+      "HTML viewer canvas",
+      "browser scroll instrumentation",
+      "token-level transcript alignment"
+    ],
+    "open_decisions": [
+      "engine-bakeoff"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-13",
+      "phase": "intent",
+      "change": "Prior research (intent brief, Pro report, design, proof plan, review) moved from docs/research/video-to-canvas to sources/ and reconciled into a sleuth intent brief."
+    },
+    {
+      "date": "2026-10-13",
+      "phase": "shape",
+      "change": "Reordered proof: storyboard first as baseline and fallback; synthetic ground-truth clips before real footage."
+    },
+    {
+      "date": "2026-10-13",
+      "phase": "plan",
+      "change": "Four milestones with one new dependency (OpenCV) isolated in M2 and a go/no-go in M4."
+    },
+    {
+      "date": "2026-10-13",
+      "phase": "shape",
+      "change": "Three question rounds moved the surface to the native Sessions window (Canvas stage mode), set scope to <5 min recordings on request, added column PNG export and mark-from-canvas, replaced timed comparison with personal-use judgment, and added an engine bake-off."
+    }
+  ],
+  "closure": null,
+  "question_rounds": {
+    "focus": "scope before shaping",
+    "per_round": 5,
+    "planned_rounds": 3,
+    "status": "complete",
+    "rounds": [
+      {
+        "round": 1,
+        "theme": "goals and stakes",
+        "source": "qa-round-1",
+        "questions": [
+          {
+            "n": 1,
+            "question": "Which job should the first version do best?",
+            "answer": "See what I passed through",
+            "effect": "Navigation/finding content leads; changed-state comparison and capture become secondary."
+          },
+          {
+            "n": 2,
+            "question": "Who uses the canvas besides you?",
+            "answer": "Only me",
+            "effect": "Personal tool; portability and self-explanation drop in priority."
+          },
+          {
+            "n": 3,
+            "question": "Where should the canvas appear?",
+            "answer": "Native Sessions window",
+            "effect": "Conflicts with HTML-viewer-first plan; surface moves to SwiftUI."
+          },
+          {
+            "n": 4,
+            "question": "Manual viewport selection once per recording OK?",
+            "answer": "Yes",
+            "effect": "HQ-001 resolved; auto detection stays a later spike."
+          },
+          {
+            "n": 5,
+            "question": "What footage can the proof use?",
+            "answer": "Purpose-made clips are fine",
+            "effect": "HQ-002 resolved."
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "theme": "behavior and limits",
+        "source": "qa-round-2",
+        "questions": [
+          {
+            "n": 6,
+            "question": "Where in the Sessions window should the canvas live?",
+            "answer": "Replaces the stage (toggle); clicking content flips back to video at that moment",
+            "effect": "Canvas is a stage mode in SessionView, sharing SessionModel.player/seek."
+          },
+          {
+            "n": 7,
+            "question": "When should the canvas be built?",
+            "answer": "On request per session",
+            "effect": "Build action with content-box selection; never automatic."
+          },
+          {
+            "n": 8,
+            "question": "Typical recording length?",
+            "answer": "Under 5 minutes",
+            "effect": "Tiling and long-session memory work below the cut line."
+          },
+          {
+            "n": 9,
+            "question": "Python OpenCV vs in-app Swift/Vision?",
+            "answer": "Whichever proves better",
+            "effect": "Add an engine bake-off spike on synthetic clips; keep one engine."
+          },
+          {
+            "n": 10,
+            "question": "Core = tall column per scrolled page, other transitions as cards?",
+            "answer": "Yes",
+            "effect": "Changed-state layout, returns, motion below the cut line for the first slice."
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "theme": "boundaries and confirmation",
+        "source": "qa-round-3",
+        "questions": [
+          {
+            "n": 11,
+            "question": "Storyboard first, or straight to stitching?",
+            "answer": "Storyboard first",
+            "effect": "Keeps M1 storyboard as baseline and refusal fallback."
+          },
+          {
+            "n": 12,
+            "question": "Where should narration show in canvas mode?",
+            "answer": "Existing now strip + inspector",
+            "effect": "No new transcript UI; hover/selection drives existing sentence display."
+          },
+          {
+            "n": 13,
+            "question": "How to decide whether to continue?",
+            "answer": "My judgment on real use",
+            "effect": "Replaces timed task comparison with personal use on own sessions."
+          },
+          {
+            "n": 14,
+            "question": "Extras in first version?",
+            "answer": "Copy/export a column image; Mark from the canvas",
+            "effect": "Adds PNG copy/export of a column and creating a review mark at a selected patch source time."
+          }
+        ]
+      }
+    ]
+  }
+}

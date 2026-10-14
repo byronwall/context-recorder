@@ -118,11 +118,11 @@ These paths describe future work. This research PR does not create the analyzer.
 
 | Current file | Proposed role |
 | --- | --- |
-| [process_session.py](../../../scripts/process_session.py) | Embed valid canvas data into the existing viewer output. |
-| [viewer.html](../../../scripts/viewer.html) | First canvas interaction, using the existing video element and timeline. |
-| [SessionModel.swift](../../../Sources/ContextRecorder/Library/SessionModel.swift) | Later native view shares the current player and `seek` function. |
-| [Review.swift](../../../Sources/ContextRecorder/Library/Review.swift) | Note changes keep their existing processing path; they must not rerun video analysis. |
-| [PgmExport.swift](../../../Sources/ContextRecorder/Export/PgmExport.swift) | Later composite export requires its own image and source-map meaning. |
+| [process_session.py](../../../../scripts/process_session.py) | Embed valid canvas data into the existing viewer output. |
+| [viewer.html](../../../../scripts/viewer.html) | First canvas interaction, using the existing video element and timeline. |
+| [SessionModel.swift](../../../../Sources/ContextRecorder/Library/SessionModel.swift) | Later native view shares the current player and `seek` function. |
+| [Review.swift](../../../../Sources/ContextRecorder/Library/Review.swift) | Note changes keep their existing processing path; they must not rerun video analysis. |
+| [PgmExport.swift](../../../../Sources/ContextRecorder/Export/PgmExport.swift) | Later composite export requires its own image and source-map meaning. |
 
 The HTML viewer already embeds session data through `write_viewer`.
 Use this route for the first proof. Do not require a local server or a new package project.
