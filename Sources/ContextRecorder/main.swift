@@ -36,11 +36,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let devLibraryFolder {
+            let args = CommandLine.arguments
+            func value(_ flag: String) -> String? {
+                args.firstIndex(of: flag).flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+            }
+            if args.contains("--capture-check") {
+                print(CGPreflightScreenCaptureAccess() ? "Screen Recording permission: granted" : "Screen Recording permission: unavailable; capture tests skipped")
+                NSApp.terminate(nil)
+                return
+            }
+            if args.contains("--check-transcript") {
+                let model = SessionModel(folder: devLibraryFolder)
+                let failed = model.transcript.filter { model.sentenceAt($0.start) != $0 }
+                guard model.loadError == nil, !model.transcript.isEmpty, failed.isEmpty else {
+                    fputs("Transcript start checks failed: \(failed.count)\n", stderr)
+                    exit(1)
+                }
+                print("Transcript start checks passed: \(model.transcript.count)")
+                model.tearDown()
+                NSApp.terminate(nil)
+                return
+            }
             if let look = ProcessInfo.processInfo.environment["CR_APPEARANCE"] {   // light | dark, for screenshots
                 NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
             }
             library.show(session: devLibraryFolder)
-            let args = CommandLine.arguments
+            if let name = value("--session"), let entry = library.state.library.entries.first(where: { $0.url.lastPathComponent == name }) {
+                library.show(session: entry.url)
+            }
+            if let tab = value("--tab") {
+                library.state.model?.tab = SessionModel.Tab.allCases.first { $0.rawValue.lowercased().hasPrefix(tab) } ?? .marks
+            }
             if let i = args.firstIndex(of: "--mark"), i + 1 < args.count, let n = Int(args[i + 1]) {
                 library.state.model?.select(n)   // `--mark <n>` opens that mark too
             }
