@@ -30,11 +30,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var activity: ActivityLog?
     private var busy = false
     private var recordMicrophone: Bool {
-        get { UserDefaults.standard.object(forKey: "recordMicrophone") as? Bool ?? true }
+        get { devLibraryFolder == nil && (UserDefaults.standard.object(forKey: "recordMicrophone") as? Bool ?? true) }
         set { UserDefaults.standard.set(newValue, forKey: "recordMicrophone") }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // UI automation can reopen the bundle without the harness arguments.
+        guard Bundle.main.bundleIdentifier != "com.byronwall.ContextRecorder.UITest" || devLibraryFolder != nil else {
+            fputs("UI test bundle requires --library; refusing the real session library\n", stderr)
+            NSApp.terminate(nil)
+            return
+        }
         if let devLibraryFolder {
             let args = CommandLine.arguments
             func value(_ flag: String) -> String? {
@@ -79,6 +85,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
             }
             library.show(session: devLibraryFolder)
+            if let width = value("--window-width").flatMap(Double.init), width >= 900 {
+                library.window?.setContentSize(NSSize(width: width, height: 820))
+                library.window?.center()
+            }
             if let name = value("--recording-fixture") {
                 library.state.library.recordingFolder = library.state.library.entries.first { $0.url.lastPathComponent == name }?.url
             }
@@ -128,7 +138,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             }
-            return
+            if !args.contains("--capture") { return }
+            guard CGPreflightScreenCaptureAccess() else {
+                print("Screen Recording permission unavailable; capture tests skipped")
+                NSApp.terminate(nil)
+                return
+            }
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.autosaveName = "ContextRecorder"
@@ -167,18 +182,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
-        bridge.start()
+        if devLibraryFolder == nil { bridge.start() }
         rebuildMenu()
         updateTitle()
         panel.show()
 
-        let mods = controlKey | optionKey
-        HotKeys.shared.register(keyCode: kVK_ANSI_R, modifiers: mods) { [weak self] in self?.toggleRecording() }
-        HotKeys.shared.register(keyCode: kVK_ANSI_M, modifiers: mods) { [weak self] in self?.addMark(screenshot: false) }
-        HotKeys.shared.register(keyCode: kVK_ANSI_S, modifiers: mods) { [weak self] in self?.addMark(screenshot: true) }
-
-        // Ask for screen-recording permission up front so the first recording doesn't fail.
-        if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
+        if devLibraryFolder == nil {
+            let mods = controlKey | optionKey
+            HotKeys.shared.register(keyCode: kVK_ANSI_R, modifiers: mods) { [weak self] in self?.toggleRecording() }
+            HotKeys.shared.register(keyCode: kVK_ANSI_M, modifiers: mods) { [weak self] in self?.addMark(screenshot: false) }
+            HotKeys.shared.register(keyCode: kVK_ANSI_S, modifiers: mods) { [weak self] in self?.addMark(screenshot: true) }
+            // Ask for screen-recording permission up front so the first recording doesn't fail.
+            if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
+        }
     }
 
     /// `open "Context Recorder.app"` while running, or clicking it in Finder/Dock, brings the panel back
@@ -279,8 +295,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showShortcuts() { library.state.showShortcuts = true }
     @objc func quitFromMenu() { quit() }
     @objc private func openSessions() {
-        try? FileManager.default.createDirectory(at: Session.root, withIntermediateDirectories: true)
-        NSWorkspace.shared.open(Session.root)
+        let folder = devLibraryFolder ?? Session.root
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(folder)
     }
     @objc private func quit() {
         if session != nil { stopRecording(thenQuit: true) } else { NSApp.terminate(nil) }
@@ -295,7 +312,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startRecording() {
         do {
-            let session = try Session()
+            let session = try Session(root: devLibraryFolder?.appendingPathComponent("capture-output") ?? Session.root)
             self.session = session
             pageCaptureFolder = session.folder
             rebuildMenu()
