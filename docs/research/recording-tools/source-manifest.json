@@ -1,0 +1,311 @@
+{
+  "repository": "https://github.com/byronwall/context-recorder",
+  "baseline": "6c74158ca96abd36819d2a58f75bacdc44107bb0",
+  "kind": "selected text snapshot; not runnable",
+  "packet_path": "tmp/recording-tools/recording-tools-source-packet.txt",
+  "packet_bytes": 472317,
+  "packet_sha256": "72a3ac63a0201ba1ecd0518caf041b390c619dfd42535840064a5dd34c951850",
+  "files": [
+    {
+      "path": ".gitignore",
+      "source": "baseline",
+      "bytes": 30,
+      "sha256": "cfca03da8b22e3cae048fe574026a2033129a093b54bc579169ee49277b918bb"
+    },
+    {
+      "path": "Package.swift",
+      "source": "baseline",
+      "bytes": 564,
+      "sha256": "ee4be4430ba641a33aa6f99829bc486aee4b7e9acbf775828d4ea9c5b6125174"
+    },
+    {
+      "path": "README.md",
+      "source": "baseline",
+      "bytes": 10607,
+      "sha256": "40804e0f120d07f705b02a7229937b817270eeeaed11990e7526a8512148c1a1"
+    },
+    {
+      "path": "Resources/Info.plist",
+      "source": "baseline",
+      "bytes": 1119,
+      "sha256": "71f8c0e15584b400dd098aac4bfbb682053031f77247c3221a8a7e1466fff99f"
+    },
+    {
+      "path": "Sources/ContextRecorder/ActivityLog.swift",
+      "source": "baseline",
+      "bytes": 2144,
+      "sha256": "3529ca90d021a6859d77e0c5439797d3512a2956b12d714c39c7e7bb5a641fe3"
+    },
+    {
+      "path": "Sources/ContextRecorder/BrowserBridge.swift",
+      "source": "baseline",
+      "bytes": 6569,
+      "sha256": "a74f395005f81a2eb524e108ecb8655ad870ce7fa4cdbae518f6c8c77dee1b3b"
+    },
+    {
+      "path": "Sources/ContextRecorder/ContextProbe.swift",
+      "source": "baseline",
+      "bytes": 2778,
+      "sha256": "751beb96e2c0234f9c7ebf3dae4967473fdc676eccef6c0fca5383b9ee879a1d"
+    },
+    {
+      "path": "Sources/ContextRecorder/ControlPanel.swift",
+      "source": "baseline",
+      "bytes": 12300,
+      "sha256": "eaa87ac5e63be506f348eda5e2588b8f89ba0e9862956386c2a195bed898edac"
+    },
+    {
+      "path": "Sources/ContextRecorder/Export/ExportSheet.swift",
+      "source": "baseline",
+      "bytes": 16812,
+      "sha256": "16326fe8ae01197b6c201622fe7cc4d3542a1ca035a580abd3f74348ffbdb052"
+    },
+    {
+      "path": "Sources/ContextRecorder/Export/Pgm.swift",
+      "source": "baseline",
+      "bytes": 9991,
+      "sha256": "7a3c68331b1c0d1ee99cedac894597c09a4c8fa55c3b4875bf5ee5e72f7a8d73"
+    },
+    {
+      "path": "Sources/ContextRecorder/Export/PgmExport.swift",
+      "source": "baseline",
+      "bytes": 9129,
+      "sha256": "5e142cf8b8b6cdb113297528b2aeba059617616211ebb01f19794d876c825412"
+    },
+    {
+      "path": "Sources/ContextRecorder/HotKeys.swift",
+      "source": "baseline",
+      "bytes": 1824,
+      "sha256": "56e79ab092e7c4e97352b7ac6f6fb9d42b5477f20c71b14fa3e6e83dd0f27730"
+    },
+    {
+      "path": "Sources/ContextRecorder/JSONValue.swift",
+      "source": "baseline",
+      "bytes": 1670,
+      "sha256": "c20ecb4fd7e2db4d3f12cfe9525a4113ca99a01582c9a8b4894ba51ed324155a"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/Components.swift",
+      "source": "baseline",
+      "bytes": 6637,
+      "sha256": "d9ab5dd297c076986bea7f074bcf12d3bdd2bf0a797a199b39f4a1e3fb1a6f5c"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/LibraryView.swift",
+      "source": "baseline",
+      "bytes": 14359,
+      "sha256": "d8aae81cadc7d4a624aa9c174ab789ef51d9b416ba05b9513b9115b5bba45024"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/LibraryWindow.swift",
+      "source": "baseline",
+      "bytes": 9578,
+      "sha256": "ea553b2dd62af57aa435602066a8ea429278ab58ff9dc42e0af7a48b0b07f95c"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/MarkDetail.swift",
+      "source": "baseline",
+      "bytes": 22145,
+      "sha256": "606be5d4f78a10280584ad70bdbecbe93139c547c400d59d1d054e0fe4f3f709"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/MarkText.swift",
+      "source": "baseline",
+      "bytes": 6358,
+      "sha256": "af38190e0b0e8fbcbb6d1b38528413c79cefbe470e94e9f8c6de7ca1e9ca51cd"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/Review.swift",
+      "source": "baseline",
+      "bytes": 9721,
+      "sha256": "887465c6b0ffa62284f3b7f5cdd4b5989d47027bcdc3e682e0b9854d00dfd40e"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionData.swift",
+      "source": "baseline",
+      "bytes": 8627,
+      "sha256": "381db50d44e524ae04194f5b16282cf759791a59b1f0e488d5841b963fcfca67"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionLibrary.swift",
+      "source": "baseline",
+      "bytes": 9009,
+      "sha256": "1b0cee168853f0d97a707fb4c2c2fd5a4638648f8458cdb33e0fd966079bc524"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionModel.swift",
+      "source": "baseline",
+      "bytes": 8399,
+      "sha256": "9adff2ff18feff83f4447a2b79f3926e14460f2b923dc86dfb5dac4b85738672"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionTimeline.swift",
+      "source": "baseline",
+      "bytes": 21569,
+      "sha256": "8989cb5bb9fb0d0554a409d8043f7ce864281fc5841cd429170026eeb56928c0"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionView.swift",
+      "source": "baseline",
+      "bytes": 18030,
+      "sha256": "041ca4d413c2d58bb4d318e7c289cce34562868bffd4c3c1fc642ddc18d81f0b"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SidePanel.swift",
+      "source": "baseline",
+      "bytes": 17129,
+      "sha256": "fcd5476d8ee4c9a23cea91523fff04f34c0c61ecfe4e1f74d5723605489a1345"
+    },
+    {
+      "path": "Sources/ContextRecorder/Recorder.swift",
+      "source": "baseline",
+      "bytes": 8236,
+      "sha256": "d7dd2797d5c42b36b3636bce5da67abef5c28ccfb7c0d3ca473cf8acd1d447b9"
+    },
+    {
+      "path": "Sources/ContextRecorder/RegionSelector.swift",
+      "source": "baseline",
+      "bytes": 5269,
+      "sha256": "dbe5e9851c342502b3c3695849337703690df29863f66b5cc27d51076c031fc0"
+    },
+    {
+      "path": "Sources/ContextRecorder/Session.swift",
+      "source": "baseline",
+      "bytes": 2872,
+      "sha256": "c99975a78e17aa5d81a32af5445bd3512569a110b15a480fcade89fa598b715e"
+    },
+    {
+      "path": "Sources/ContextRecorder/main.swift",
+      "source": "baseline",
+      "bytes": 26310,
+      "sha256": "a40e5d06a75ba936b4db52a5742b1ac0775d1a0c66447f49919145895be25036"
+    },
+    {
+      "path": "docs/research/video-to-canvas/design.md",
+      "source": "baseline",
+      "bytes": 10677,
+      "sha256": "8acea9ae87e3e3ad2544ea818a362155f10dcc7dbf7c0bb69e5bbbb30a297c16"
+    },
+    {
+      "path": "docs/research/video-to-canvas/intent-brief.md",
+      "source": "baseline",
+      "bytes": 3588,
+      "sha256": "88f2b0f0d991131c13d9358ed8c13e3e67e0b6b163dcfaf0df567aaad7775027"
+    },
+    {
+      "path": "docs/research/video-to-canvas/proof-plan.md",
+      "source": "baseline",
+      "bytes": 8004,
+      "sha256": "cf1ed6d3560532c1f5f54bb5292ac784d7df6544f1943bb6a40328d3a6eb5e68"
+    },
+    {
+      "path": "docs/research/video-to-canvas/research-review.md",
+      "source": "baseline",
+      "bytes": 8585,
+      "sha256": "5602b709f93bf2fbb767a991ffd8cc32178c21fa4790f91eb600aa8e0db3cf71"
+    },
+    {
+      "path": "extension/background.js",
+      "source": "baseline",
+      "bytes": 5332,
+      "sha256": "99f630918360f8b63ac32f03bcde1037c6e730a116bc4416156c0163912f7d33"
+    },
+    {
+      "path": "extension/manifest.json",
+      "source": "baseline",
+      "bytes": 1061,
+      "sha256": "58a83f30532ebd23a7a12e9c6606f7d01504627a3de14197c768374dd9436a85"
+    },
+    {
+      "path": "extension/page.js",
+      "source": "baseline",
+      "bytes": 22435,
+      "sha256": "19045817d88bf4b8d4e7bda277f4a5a434bb1ef61442fc3a8eb6be8791114fae"
+    },
+    {
+      "path": "extension/popup.css",
+      "source": "baseline",
+      "bytes": 3744,
+      "sha256": "48ba116b0be050059f56438da64e3f625634dec62c0810e48e96526b27f3e928"
+    },
+    {
+      "path": "extension/popup.html",
+      "source": "baseline",
+      "bytes": 2037,
+      "sha256": "f95ea7d8fb85db44ca302aef88941ba37cb9ad7633c43872506ee9733d5019f2"
+    },
+    {
+      "path": "extension/popup.js",
+      "source": "baseline",
+      "bytes": 2177,
+      "sha256": "061914fef139e9cbbde2d7e42d353244a3528b67fccc88ff37f2f0589e9f3004"
+    },
+    {
+      "path": "extension/relay.js",
+      "source": "baseline",
+      "bytes": 1316,
+      "sha256": "0da9b076a4810adeeeff2dd138042e1c5beb6f4671e1851f563cf29444b419fc"
+    },
+    {
+      "path": "scripts/build-app.sh",
+      "source": "baseline",
+      "bytes": 1706,
+      "sha256": "c04036f6685fc4c212f83d7aac5223edd623f67632df3d94a6f05c45e49e62a9"
+    },
+    {
+      "path": "scripts/check-transcript.py",
+      "source": "baseline",
+      "bytes": 672,
+      "sha256": "450b107879bd150f8b614007226e41459e7b531161e9f5b06adbe29cf3901a5c"
+    },
+    {
+      "path": "scripts/process_session.py",
+      "source": "baseline",
+      "bytes": 14215,
+      "sha256": "811de80418b1dec386895b974bcd27d602ef8d77be48838ee6db02312e2b3b09"
+    },
+    {
+      "path": "scripts/ui-test/README.md",
+      "source": "baseline",
+      "bytes": 10156,
+      "sha256": "6d0c48faa60380602a7dd8a40e7316d87d5ebe1ed8eafbf99dac85ce4bded1f6"
+    },
+    {
+      "path": "scripts/ui-test/cua.js",
+      "source": "baseline",
+      "bytes": 18213,
+      "sha256": "a654a7fe6ccc3fc19d1a159913956bb61d3b999a6489ae83cd6c284db7b1d42c"
+    },
+    {
+      "path": "scripts/ui-test/harness.py",
+      "source": "baseline",
+      "bytes": 15169,
+      "sha256": "e7c76a5e30a64bea5bcd9ed4e65ee7c089b3d1b8cb42fa61346f69ec8e7d6787"
+    },
+    {
+      "path": "scripts/viewer.html",
+      "source": "baseline",
+      "bytes": 39722,
+      "sha256": "a8f2d60a616d65f3c9bb09fd159806b7fcf1bb7525b1f427b6e470e4b016c8d9"
+    },
+    {
+      "path": "docs/research/recording-tools/pro-prompt.md",
+      "source": "new research prompt",
+      "bytes": 17863,
+      "sha256": "362580b90cb3a6fabda368f358236e5e4d2f014c281516d8e6d4e98b105bc6bc"
+    }
+  ],
+  "checks": [
+    "baseline files match Git bytes",
+    "all files decode as UTF-8",
+    "private-key and common token pattern scan passed"
+  ],
+  "excluded": [
+    "personal recordings",
+    "credentials",
+    "binary assets",
+    "dependency directories",
+    "build outputs",
+    "unrelated research"
+  ]
+}

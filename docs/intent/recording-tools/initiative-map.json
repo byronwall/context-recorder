@@ -1,0 +1,476 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Recording tools and local review",
+    "slug": "recording-tools",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-14",
+    "summary": "Research is integrated. Proposed output repairs and a decision proof remain unimplemented. Personal review is provisional.",
+    "status": "planned",
+    "next_action": "Review the proposal; select primary job and output scope before application expansion."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-14"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "current",
+      "updated_at": "2026-10-14"
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-14"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-14"
+    }
+  },
+  "sources": [
+    {
+      "id": "user-research",
+      "type": "human-request",
+      "location": "current conversation",
+      "anchor": "Do the full process; deep and wide recording, dictation, annotation research; gap analysis",
+      "authority": "Byron: explicit research scope"
+    },
+    {
+      "id": "user-sleuth",
+      "type": "human-request",
+      "location": "current conversation",
+      "anchor": "Be sure to follow the full software-design-sleuth process when processing final artifacts",
+      "authority": "Byron: explicit method"
+    },
+    {
+      "id": "user-rules",
+      "type": "project-instructions",
+      "location": "current conversation AGENTS.md",
+      "anchor": "Personal developer; simplest implementation; existing checkout; no worktree",
+      "authority": "Byron: constraints"
+    },
+    {
+      "id": "pro",
+      "type": "research",
+      "location": "docs/research/recording-tools/pro-output/recording-tools-report.md",
+      "anchor": "32 products; 18 profiles; 16 gaps; RT-01 through RT-10",
+      "authority": "External research and proposals, not user decisions"
+    },
+    {
+      "id": "baseline",
+      "type": "repository",
+      "location": "6c74158ca96abd36819d2a58f75bacdc44107bb0",
+      "anchor": "Sources/ContextRecorder; scripts; extension; prior video-to-canvas docs",
+      "authority": "Static implementation evidence; no runtime result"
+    },
+    {
+      "id": "review",
+      "type": "verification",
+      "location": "docs/research/recording-tools/research-review.md",
+      "anchor": "Independent product checks; repository findings; recommendation dispositions",
+      "authority": "Codex synthesis with explicit limits"
+    },
+    {
+      "id": "question",
+      "type": "human-question",
+      "location": "current conversation structured question",
+      "anchor": "Primary outcome: personal review, polished communication, general dictation",
+      "authority": "Asked; no answer received at integration"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "type": "outcome",
+        "statement": "Compare the breadth of similar tools and their common features, strengths, and weaknesses.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "research run",
+        "sources": [
+          "user-research"
+        ]
+      },
+      {
+        "id": "C2",
+        "type": "outcome",
+        "statement": "Ground gaps and recommendations in this repository.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "research run",
+        "sources": [
+          "user-research"
+        ]
+      },
+      {
+        "id": "C3",
+        "type": "process",
+        "statement": "Complete the Pro handoff and full Sleuth process, with a review PR.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "research run",
+        "sources": [
+          "user-research",
+          "user-sleuth"
+        ]
+      },
+      {
+        "id": "C4",
+        "type": "constraint",
+        "statement": "Keep proposals at personal-project scale and preserve the existing checkout.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "all phases",
+        "sources": [
+          "user-rules"
+        ]
+      },
+      {
+        "id": "C5",
+        "type": "hypothesis",
+        "statement": "Personal narrated review is the leading next job.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "conditional future proof",
+        "sources": [
+          "pro",
+          "review"
+        ],
+        "confidence": "provisional; human choice open"
+      },
+      {
+        "id": "C6",
+        "type": "proposal",
+        "statement": "Preserve source evidence and repair existing output semantics before another view.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proposed repair phase",
+        "sources": [
+          "baseline",
+          "review"
+        ]
+      },
+      {
+        "id": "C7",
+        "type": "hypothesis",
+        "statement": "Local lexical retrieval may reduce complete task time more than existing editor Find.",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "unrun proof",
+        "sources": [
+          "pro"
+        ]
+      },
+      {
+        "id": "C8",
+        "type": "boundary",
+        "statement": "Dictation, annotation, and spatial reconstruction are alternatives, not requested implementation commitments.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "planning",
+        "sources": [
+          "user-research",
+          "review"
+        ]
+      }
+    ],
+    "themes": [
+      "Useful task output",
+      "Faithful local evidence",
+      "Reuse before expansion",
+      "Proposed planning separate from implementation"
+    ],
+    "conflicts": [
+      {
+        "claim": "README categorically excludes input values",
+        "resolution": "Source describe() can use target.value. Preserve sent prompt and originals; record correction in research review."
+      },
+      {
+        "claim": "Feature breadth implies roadmap demand",
+        "resolution": "Keep general dictation, hosted reporting, and polished media as distinct alternatives."
+      }
+    ],
+    "human_questions": [
+      {
+        "id": "H1",
+        "question": "Which job leads: personal review, polished communication, or general dictation?",
+        "status": "open",
+        "effect": "Selects product boundary; optional structured question sent."
+      },
+      {
+        "id": "H2",
+        "question": "Who consumes output, and which content may leave the private session folder?",
+        "status": "open",
+        "effect": "Gates detailed export design; private local originals are only a proposal."
+      },
+      {
+        "id": "H3",
+        "question": "What full-task benefit justifies maintaining another feature?",
+        "status": "open",
+        "effect": "Set target before measurement; 20% and four-of-six faster pairs are unapproved."
+      }
+    ]
+  },
+  "brainstorm": {
+    "status": "complete",
+    "requested_count": 7,
+    "options": [
+      {
+        "id": "O1",
+        "name": "Current review loop",
+        "premise": "Deliberate marks and editor Find may already solve the job."
+      },
+      {
+        "id": "O2",
+        "name": "Specialist composition",
+        "premise": "Occasional missing capabilities belong in separate tools."
+      },
+      {
+        "id": "O3",
+        "name": "Focused local review",
+        "premise": "Personal findings need reliable meaning, retrieval, and handoff."
+      },
+      {
+        "id": "O4",
+        "name": "Reporter-owned capture",
+        "premise": "Collect the failure where another person encounters it."
+      },
+      {
+        "id": "O5",
+        "name": "Audience-first explanation",
+        "premise": "Teach clearly, even when output changes the original sequence."
+      },
+      {
+        "id": "O6",
+        "name": "Spatial reading",
+        "premise": "Compare observed states rather than replaying them serially."
+      },
+      {
+        "id": "O7",
+        "name": "Continuous memory",
+        "premise": "Capture before the user knows what will matter."
+      }
+    ],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Two narrow repairs and one decision proof; no new service or broad product implementation.",
+    "problem": "Existing findings can lose meaning in handoff; the next product job and export scope remain undecided.",
+    "recommended_shape": {
+      "option": "O3",
+      "commitment": "provisional; not approved",
+      "stable_scope": "Current-output fidelity and processing outcomes",
+      "expansion_gate": "H1 and H2 before detailed search/export architecture",
+      "source_of_truth": "Raw media/context/transcript remain original; marks.jsonl permits intentional notes and review edits. Preserve unknown captured fields.",
+      "simpler_counterproposal": "O1 current app plus editor Find; O2 manual specialist derivatives",
+      "reuse": "One AVPlayer; existing SessionModel, MarkText, Review, subprocess, and local PGM",
+      "valid_intermediate_state": "Faithful read/copy output without new search",
+      "rollback": "Revert each repair independently; preserve native review and raw session files"
+    },
+    "success_moves": [
+      "Prove one synthetic note and source time across existing outputs before adding a view.",
+      "Use a semantic answer key instead of a cross-language rendering framework.",
+      "Inject processor failures locally; confirm one real synthetic run only when required.",
+      "Compare complete task effort against existing review plus editor Find.",
+      "Gate export architecture on recipient and included-content policy.",
+      "Retain raw evidence and the chronological path; reject broader infrastructure without a distinct task."
+    ],
+    "first_proof": {
+      "question": "Can an existing reviewed finding survive portable read and copy without losing its meaning?",
+      "artifact": "One synthetic session, fixed answer key, native/processor Markdown, and HTML read/copy evidence",
+      "decision_rule": "Require all note/provenance/time fields and unchanged originals. Keep the narrow repair; reject a new rendering framework.",
+      "status": "unrun"
+    },
+    "rabbit_holes": [
+      "Automatic comprehensive redaction",
+      "Cross-session indexing",
+      "Universal source/clock adapters",
+      "Continuous capture",
+      "Spatial joins before value proof"
+    ],
+    "open_decisions": [
+      "H1 primary job",
+      "H2 recipient and content scope"
+    ]
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/context-recorder",
+      "revision": "6c74158ca96abd36819d2a58f75bacdc44107bb0",
+      "worktree_status": "Research branch; app source unchanged from baseline. Only research and planning files added.",
+      "subsystems": [
+        "Sources/ContextRecorder/Library/MarkText.swift",
+        "Sources/ContextRecorder/Library/Review.swift",
+        "Sources/ContextRecorder/Library/SessionModel.swift",
+        "Sources/ContextRecorder/Library/SidePanel.swift",
+        "Sources/ContextRecorder/main.swift",
+        "Sources/ContextRecorder/Export/PgmExport.swift",
+        "scripts/process_session.py",
+        "scripts/viewer.html",
+        "extension/page.js"
+      ],
+      "test_commands": [
+        "python3 scripts/check-transcript.py",
+        "python3 scripts/check-review-contract.py --case parity (proposed; not present)"
+      ],
+      "deployment_surfaces": [
+        "Local macOS app and Chrome extension; no deployment in this run"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "D1",
+        "name": "Recorded media and speech",
+        "material": true,
+        "application_seam": "SessionData plus existing output functions",
+        "failure_modes": [
+          "Unavailable recognizer",
+          "Missing media",
+          "Incorrect transcript time"
+        ],
+        "proof_rungs": [
+          "Synthetic metadata and cached transcript",
+          "Real local synthetic media when required"
+        ],
+        "first_proof_role": {
+          "mode": "local-substitute",
+          "rationale": "Output meaning can be checked without recording or speech recognition."
+        },
+        "local_proof": "Fixed answer key with short adjacent sentences, note, crop, and review origin.",
+        "live_proof": "Later isolated Mac review confirms decoding and permissions only when used. No current runtime proof.",
+        "rollout": "Keep originals and chronological review; no model replacement."
+      },
+      {
+        "id": "D2",
+        "name": "Local processor subprocess",
+        "material": true,
+        "application_seam": "main.swift runPostProcessing and Review.reprocess",
+        "failure_modes": [
+          "Tool missing",
+          "Nonzero exit",
+          "Malformed derived output",
+          "Retry duplicates marks"
+        ],
+        "proof_rungs": [
+          "Controlled temporary executable PATH",
+          "Real local synthetic processor run"
+        ],
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "First output fixture uses cached data; processing is a separate milestone."
+        },
+        "local_proof": "Inject named outcomes and verify labels, raw hashes, and one retry.",
+        "live_proof": "Use actual installed ffmpeg/parakeet only with synthetic media in later authorized work.",
+        "rollout": "Retain process.log and manual rerun; no queue service."
+      },
+      {
+        "id": "D3",
+        "name": "Local PGM export",
+        "material": true,
+        "application_seam": "PgmExporter payload and Pgm --local command",
+        "failure_modes": [
+          "Broader-than-selected payload",
+          "Missing dependent asset",
+          "Re-export overwrites user edits"
+        ],
+        "proof_rungs": [
+          "Selected payload inventory",
+          "Local PGM smoke only if payload changes"
+        ],
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "Read/copy parity does not need a PGM service."
+        },
+        "local_proof": "Inspect selected-two-of-five inventory with per-surface canaries.",
+        "live_proof": "Later disposable local PGM project confirms preserved user title/status/images; no cloud proof required.",
+        "rollout": "Current manual Markdown remains usable; export design waits for H2."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "python3 scripts/check-review-contract.py --case parity",
+      "status": "proposed; script does not exist",
+      "starts": "No service; reads synthetic fixtures",
+      "network": "none",
+      "failure_injection": "Temporary process PATH plus malformed/cached/silent data variants",
+      "slower_confirmation": "Isolated native/browser review of synthetic output; real processor only when changed"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "A reviewed finding survives portable handoff",
+        "outcome": "Same note, review origin, and exact source sentence survive native, processor, and HTML read/copy.",
+        "dependencies_introduced": [],
+        "proof": "Synthetic semantic contract plus isolated browser observation; raw hashes unchanged. UNRUN.",
+        "valid_intermediate_state": "Existing capture and native review remain; portable output is faithful without search.",
+        "rollback": "Revert output repair; retain native Markdown and originals.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Processing failure has a useful result",
+        "outcome": "Unavailable or failed processing is distinct from silence and supports one bounded retry.",
+        "dependencies_introduced": [
+          "D2"
+        ],
+        "proof": "No-audio/cached/missing/nonzero/malformed fixtures; later real synthetic processor run. UNRUN.",
+        "valid_intermediate_state": "Raw capture remains accessible; no search or background service required.",
+        "rollback": "Keep process.log and manual reprocessing; revert result presentation.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Decide whether local retrieval earns expansion",
+        "outcome": "Select a bounded next proposal or keep current review after H1/H2/H3 and task evidence.",
+        "dependencies_introduced": [],
+        "proof": "Six paired full-task comparisons after goal selection; predeclared criteria and selected-content inventory. UNRUN.",
+        "valid_intermediate_state": "Existing review works while decisions or experiment remain unresolved.",
+        "rollback": "Discard disposable experiment; use current review and specialists.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "Detailed export architecture before H2",
+      "Cross-session/vector search",
+      "Hosted teams or autonomous issues",
+      "Global dictation and full image/video editor",
+      "Broad capture rewrite",
+      "Automatic comprehensive redaction",
+      "Spatial reconstruction before board/value/source proof"
+    ],
+    "open_decisions": [
+      "H1 primary job",
+      "H2 recipient and permitted data",
+      "H3 predeclared full-task benefit"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-14",
+      "change": "Initialized planned initiative from completed Pro research. Preserved all originals and verified decisive claims. No implementation began.",
+      "evidence": "docs/research/recording-tools/research-review.md"
+    },
+    {
+      "date": "2026-10-14",
+      "change": "Narrowed detailed planning to existing-output repairs and a decision spike. Product/export architecture remains gated by human choices."
+    }
+  ],
+  "closure": null
+}

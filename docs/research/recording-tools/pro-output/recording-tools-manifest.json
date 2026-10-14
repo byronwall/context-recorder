@@ -1,0 +1,1920 @@
+{
+  "schema_version": "1.0",
+  "status": "complete research package; all product proofs unrun; no implementation approval",
+  "repository": {
+    "identity": "byronwall/context-recorder",
+    "baseline": "6c74158ca96abd36819d2a58f75bacdc44107bb0",
+    "branch_context": "codex/recording-tools-research (supplied context; not independently inspected or modified)",
+    "authorized_source": "recording-tools-source-packet.txt",
+    "source_access": "All required snapshot sections readable; connected GitHub baseline README read succeeded; packet is authoritative for analysis",
+    "coverage_limit": "Selected text snapshot, not runnable checkout or complete Git tree; no binaries/dependencies/personal sessions/build outputs"
+  },
+  "baseline": "6c74158ca96abd36819d2a58f75bacdc44107bb0",
+  "research_date": "2026-10-13",
+  "timezone": "America/Indiana/Indianapolis",
+  "external_access_date": "2026-10-13",
+  "inputs": [
+    {
+      "name": "pro-prompt(1).md",
+      "bytes": 17863,
+      "sha256": "362580b90cb3a6fabda368f358236e5e4d2f014c281516d8e6d4e98b105bc6bc"
+    },
+    {
+      "name": "recording-tools-source-packet.txt",
+      "bytes": 472317,
+      "sha256": "72a3ac63a0201ba1ecd0518caf041b390c619dfd42535840064a5dd34c951850"
+    }
+  ],
+  "inspected_files": [
+    {
+      "path": ".gitignore",
+      "source": "baseline",
+      "bytes": 30,
+      "sha256": "cfca03da8b22e3cae048fe574026a2033129a093b54bc579169ee49277b918bb",
+      "verified_packet_bytes": true,
+      "line_count": 4,
+      "packet_start_line": 304
+    },
+    {
+      "path": "Package.swift",
+      "source": "baseline",
+      "bytes": 564,
+      "sha256": "ee4be4430ba641a33aa6f99829bc486aee4b7e9acbf775828d4ea9c5b6125174",
+      "verified_packet_bytes": true,
+      "line_count": 20,
+      "packet_start_line": 312
+    },
+    {
+      "path": "README.md",
+      "source": "baseline",
+      "bytes": 10607,
+      "sha256": "40804e0f120d07f705b02a7229937b817270eeeaed11990e7526a8512148c1a1",
+      "verified_packet_bytes": true,
+      "line_count": 137,
+      "packet_start_line": 336
+    },
+    {
+      "path": "Resources/Info.plist",
+      "source": "baseline",
+      "bytes": 1119,
+      "sha256": "71f8c0e15584b400dd098aac4bfbb682053031f77247c3221a8a7e1466fff99f",
+      "verified_packet_bytes": true,
+      "line_count": 30,
+      "packet_start_line": 477
+    },
+    {
+      "path": "Sources/ContextRecorder/ActivityLog.swift",
+      "source": "baseline",
+      "bytes": 2144,
+      "sha256": "3529ca90d021a6859d77e0c5439797d3512a2956b12d714c39c7e7bb5a641fe3",
+      "verified_packet_bytes": true,
+      "line_count": 58,
+      "packet_start_line": 511
+    },
+    {
+      "path": "Sources/ContextRecorder/BrowserBridge.swift",
+      "source": "baseline",
+      "bytes": 6569,
+      "sha256": "a74f395005f81a2eb524e108ecb8655ad870ce7fa4cdbae518f6c8c77dee1b3b",
+      "verified_packet_bytes": true,
+      "line_count": 135,
+      "packet_start_line": 573
+    },
+    {
+      "path": "Sources/ContextRecorder/ContextProbe.swift",
+      "source": "baseline",
+      "bytes": 2778,
+      "sha256": "751beb96e2c0234f9c7ebf3dae4967473fdc676eccef6c0fca5383b9ee879a1d",
+      "verified_packet_bytes": true,
+      "line_count": 71,
+      "packet_start_line": 712
+    },
+    {
+      "path": "Sources/ContextRecorder/ControlPanel.swift",
+      "source": "baseline",
+      "bytes": 12300,
+      "sha256": "eaa87ac5e63be506f348eda5e2588b8f89ba0e9862956386c2a195bed898edac",
+      "verified_packet_bytes": true,
+      "line_count": 284,
+      "packet_start_line": 787
+    },
+    {
+      "path": "Sources/ContextRecorder/Export/ExportSheet.swift",
+      "source": "baseline",
+      "bytes": 16812,
+      "sha256": "16326fe8ae01197b6c201622fe7cc4d3542a1ca035a580abd3f74348ffbdb052",
+      "verified_packet_bytes": true,
+      "line_count": 394,
+      "packet_start_line": 1075
+    },
+    {
+      "path": "Sources/ContextRecorder/Export/Pgm.swift",
+      "source": "baseline",
+      "bytes": 9991,
+      "sha256": "7a3c68331b1c0d1ee99cedac894597c09a4c8fa55c3b4875bf5ee5e72f7a8d73",
+      "verified_packet_bytes": true,
+      "line_count": 219,
+      "packet_start_line": 1473
+    },
+    {
+      "path": "Sources/ContextRecorder/Export/PgmExport.swift",
+      "source": "baseline",
+      "bytes": 9129,
+      "sha256": "5e142cf8b8b6cdb113297528b2aeba059617616211ebb01f19794d876c825412",
+      "verified_packet_bytes": true,
+      "line_count": 196,
+      "packet_start_line": 1696
+    },
+    {
+      "path": "Sources/ContextRecorder/HotKeys.swift",
+      "source": "baseline",
+      "bytes": 1824,
+      "sha256": "56e79ab092e7c4e97352b7ac6f6fb9d42b5477f20c71b14fa3e6e83dd0f27730",
+      "verified_packet_bytes": true,
+      "line_count": 44,
+      "packet_start_line": 1896
+    },
+    {
+      "path": "Sources/ContextRecorder/JSONValue.swift",
+      "source": "baseline",
+      "bytes": 1670,
+      "sha256": "c20ecb4fd7e2db4d3f12cfe9525a4113ca99a01582c9a8b4894ba51ed324155a",
+      "verified_packet_bytes": true,
+      "line_count": 50,
+      "packet_start_line": 1944
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/Components.swift",
+      "source": "baseline",
+      "bytes": 6637,
+      "sha256": "d9ab5dd297c076986bea7f074bcf12d3bdd2bf0a797a199b39f4a1e3fb1a6f5c",
+      "verified_packet_bytes": true,
+      "line_count": 183,
+      "packet_start_line": 1998
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/LibraryView.swift",
+      "source": "baseline",
+      "bytes": 14359,
+      "sha256": "d8aae81cadc7d4a624aa9c174ab789ef51d9b416ba05b9513b9115b5bba45024",
+      "verified_packet_bytes": true,
+      "line_count": 339,
+      "packet_start_line": 2185
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/LibraryWindow.swift",
+      "source": "baseline",
+      "bytes": 9578,
+      "sha256": "ea553b2dd62af57aa435602066a8ea429278ab58ff9dc42e0af7a48b0b07f95c",
+      "verified_packet_bytes": true,
+      "line_count": 210,
+      "packet_start_line": 2528
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/MarkDetail.swift",
+      "source": "baseline",
+      "bytes": 22145,
+      "sha256": "606be5d4f78a10280584ad70bdbecbe93139c547c400d59d1d054e0fe4f3f709",
+      "verified_packet_bytes": true,
+      "line_count": 478,
+      "packet_start_line": 2742
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/MarkText.swift",
+      "source": "baseline",
+      "bytes": 6358,
+      "sha256": "af38190e0b0e8fbcbb6d1b38528413c79cefbe470e94e9f8c6de7ca1e9ca51cd",
+      "verified_packet_bytes": true,
+      "line_count": 129,
+      "packet_start_line": 3224
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/Review.swift",
+      "source": "baseline",
+      "bytes": 9721,
+      "sha256": "887465c6b0ffa62284f3b7f5cdd4b5989d47027bcdc3e682e0b9854d00dfd40e",
+      "verified_packet_bytes": true,
+      "line_count": 196,
+      "packet_start_line": 3357
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionData.swift",
+      "source": "baseline",
+      "bytes": 8627,
+      "sha256": "381db50d44e524ae04194f5b16282cf759791a59b1f0e488d5841b963fcfca67",
+      "verified_packet_bytes": true,
+      "line_count": 233,
+      "packet_start_line": 3557
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionLibrary.swift",
+      "source": "baseline",
+      "bytes": 9009,
+      "sha256": "1b0cee168853f0d97a707fb4c2c2fd5a4638648f8458cdb33e0fd966079bc524",
+      "verified_packet_bytes": true,
+      "line_count": 209,
+      "packet_start_line": 3794
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionModel.swift",
+      "source": "baseline",
+      "bytes": 8399,
+      "sha256": "9adff2ff18feff83f4447a2b79f3926e14460f2b923dc86dfb5dac4b85738672",
+      "verified_packet_bytes": true,
+      "line_count": 227,
+      "packet_start_line": 4007
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionTimeline.swift",
+      "source": "baseline",
+      "bytes": 21569,
+      "sha256": "8989cb5bb9fb0d0554a409d8043f7ce864281fc5841cd429170026eeb56928c0",
+      "verified_packet_bytes": true,
+      "line_count": 459,
+      "packet_start_line": 4238
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionView.swift",
+      "source": "baseline",
+      "bytes": 18030,
+      "sha256": "041ca4d413c2d58bb4d318e7c289cce34562868bffd4c3c1fc642ddc18d81f0b",
+      "verified_packet_bytes": true,
+      "line_count": 418,
+      "packet_start_line": 4701
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SidePanel.swift",
+      "source": "baseline",
+      "bytes": 17129,
+      "sha256": "fcd5476d8ee4c9a23cea91523fff04f34c0c61ecfe4e1f74d5723605489a1345",
+      "verified_packet_bytes": true,
+      "line_count": 416,
+      "packet_start_line": 5123
+    },
+    {
+      "path": "Sources/ContextRecorder/Recorder.swift",
+      "source": "baseline",
+      "bytes": 8236,
+      "sha256": "d7dd2797d5c42b36b3636bce5da67abef5c28ccfb7c0d3ca473cf8acd1d447b9",
+      "verified_packet_bytes": true,
+      "line_count": 175,
+      "packet_start_line": 5543
+    },
+    {
+      "path": "Sources/ContextRecorder/RegionSelector.swift",
+      "source": "baseline",
+      "bytes": 5269,
+      "sha256": "dbe5e9851c342502b3c3695849337703690df29863f66b5cc27d51076c031fc0",
+      "verified_packet_bytes": true,
+      "line_count": 135,
+      "packet_start_line": 5722
+    },
+    {
+      "path": "Sources/ContextRecorder/Session.swift",
+      "source": "baseline",
+      "bytes": 2872,
+      "sha256": "c99975a78e17aa5d81a32af5445bd3512569a110b15a480fcade89fa598b715e",
+      "verified_packet_bytes": true,
+      "line_count": 71,
+      "packet_start_line": 5861
+    },
+    {
+      "path": "Sources/ContextRecorder/main.swift",
+      "source": "baseline",
+      "bytes": 26310,
+      "sha256": "a40e5d06a75ba936b4db52a5742b1ac0775d1a0c66447f49919145895be25036",
+      "verified_packet_bytes": true,
+      "line_count": 515,
+      "packet_start_line": 5936
+    },
+    {
+      "path": "docs/research/video-to-canvas/design.md",
+      "source": "baseline",
+      "bytes": 10677,
+      "sha256": "8acea9ae87e3e3ad2544ea818a362155f10dcc7dbf7c0bb69e5bbbb30a297c16",
+      "verified_packet_bytes": true,
+      "line_count": 171,
+      "packet_start_line": 6455
+    },
+    {
+      "path": "docs/research/video-to-canvas/intent-brief.md",
+      "source": "baseline",
+      "bytes": 3588,
+      "sha256": "88f2b0f0d991131c13d9358ed8c13e3e67e0b6b163dcfaf0df567aaad7775027",
+      "verified_packet_bytes": true,
+      "line_count": 66,
+      "packet_start_line": 6630
+    },
+    {
+      "path": "docs/research/video-to-canvas/proof-plan.md",
+      "source": "baseline",
+      "bytes": 8004,
+      "sha256": "cf1ed6d3560532c1f5f54bb5292ac784d7df6544f1943bb6a40328d3a6eb5e68",
+      "verified_packet_bytes": true,
+      "line_count": 133,
+      "packet_start_line": 6700
+    },
+    {
+      "path": "docs/research/video-to-canvas/research-review.md",
+      "source": "baseline",
+      "bytes": 8585,
+      "sha256": "5602b709f93bf2fbb767a991ffd8cc32178c21fa4790f91eb600aa8e0db3cf71",
+      "verified_packet_bytes": true,
+      "line_count": 101,
+      "packet_start_line": 6837
+    },
+    {
+      "path": "extension/background.js",
+      "source": "baseline",
+      "bytes": 5332,
+      "sha256": "99f630918360f8b63ac32f03bcde1037c6e730a116bc4416156c0163912f7d33",
+      "verified_packet_bytes": true,
+      "line_count": 149,
+      "packet_start_line": 6942
+    },
+    {
+      "path": "extension/manifest.json",
+      "source": "baseline",
+      "bytes": 1061,
+      "sha256": "58a83f30532ebd23a7a12e9c6606f7d01504627a3de14197c768374dd9436a85",
+      "verified_packet_bytes": true,
+      "line_count": 52,
+      "packet_start_line": 7095
+    },
+    {
+      "path": "extension/page.js",
+      "source": "baseline",
+      "bytes": 22435,
+      "sha256": "19045817d88bf4b8d4e7bda277f4a5a434bb1ef61442fc3a8eb6be8791114fae",
+      "verified_packet_bytes": true,
+      "line_count": 475,
+      "packet_start_line": 7151
+    },
+    {
+      "path": "extension/popup.css",
+      "source": "baseline",
+      "bytes": 3744,
+      "sha256": "48ba116b0be050059f56438da64e3f625634dec62c0810e48e96526b27f3e928",
+      "verified_packet_bytes": true,
+      "line_count": 56,
+      "packet_start_line": 7630
+    },
+    {
+      "path": "extension/popup.html",
+      "source": "baseline",
+      "bytes": 2037,
+      "sha256": "f95ea7d8fb85db44ca302aef88941ba37cb9ad7633c43872506ee9733d5019f2",
+      "verified_packet_bytes": true,
+      "line_count": 58,
+      "packet_start_line": 7690
+    },
+    {
+      "path": "extension/popup.js",
+      "source": "baseline",
+      "bytes": 2177,
+      "sha256": "061914fef139e9cbbde2d7e42d353244a3528b67fccc88ff37f2f0589e9f3004",
+      "verified_packet_bytes": true,
+      "line_count": 58,
+      "packet_start_line": 7752
+    },
+    {
+      "path": "extension/relay.js",
+      "source": "baseline",
+      "bytes": 1316,
+      "sha256": "0da9b076a4810adeeeff2dd138042e1c5beb6f4671e1851f563cf29444b419fc",
+      "verified_packet_bytes": true,
+      "line_count": 34,
+      "packet_start_line": 7814
+    },
+    {
+      "path": "scripts/build-app.sh",
+      "source": "baseline",
+      "bytes": 1706,
+      "sha256": "c04036f6685fc4c212f83d7aac5223edd623f67632df3d94a6f05c45e49e62a9",
+      "verified_packet_bytes": true,
+      "line_count": 38,
+      "packet_start_line": 7852
+    },
+    {
+      "path": "scripts/check-transcript.py",
+      "source": "baseline",
+      "bytes": 672,
+      "sha256": "450b107879bd150f8b614007226e41459e7b531161e9f5b06adbe29cf3901a5c",
+      "verified_packet_bytes": true,
+      "line_count": 16,
+      "packet_start_line": 7894
+    },
+    {
+      "path": "scripts/process_session.py",
+      "source": "baseline",
+      "bytes": 14215,
+      "sha256": "811de80418b1dec386895b974bcd27d602ef8d77be48838ee6db02312e2b3b09",
+      "verified_packet_bytes": true,
+      "line_count": 355,
+      "packet_start_line": 7914
+    },
+    {
+      "path": "scripts/ui-test/README.md",
+      "source": "baseline",
+      "bytes": 10156,
+      "sha256": "6d0c48faa60380602a7dd8a40e7316d87d5ebe1ed8eafbf99dac85ce4bded1f6",
+      "verified_packet_bytes": true,
+      "line_count": 142,
+      "packet_start_line": 8273
+    },
+    {
+      "path": "scripts/ui-test/cua.js",
+      "source": "baseline",
+      "bytes": 18213,
+      "sha256": "a654a7fe6ccc3fc19d1a159913956bb61d3b999a6489ae83cd6c284db7b1d42c",
+      "verified_packet_bytes": true,
+      "line_count": 394,
+      "packet_start_line": 8419
+    },
+    {
+      "path": "scripts/ui-test/harness.py",
+      "source": "baseline",
+      "bytes": 15169,
+      "sha256": "e7c76a5e30a64bea5bcd9ed4e65ee7c089b3d1b8cb42fa61346f69ec8e7d6787",
+      "verified_packet_bytes": true,
+      "line_count": 338,
+      "packet_start_line": 8817
+    },
+    {
+      "path": "scripts/viewer.html",
+      "source": "baseline",
+      "bytes": 39722,
+      "sha256": "a8f2d60a616d65f3c9bb09fd159806b7fcf1bb7525b1f427b6e470e4b016c8d9",
+      "verified_packet_bytes": true,
+      "line_count": 597,
+      "packet_start_line": 9159
+    },
+    {
+      "path": "docs/research/recording-tools/pro-prompt.md",
+      "source": "new research prompt",
+      "bytes": 17863,
+      "sha256": "362580b90cb3a6fabda368f358236e5e4d2f014c281516d8e6d4e98b105bc6bc",
+      "verified_packet_bytes": true,
+      "line_count": 183,
+      "packet_start_line": 9760
+    }
+  ],
+  "counts": {
+    "products": 32,
+    "deep_profiles": 18,
+    "categories": 6,
+    "products_by_category": {
+      "C1": 8,
+      "C2": 5,
+      "C3": 6,
+      "C4": 5,
+      "C5": 4,
+      "C6": 4
+    },
+    "deep_profiles_by_category": {
+      "C1": 5,
+      "C2": 3,
+      "C3": 3,
+      "C4": 2,
+      "C5": 2,
+      "C6": 3
+    },
+    "feature_columns": 46,
+    "csv_columns": 62,
+    "feature_cells": 1472,
+    "feature_state_counts": {
+      "native": 343,
+      "unknown": 1050,
+      "partial": 72,
+      "integration-only": 6,
+      "absent with evidence": 1
+    },
+    "external_sources": 99,
+    "repository_evidence_records": 25,
+    "capability_inventory_rows": 25,
+    "gaps": 16,
+    "recommendations": 10,
+    "product_directions": 7,
+    "unresolved_human_choices": 3,
+    "inspected_packet_files": 48,
+    "baseline_files": 47,
+    "local_prompt_files": 1,
+    "scoped_searches": 6,
+    "companion_files": 7,
+    "archive_entries": 7,
+    "total_downloads": 8
+  },
+  "file_names": [
+    "recording-tools-report.md",
+    "recording-tools-matrix.csv",
+    "recording-tools-gap-analysis.md",
+    "recording-tools-sources.md",
+    "recording-tools-recommendations.json",
+    "recording-tools-proof-plan.md",
+    "recording-tools-manifest.json",
+    "recording-tools-research.zip"
+  ],
+  "files": [
+    {
+      "name": "recording-tools-report.md",
+      "bytes": 180064,
+      "sha256": "773dc8a86db2eb3994e3e95a712b1931ba8e30e4cc1b6e50c6c0d6061b2ac52c"
+    },
+    {
+      "name": "recording-tools-matrix.csv",
+      "bytes": 51128,
+      "sha256": "6fa3341e24299cd2a5e583ece590d6cf95fff248f9c62a3b014f1f7500a6ccc1"
+    },
+    {
+      "name": "recording-tools-gap-analysis.md",
+      "bytes": 99086,
+      "sha256": "e5a528fa4a6b0b26a1b56772042895938f85bf8b834254e18812e2354c9db29e"
+    },
+    {
+      "name": "recording-tools-sources.md",
+      "bytes": 90270,
+      "sha256": "027140c597e370cef3975c5fc24008f3b1f48eaf8c97ac9223985e1f89ed9f08"
+    },
+    {
+      "name": "recording-tools-recommendations.json",
+      "bytes": 70722,
+      "sha256": "3031420d75662acec1d12949f7e603dcb691b1dd211ff1ab73bc5814c6194619"
+    },
+    {
+      "name": "recording-tools-proof-plan.md",
+      "bytes": 29609,
+      "sha256": "00f407f50c6db3eee180bf952303b2ec589c42981925fae022fd92f3ffdab09f"
+    },
+    {
+      "name": "recording-tools-manifest.json",
+      "bytes": 67748,
+      "sha256": null,
+      "hash_omission_reason": "Manifest does not hash itself."
+    }
+  ],
+  "archive": {
+    "name": "recording-tools-research.zip",
+    "entries": [
+      "recording-tools-report.md",
+      "recording-tools-matrix.csv",
+      "recording-tools-gap-analysis.md",
+      "recording-tools-sources.md",
+      "recording-tools-recommendations.json",
+      "recording-tools-proof-plan.md",
+      "recording-tools-manifest.json"
+    ],
+    "sha256": null,
+    "hash_omission_reason": "Archive need not be hashed by the contained manifest; entry bytes are verified against standalone companions."
+  },
+  "checks_actually_run": [
+    {
+      "check": "Python AST parse",
+      "target": "scripts/check-transcript.py",
+      "status": "passed"
+    },
+    {
+      "check": "Python AST parse",
+      "target": "scripts/process_session.py",
+      "status": "passed"
+    },
+    {
+      "check": "Python AST parse",
+      "target": "scripts/ui-test/harness.py",
+      "status": "passed"
+    },
+    {
+      "check": "Processor --help on extracted script, no session argument",
+      "status": "passed",
+      "output": "usage: process_session.py [-h] [--before BEFORE] [--after AFTER] folder\n\npositional arguments:\n  folder\n\noptions:\n  -h, --help       show this help message and exit\n  --before BEFORE  seconds of narration before each mark\n  --after AFTER    seconds of narration after each mark\n",
+      "exit_code": 0
+    },
+    {
+      "check": "JavaScript syntax check only",
+      "target": "extension/background.js",
+      "status": "passed",
+      "output": ""
+    },
+    {
+      "check": "JavaScript syntax check only",
+      "target": "extension/page.js",
+      "status": "passed",
+      "output": ""
+    },
+    {
+      "check": "JavaScript syntax check only",
+      "target": "extension/popup.js",
+      "status": "passed",
+      "output": ""
+    },
+    {
+      "check": "JavaScript syntax check only",
+      "target": "extension/relay.js",
+      "status": "passed",
+      "output": ""
+    },
+    {
+      "check": "JavaScript syntax check only",
+      "target": "scripts/ui-test/cua.js",
+      "status": "passed",
+      "output": ""
+    },
+    {
+      "check": "Embedded viewer JavaScript syntax only",
+      "target": "scripts/viewer.html",
+      "status": "passed",
+      "output": ""
+    },
+    {
+      "check": "Authorized input integrity",
+      "status": "passed",
+      "detail": "48/48 packet sections match supplied bytes and SHA-256; separate brief equals packet prompt. No original inputs modified."
+    },
+    {
+      "check": "CSV parsing, cell states and evidence resolution",
+      "status": "passed",
+      "detail": "32 rows; 62 columns including 46 feature fields; all known cells have valid source IDs; unknowns unasserted."
+    },
+    {
+      "check": "Recommendation JSON schema and dependencies",
+      "status": "passed",
+      "detail": "10 unique recommendations; every required field, valid categories, valid evidence/proof references, acyclic dependencies."
+    },
+    {
+      "check": "Breadth, depth and repository coverage",
+      "status": "passed",
+      "detail": "32 unique products / six groups / 18 deep profiles / 25 capability rows / 16 gaps / 25 grouped repository records / seven directions / three human choices."
+    },
+    {
+      "check": "Cross-artifact reference and answer coverage",
+      "status": "passed",
+      "detail": "All S/R/P/G/RT/PF/O/H/A IDs resolve; all five ranked questions have report sections; 18 profile headings and seven direction headings; balanced fences; no placeholders or uncatalogued claim URLs."
+    },
+    {
+      "check": "Feature prevalence agreement",
+      "status": "passed",
+      "detail": "All within-category distributions are computed from the same delivered row objects and match the CSV; each distribution sums to its category denominator."
+    },
+    {
+      "check": "Manifest byte sizes and SHA-256 verification",
+      "status": "passed",
+      "detail": "Six substantive companion hashes verified; all seven companion byte sizes including manifest match."
+    },
+    {
+      "check": "ZIP CRC, safe paths and standalone identity",
+      "status": "passed",
+      "detail": "Exactly seven unique flat non-symlink entries; CRC test passed; every archive entry byte-identical to its standalone companion."
+    }
+  ],
+  "static_searches": [
+    {
+      "id": "A01_search",
+      "file_count": 13,
+      "match_count": 0,
+      "pattern": "searchable|searchText|searchQuery|filterText|localizedCaseInsensitiveContains|type=\"search\"|type=\\\"search\\\"",
+      "files": [
+        "Sources/ContextRecorder/Library/Components.swift",
+        "Sources/ContextRecorder/Library/LibraryView.swift",
+        "Sources/ContextRecorder/Library/LibraryWindow.swift",
+        "Sources/ContextRecorder/Library/MarkDetail.swift",
+        "Sources/ContextRecorder/Library/MarkText.swift",
+        "Sources/ContextRecorder/Library/Review.swift",
+        "Sources/ContextRecorder/Library/SessionData.swift",
+        "Sources/ContextRecorder/Library/SessionLibrary.swift",
+        "Sources/ContextRecorder/Library/SessionModel.swift",
+        "Sources/ContextRecorder/Library/SessionTimeline.swift",
+        "Sources/ContextRecorder/Library/SessionView.swift",
+        "Sources/ContextRecorder/Library/SidePanel.swift",
+        "scripts/viewer.html"
+      ],
+      "interpretation_location": "recording-tools-gap-analysis.md"
+    },
+    {
+      "id": "A02_capture",
+      "file_count": 5,
+      "match_count": 11,
+      "pattern": "pauseCapture|resumeCapture|captureMicrophone|capturesAudio|CGMainDisplayID|sourceRect|webcam|camera|fps|maxWidth",
+      "files": [
+        "Sources/ContextRecorder/ControlPanel.swift",
+        "Sources/ContextRecorder/HotKeys.swift",
+        "Sources/ContextRecorder/Recorder.swift",
+        "Sources/ContextRecorder/RegionSelector.swift",
+        "Sources/ContextRecorder/main.swift"
+      ],
+      "interpretation_location": "recording-tools-gap-analysis.md"
+    },
+    {
+      "id": "A03_speech",
+      "file_count": 27,
+      "match_count": 61,
+      "pattern": "dictat|transcrib|transcript|SFSpeech|AVCapture|SpeechAnalyzer|vocab|correctTranscript",
+      "files": [
+        "Sources/ContextRecorder/ActivityLog.swift",
+        "Sources/ContextRecorder/BrowserBridge.swift",
+        "Sources/ContextRecorder/ContextProbe.swift",
+        "Sources/ContextRecorder/ControlPanel.swift",
+        "Sources/ContextRecorder/Export/ExportSheet.swift",
+        "Sources/ContextRecorder/Export/Pgm.swift",
+        "Sources/ContextRecorder/Export/PgmExport.swift",
+        "Sources/ContextRecorder/HotKeys.swift",
+        "Sources/ContextRecorder/JSONValue.swift",
+        "Sources/ContextRecorder/Library/Components.swift",
+        "Sources/ContextRecorder/Library/LibraryView.swift",
+        "Sources/ContextRecorder/Library/LibraryWindow.swift",
+        "Sources/ContextRecorder/Library/MarkDetail.swift",
+        "Sources/ContextRecorder/Library/MarkText.swift",
+        "Sources/ContextRecorder/Library/Review.swift",
+        "Sources/ContextRecorder/Library/SessionData.swift",
+        "Sources/ContextRecorder/Library/SessionLibrary.swift",
+        "Sources/ContextRecorder/Library/SessionModel.swift",
+        "Sources/ContextRecorder/Library/SessionTimeline.swift",
+        "Sources/ContextRecorder/Library/SessionView.swift",
+        "Sources/ContextRecorder/Library/SidePanel.swift",
+        "Sources/ContextRecorder/Recorder.swift",
+        "Sources/ContextRecorder/RegionSelector.swift",
+        "Sources/ContextRecorder/Session.swift",
+        "Sources/ContextRecorder/main.swift",
+        "scripts/process_session.py",
+        "scripts/viewer.html"
+      ],
+      "interpretation_location": "recording-tools-gap-analysis.md"
+    },
+    {
+      "id": "A04_drawing_redaction",
+      "file_count": 34,
+      "match_count": 174,
+      "pattern": "redact|pixelate|blur|mask|annotation|arrow|value",
+      "files": [
+        "Sources/ContextRecorder/ActivityLog.swift",
+        "Sources/ContextRecorder/BrowserBridge.swift",
+        "Sources/ContextRecorder/ContextProbe.swift",
+        "Sources/ContextRecorder/ControlPanel.swift",
+        "Sources/ContextRecorder/Export/ExportSheet.swift",
+        "Sources/ContextRecorder/Export/Pgm.swift",
+        "Sources/ContextRecorder/Export/PgmExport.swift",
+        "Sources/ContextRecorder/HotKeys.swift",
+        "Sources/ContextRecorder/JSONValue.swift",
+        "Sources/ContextRecorder/Library/Components.swift",
+        "Sources/ContextRecorder/Library/LibraryView.swift",
+        "Sources/ContextRecorder/Library/LibraryWindow.swift",
+        "Sources/ContextRecorder/Library/MarkDetail.swift",
+        "Sources/ContextRecorder/Library/MarkText.swift",
+        "Sources/ContextRecorder/Library/Review.swift",
+        "Sources/ContextRecorder/Library/SessionData.swift",
+        "Sources/ContextRecorder/Library/SessionLibrary.swift",
+        "Sources/ContextRecorder/Library/SessionModel.swift",
+        "Sources/ContextRecorder/Library/SessionTimeline.swift",
+        "Sources/ContextRecorder/Library/SessionView.swift",
+        "Sources/ContextRecorder/Library/SidePanel.swift",
+        "Sources/ContextRecorder/Recorder.swift",
+        "Sources/ContextRecorder/RegionSelector.swift",
+        "Sources/ContextRecorder/Session.swift",
+        "Sources/ContextRecorder/main.swift",
+        "extension/background.js",
+        "extension/manifest.json",
+        "extension/page.js",
+        "extension/popup.css",
+        "extension/popup.html",
+        "extension/popup.js",
+        "extension/relay.js",
+        "scripts/process_session.py",
+        "scripts/viewer.html"
+      ],
+      "interpretation_location": "recording-tools-gap-analysis.md"
+    },
+    {
+      "id": "A05_canvas_replay",
+      "file_count": 39,
+      "match_count": 6,
+      "pattern": "rrweb|analyze_canvas|canvas\\.json|scrollX|scrollY|Canvas",
+      "files": [
+        "Sources/ContextRecorder/ActivityLog.swift",
+        "Sources/ContextRecorder/BrowserBridge.swift",
+        "Sources/ContextRecorder/ContextProbe.swift",
+        "Sources/ContextRecorder/ControlPanel.swift",
+        "Sources/ContextRecorder/Export/ExportSheet.swift",
+        "Sources/ContextRecorder/Export/Pgm.swift",
+        "Sources/ContextRecorder/Export/PgmExport.swift",
+        "Sources/ContextRecorder/HotKeys.swift",
+        "Sources/ContextRecorder/JSONValue.swift",
+        "Sources/ContextRecorder/Library/Components.swift",
+        "Sources/ContextRecorder/Library/LibraryView.swift",
+        "Sources/ContextRecorder/Library/LibraryWindow.swift",
+        "Sources/ContextRecorder/Library/MarkDetail.swift",
+        "Sources/ContextRecorder/Library/MarkText.swift",
+        "Sources/ContextRecorder/Library/Review.swift",
+        "Sources/ContextRecorder/Library/SessionData.swift",
+        "Sources/ContextRecorder/Library/SessionLibrary.swift",
+        "Sources/ContextRecorder/Library/SessionModel.swift",
+        "Sources/ContextRecorder/Library/SessionTimeline.swift",
+        "Sources/ContextRecorder/Library/SessionView.swift",
+        "Sources/ContextRecorder/Library/SidePanel.swift",
+        "Sources/ContextRecorder/Recorder.swift",
+        "Sources/ContextRecorder/RegionSelector.swift",
+        "Sources/ContextRecorder/Session.swift",
+        "Sources/ContextRecorder/main.swift",
+        "extension/background.js",
+        "extension/manifest.json",
+        "extension/page.js",
+        "extension/popup.css",
+        "extension/popup.html",
+        "extension/popup.js",
+        "extension/relay.js",
+        "scripts/build-app.sh",
+        "scripts/check-transcript.py",
+        "scripts/process_session.py",
+        "scripts/ui-test/README.md",
+        "scripts/ui-test/cua.js",
+        "scripts/ui-test/harness.py",
+        "scripts/viewer.html"
+      ],
+      "interpretation_location": "recording-tools-gap-analysis.md"
+    },
+    {
+      "id": "A06_export",
+      "file_count": 6,
+      "match_count": 68,
+      "pattern": "markdown|selectedMarks|note|review|recording\\.mp4|--local|AVAssetExport|clip|share",
+      "files": [
+        "Sources/ContextRecorder/Export/ExportSheet.swift",
+        "Sources/ContextRecorder/Export/Pgm.swift",
+        "Sources/ContextRecorder/Export/PgmExport.swift",
+        "Sources/ContextRecorder/Library/MarkText.swift",
+        "scripts/process_session.py",
+        "scripts/viewer.html"
+      ],
+      "interpretation_location": "recording-tools-gap-analysis.md"
+    }
+  ],
+  "source_registry": [
+    {
+      "id": "S001",
+      "title": "Loom pricing",
+      "publisher": "Atlassian / Loom",
+      "url": "https://www.loom.com/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S002",
+      "title": "Use Loom’s different capture modes",
+      "publisher": "Atlassian",
+      "url": "https://support.atlassian.com/loom/docs/use-looms-different-capture-modes/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S003",
+      "title": "Capture system audio",
+      "publisher": "Atlassian",
+      "url": "https://support.atlassian.com/loom/docs/capture-internal-audio-system-audio/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S004",
+      "title": "Edit your Loom video",
+      "publisher": "Atlassian",
+      "url": "https://support.atlassian.com/loom/docs/edit-your-loom-video/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S005",
+      "title": "Correct your transcript",
+      "publisher": "Atlassian",
+      "url": "https://support.atlassian.com/loom/docs/correct-your-transcript/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S006",
+      "title": "Capture console and network logs",
+      "publisher": "Atlassian",
+      "url": "https://support.atlassian.com/loom/docs/capture-console-and-network-logs/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S007",
+      "title": "Record for AI agents",
+      "publisher": "Atlassian",
+      "url": "https://support.atlassian.com/loom/docs/record-for-agent/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Desktop 2.0 or later required for this mode"
+    },
+    {
+      "id": "S008",
+      "title": "Loom AI features",
+      "publisher": "Atlassian",
+      "url": "https://support.atlassian.com/loom/docs/loom-ai-features/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S009",
+      "title": "Screen Studio product page",
+      "publisher": "Screen Studio",
+      "url": "https://screen.studio/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S010",
+      "title": "Captions",
+      "publisher": "Screen Studio",
+      "url": "https://screen.studio/guide/captions",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Apple speech option requires macOS 26.0+"
+    },
+    {
+      "id": "S011",
+      "title": "Screen Studio guide",
+      "publisher": "Screen Studio",
+      "url": "https://screen.studio/guide",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S012",
+      "title": "CleanShot X",
+      "publisher": "CleanShot",
+      "url": "https://cleanshot.com/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S013",
+      "title": "Screen recording",
+      "publisher": "CleanShot",
+      "url": "https://cleanshot.com/screen-recording",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S014",
+      "title": "CleanShot pricing",
+      "publisher": "CleanShot",
+      "url": "https://cleanshot.com/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S015",
+      "title": "Cap pricing",
+      "publisher": "Cap Software",
+      "url": "https://cap.so/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S016",
+      "title": "Cap FAQs",
+      "publisher": "Cap Software",
+      "url": "https://cap.so/faq",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S017",
+      "title": "Cap LICENSE at main",
+      "publisher": "Cap Software",
+      "url": "https://github.com/CapSoftware/Cap/blob/main/LICENSE",
+      "access_date": "2026-10-13",
+      "evidence_type": "public source / license",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S018",
+      "title": "Camera-only recording: editor audio missing, issue 1696",
+      "publisher": "Cap user chrisspiegl",
+      "url": "https://github.com/CapSoftware/Cap/issues/1696",
+      "access_date": "2026-10-13",
+      "evidence_type": "dated user report",
+      "published_or_updated": "2026-03-30",
+      "version": "Cap 0.4.81; macOS 26.3.1; M1 Max"
+    },
+    {
+      "id": "S019",
+      "title": "OBS Studio",
+      "publisher": "OBS Project",
+      "url": "https://obsproject.com/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S020",
+      "title": "macOS desktop audio capture guide",
+      "publisher": "OBS Project",
+      "url": "https://obsproject.com/kb/macos-desktop-audio-capture-guide",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S021",
+      "title": "Audio/video formats guide",
+      "publisher": "OBS Project",
+      "url": "https://obsproject.com/kb/audio-video-formats-guide",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S022",
+      "title": "No Pause Recording in Mac OBS",
+      "publisher": "OBS community participants",
+      "url": "https://obsproject.com/forum/threads/no-pause-recording-in-mac-obs.194427/",
+      "access_date": "2026-10-13",
+      "evidence_type": "dated user report / community response",
+      "published_or_updated": "2026-02-25 to 2026-02-27",
+      "version": "Not stated"
+    },
+    {
+      "id": "S023",
+      "title": "ScreenFlow overview",
+      "publisher": "Telestream",
+      "url": "https://www.telestream.net/screenflow/overview.htm",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "ScreenFlow 10 family; exact latest patch not established"
+    },
+    {
+      "id": "S024",
+      "title": "Camtasia",
+      "publisher": "TechSmith",
+      "url": "https://www.techsmith.com/camtasia/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S025",
+      "title": "Getting started with Camtasia Essentials",
+      "publisher": "TechSmith",
+      "url": "https://support.techsmith.com/hc/en-us/articles/40967481935885-Getting-Started-with-a-Camtasia-Essentials-Plan",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-06-11",
+      "version": "Not stated"
+    },
+    {
+      "id": "S026",
+      "title": "AI text-based editing",
+      "publisher": "TechSmith",
+      "url": "https://www.techsmith.com/camtasia/features/ai-text-based-editing/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S027",
+      "title": "How to record the screen on Mac",
+      "publisher": "Apple",
+      "url": "https://support.apple.com/en-us/102618",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S028",
+      "title": "Jam",
+      "publisher": "Jam",
+      "url": "https://jam.dev/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S029",
+      "title": "Jam pricing",
+      "publisher": "Jam",
+      "url": "https://jam.dev/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S030",
+      "title": "Instant Replay",
+      "publisher": "Jam",
+      "url": "https://jam.dev/docs/instant-replay",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S031",
+      "title": "Recording Links",
+      "publisher": "Jam",
+      "url": "https://jam.dev/docs/recording-links",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S032",
+      "title": "Jam GitHub integration",
+      "publisher": "Jam",
+      "url": "https://jam.dev/integrations/github",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S033",
+      "title": "Bug Capture",
+      "publisher": "BrowserStack",
+      "url": "https://www.browserstack.com/bug-capture",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S034",
+      "title": "BrowserStack acquires Bird Eats Bug",
+      "publisher": "BrowserStack",
+      "url": "https://www.browserstack.com/press/browserstack-acquires-bird-eats-bug-launches-bug-capture-to-accelerate-its-test-platform-vision",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor announcement",
+      "published_or_updated": "2024-08-27",
+      "version": "Not stated"
+    },
+    {
+      "id": "S035",
+      "title": "Bug Capture FAQs",
+      "publisher": "BrowserStack",
+      "url": "https://www.browserstack.com/docs/bug-capture/faqs",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S036",
+      "title": "Session Replay videos",
+      "publisher": "Marker.io",
+      "url": "https://help.marker.io/en/articles/6673880-session-replay-videos",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-06-04",
+      "version": "Not stated"
+    },
+    {
+      "id": "S037",
+      "title": "Why logs and replays are linked instead of attached",
+      "publisher": "Marker.io",
+      "url": "https://help.marker.io/en/articles/14430683-why-are-console-logs-network-requests-and-replays-linked-instead-of-attached",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-04-02",
+      "version": "Not stated"
+    },
+    {
+      "id": "S038",
+      "title": "Sensitive Data Masking",
+      "publisher": "Marker.io",
+      "url": "https://help.marker.io/en/articles/9657817-sensitive-data-masking",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-02-13",
+      "version": "Not stated"
+    },
+    {
+      "id": "S039",
+      "title": "Data Privacy & Security Overview",
+      "publisher": "Marker.io",
+      "url": "https://help.marker.io/en/articles/12383990-data-privacy-security-overview",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-02-25",
+      "version": "Not stated"
+    },
+    {
+      "id": "S040",
+      "title": "Marker.io pricing",
+      "publisher": "Marker.io",
+      "url": "https://marker.io/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S041",
+      "title": "BugHerd features",
+      "publisher": "BugHerd",
+      "url": "https://bugherd.com/features",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S042",
+      "title": "BugHerd MCP",
+      "publisher": "BugHerd",
+      "url": "https://bugherd.com/feature/mcp",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S043",
+      "title": "Userback product",
+      "publisher": "Userback",
+      "url": "https://userback.io/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S044",
+      "title": "Wispr Flow pricing",
+      "publisher": "Wispr",
+      "url": "https://wisprflow.ai/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S045",
+      "title": "What is Wispr Flow?",
+      "publisher": "Wispr",
+      "url": "https://docs.wisprflow.ai/articles/2772472373-what-is-flow",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-09-19",
+      "version": "Not stated"
+    },
+    {
+      "id": "S046",
+      "title": "Accuracy and known limitations",
+      "publisher": "Wispr",
+      "url": "https://docs.wisprflow.ai/articles/4048537120-what-to-expect-from-flow-accuracy-and-known-limitations",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Page displayed “6 days ago” at access",
+      "version": "Not stated"
+    },
+    {
+      "id": "S047",
+      "title": "Retry and recover a failed transcription",
+      "publisher": "Wispr",
+      "url": "https://docs.wisprflow.ai/articles/2503460374-retry-failed-transcriptions",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Page displayed “3 days ago” at access",
+      "version": "Not stated"
+    },
+    {
+      "id": "S048",
+      "title": "Wispr privacy",
+      "publisher": "Wispr",
+      "url": "https://wisprflow.ai/privacy",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S049",
+      "title": "Superwhisper",
+      "publisher": "Superwhisper",
+      "url": "https://superwhisper.com/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S050",
+      "title": "Plans & pricing",
+      "publisher": "Superwhisper",
+      "url": "https://superwhisper.com/docs/billing/plans",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S051",
+      "title": "Quickstart",
+      "publisher": "Superwhisper",
+      "url": "https://superwhisper.com/docs/get-started/quickstart",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S052",
+      "title": "Built-in modes",
+      "publisher": "Superwhisper",
+      "url": "https://superwhisper.com/docs/modes/built-in",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S053",
+      "title": "Troubleshooting overview",
+      "publisher": "Superwhisper",
+      "url": "https://superwhisper.com/docs/common-issues/troubleshooting",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S054",
+      "title": "FluidVoice source",
+      "publisher": "altic-dev",
+      "url": "https://github.com/altic-dev/FluidVoice",
+      "access_date": "2026-10-13",
+      "evidence_type": "public source / project documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S055",
+      "title": "FluidVoice releases",
+      "publisher": "altic-dev",
+      "url": "https://github.com/altic-dev/FluidVoice/releases",
+      "access_date": "2026-10-13",
+      "evidence_type": "release notes",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S056",
+      "title": "AirPods microphone switching hang, issue 709",
+      "publisher": "FluidVoice user report",
+      "url": "https://github.com/altic-dev/FluidVoice/issues/709",
+      "access_date": "2026-10-13",
+      "evidence_type": "dated user report",
+      "published_or_updated": "2026-07-24",
+      "version": "FluidVoice 1.6.5"
+    },
+    {
+      "id": "S057",
+      "title": "VoiceInk",
+      "publisher": "VoiceInk",
+      "url": "https://tryvoiceink.com/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S058",
+      "title": "MacWhisper",
+      "publisher": "MacWhisper / Good Snooze",
+      "url": "https://www.macwhisper.com/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S059",
+      "title": "MacWhisper command-line tool",
+      "publisher": "MacWhisper",
+      "url": "https://docs.macwhisper.com/article/57-macwhisper-command-line-tool",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-07-22",
+      "version": "Not stated"
+    },
+    {
+      "id": "S060",
+      "title": "Keyboard shortcuts",
+      "publisher": "MacWhisper",
+      "url": "https://macwhisper.helpscoutdocs.com/article/28-keyboard-shortcuts",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2025-07-15",
+      "version": "Not stated"
+    },
+    {
+      "id": "S061",
+      "title": "Dictate messages and documents on Mac",
+      "publisher": "Apple",
+      "url": "https://support.apple.com/guide/mac-help/use-dictation-mh40584/mac",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S062",
+      "title": "Shottr",
+      "publisher": "Shottr",
+      "url": "https://shottr.cc/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S063",
+      "title": "Shottr version notes",
+      "publisher": "Shottr",
+      "url": "https://shottr.cc/newversion.html",
+      "access_date": "2026-10-13",
+      "evidence_type": "release notes",
+      "published_or_updated": "Not stated",
+      "version": "1.9.3 displayed"
+    },
+    {
+      "id": "S064",
+      "title": "Shottr FAQ",
+      "publisher": "Shottr",
+      "url": "https://shottr.cc/kb/faq",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S065",
+      "title": "Camtasia Snagit",
+      "publisher": "TechSmith",
+      "url": "https://www.techsmith.com/snagit/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S066",
+      "title": "Snagit features",
+      "publisher": "TechSmith",
+      "url": "https://www.techsmith.com/snagit/features/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S067",
+      "title": "Step capture tutorial",
+      "publisher": "TechSmith",
+      "url": "https://www.techsmith.com/learn/tutorials/snagit/step-capture/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S068",
+      "title": "Snagit versus Camtasia",
+      "publisher": "TechSmith",
+      "url": "https://www.techsmith.com/blog/snagit-vs-camtasia/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-05-14",
+      "version": "Not stated"
+    },
+    {
+      "id": "S069",
+      "title": "Presentify",
+      "publisher": "Presentify",
+      "url": "https://presentifyapp.com/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S070",
+      "title": "Cursor highlighting with screen recorders",
+      "publisher": "Presentify",
+      "url": "https://presentifyapp.com/use-cases/cursor-highlight-tool-for-screen-recording",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S071",
+      "title": "ScreenBrush App Store listing",
+      "publisher": "Image Studio Production / Apple listing",
+      "url": "https://apps.apple.com/us/app/screenbrush/id1233965871?mt=12",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "1.9.3 displayed"
+    },
+    {
+      "id": "S072",
+      "title": "ShareX",
+      "publisher": "ShareX project",
+      "url": "https://getsharex.com/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S073",
+      "title": "Region capture",
+      "publisher": "ShareX project",
+      "url": "https://getsharex.com/docs/region-capture.html",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S074",
+      "title": "Scribe pricing",
+      "publisher": "Scribe",
+      "url": "https://scribe.com/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S075",
+      "title": "Choosing the right Scribe Pro plan",
+      "publisher": "Scribe",
+      "url": "https://support.scribehow.com/hc/en-us/articles/8813841761181-Choosing-the-Right-Scribe-Pro-Plan",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-04-22",
+      "version": "Not stated"
+    },
+    {
+      "id": "S076",
+      "title": "Tango",
+      "publisher": "Tango",
+      "url": "https://www.tango.ai/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S077",
+      "title": "Tango pricing",
+      "publisher": "Tango",
+      "url": "https://www.tango.ai/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S078",
+      "title": "Guidde",
+      "publisher": "Guidde",
+      "url": "https://www.guidde.com/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S079",
+      "title": "Guidde Create pricing",
+      "publisher": "Guidde",
+      "url": "https://www.guidde.com/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S080",
+      "title": "Record an interactive demo",
+      "publisher": "Arcade",
+      "url": "https://docs.arcade.software/kb/build/interactive-demo/record",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-02-18",
+      "version": "Not stated"
+    },
+    {
+      "id": "S081",
+      "title": "Arcade pricing",
+      "publisher": "Arcade",
+      "url": "https://www.arcade.software/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S082",
+      "title": "How to record interactive demos",
+      "publisher": "Arcade",
+      "url": "https://www.arcade.software/post/how-to-record-interactive-demos",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S083",
+      "title": "Descript",
+      "publisher": "Descript",
+      "url": "https://www.descript.com/",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S084",
+      "title": "Descript pricing",
+      "publisher": "Descript",
+      "url": "https://www.descript.com/pricing",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S085",
+      "title": "Descript screen recorder",
+      "publisher": "Descript",
+      "url": "https://www.descript.com/screen-recording",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S086",
+      "title": "Descript download",
+      "publisher": "Descript",
+      "url": "https://www.descript.com/download",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S087",
+      "title": "Screenpipe repository",
+      "publisher": "Screenpipe / Negentropy Labs",
+      "url": "https://github.com/screenpipe/screenpipe",
+      "access_date": "2026-10-13",
+      "evidence_type": "public source / project documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S088",
+      "title": "Screenpipe privacy policy",
+      "publisher": "Screenpipe / Negentropy Labs",
+      "url": "https://screenpipe.com/privacy",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor policy",
+      "published_or_updated": "2026-09-24",
+      "version": "Not stated"
+    },
+    {
+      "id": "S089",
+      "title": "Transcription reconciliation silently stops, issue 3498",
+      "publisher": "Screenpipe user pleasedodisturb",
+      "url": "https://github.com/screenpipe/screenpipe/issues/3498",
+      "access_date": "2026-10-13",
+      "evidence_type": "dated user report",
+      "published_or_updated": "Incident 2026-05-21; onset estimated by reporter",
+      "version": "Not stated"
+    },
+    {
+      "id": "S090",
+      "title": "Replay CLI commands",
+      "publisher": "Replay",
+      "url": "https://docs.replay.io/reference/replay-cli/commands",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S091",
+      "title": "Replay MCP and a React debugging example",
+      "publisher": "Replay",
+      "url": "https://www.replay.io/blog/replay-time-travelogue-how-replay-mcp-helped-find-a-react-bug-faster-than-dan-abramov-did",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor worked example",
+      "published_or_updated": "2026-04-17",
+      "version": "Not stated"
+    },
+    {
+      "id": "S092",
+      "title": "Commenting on your media",
+      "publisher": "Adobe / Frame.io",
+      "url": "https://help.frame.io/en/articles/9105251-commenting-on-your-media",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-09-09",
+      "version": "Frame.io V4"
+    },
+    {
+      "id": "S093",
+      "title": "Comments panel overview",
+      "publisher": "Adobe / Frame.io",
+      "url": "https://help.frame.io/en/articles/9105278-comments-panel-overview",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "2026-09-09",
+      "version": "Frame.io V4"
+    },
+    {
+      "id": "S094",
+      "title": "Review and approval",
+      "publisher": "Adobe / Frame.io",
+      "url": "https://frame.io/features/review-and-approval",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S095",
+      "title": "An honest review of Descript and why I cancelled",
+      "publisher": "Reddit r/Descript participant",
+      "url": "https://www.reddit.com/r/Descript/comments/17z5bkh/an_honest_review_of_descript_and_why_i_cancelled/",
+      "access_date": "2026-10-13",
+      "evidence_type": "dated user report",
+      "published_or_updated": "2023-11; exact day not established",
+      "version": "Not stated"
+    },
+    {
+      "id": "S096",
+      "title": "Cap downloads and versions",
+      "publisher": "Cap Software",
+      "url": "https://cap.so/download/versions",
+      "access_date": "2026-10-13",
+      "evidence_type": "release index",
+      "published_or_updated": "2026-09-15 (displayed release)",
+      "version": "0.6.0 labeled Latest"
+    },
+    {
+      "id": "S097",
+      "title": "Recording videos FAQs, Testing Toolkit",
+      "publisher": "BrowserStack",
+      "url": "https://www.browserstack.com/docs/testing-toolkit/bug-capture/faqs/recording-videos",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S098",
+      "title": "Replay FAQs, Testing Toolkit",
+      "publisher": "BrowserStack",
+      "url": "https://www.browserstack.com/docs/testing-toolkit/bug-capture/faqs/replays",
+      "access_date": "2026-10-13",
+      "evidence_type": "vendor documentation",
+      "published_or_updated": "Not stated",
+      "version": "Not stated"
+    },
+    {
+      "id": "S099",
+      "title": "MacWhisper has Automatic Speaker Recognition now",
+      "publisher": "Simon Willison",
+      "url": "https://simonwillison.net/2025/Nov/18/macwhisper-speaker-recognition/",
+      "access_date": "2026-10-13",
+      "evidence_type": "independent firsthand observation",
+      "published_or_updated": "2025-11-18",
+      "version": "Parakeet v3 in displayed example"
+    }
+  ],
+  "source_id_ranges": {
+    "products": "P01-P32",
+    "external_sources": "S001-S099",
+    "repository_evidence": "R001-R025",
+    "gaps": "G01-G16",
+    "recommendations": "RT-01-RT-10",
+    "proofs": "PF-01-PF-10",
+    "directions": "O1-O7",
+    "human_choices": "H1-H3"
+  },
+  "deliverable_gates": {
+    "repository_source_web": "passed within packet/static scope",
+    "breadth": "passed",
+    "depth": "passed",
+    "category_coverage": "passed",
+    "taxonomy_and_denominators": "passed",
+    "repository_gap_evidence": "passed with explicit absence scopes",
+    "sources_and_stable_ids": "passed",
+    "alternatives_and_conditional_plan": "passed",
+    "product_runtime_validation": "not run; not a research deliverable gate"
+  },
+  "checks_not_run": [
+    "swift build",
+    "scripts/check-transcript.py execution",
+    "native UI test harness / prepare",
+    "scripts/build-app.sh or app installation",
+    "capture/recording/permission tests",
+    "personal-session inspection",
+    "ffmpeg media decoding",
+    "speech provider inference or accuracy trial",
+    "Product Grid CLI export",
+    "privacy canary experiment",
+    "crash/recovery/performance/usability experiment",
+    "full software-design-sleuth reconciliation or initiative validation"
+  ],
+  "omissions": [
+    "No implementation, repository mutation, commit, issue, PR, signup, purchase or vendor contact.",
+    "No extra PDF/DOCX/XLSX/slides; requested Markdown/CSV/JSON companions only.",
+    "No personal recordings or synthetic runtime fixtures included; fixtures are proposed in the proof plan.",
+    "No exhaustive market, pricing, all-platform or all-feature inventory; unknown cells remain explicit.",
+    "Manifest and ZIP hashes intentionally omitted under the brief; six substantive companions are SHA-256 protected.",
+    "Prior canvas research is context, not implemented proof or this run’s executed build."
+  ],
+  "unresolved_limits": [
+    "Exactly three human decisions H1-H3 are preserved; primary goal, outgoing data boundary and predeclared benefit-versus-maintenance budget remain provisional.",
+    "No hands-on product measurements; vendor claims and isolated reports do not establish reliability or accuracy rankings.",
+    "Packet byte/hash checks establish consistency with supplied manifest, not independent verification of all Git objects.",
+    "Some pricing pages had conflicting duplicated/toggle-rendered content; uncertain numeric prices are not used.",
+    "BrowserStack help redirects were followed; source changes/plan drift after the stated access date remain possible.",
+    "Most cross-category feature cells are unknown; this is not evidence of absence.",
+    "Versions are stated only when established; historical issue versions are never treated as current releases."
+  ],
+  "human_decisions": [
+    {
+      "id": "H1",
+      "question": "Which primary outcome should govern the next proof: personal bug/product review, polished communication, or general dictation?",
+      "default": "Personal local review is provisional, not a discovered preference.",
+      "consequence": "Review selects O3/RT-05; communication selects O5 specialist reuse; dictation selects O2/RT-07. Do not approve a broad implementation before this choice."
+    },
+    {
+      "id": "H2",
+      "question": "What data may leave the private session folder, and who must consume it?",
+      "default": "Local private originals; explicit selected, previewed derivatives; no automatic upload.",
+      "consequence": "Determines export scope and whether a hosted specialist is acceptable. A raw full-session handoff requires a deliberate broader choice."
+    },
+    {
+      "id": "H3",
+      "question": "How much measured benefit must a new local-review surface deliver to justify its maintenance cost?",
+      "default": "Keep the simpler workflow unless it clears a predeclared provisional 20% full-task time gain with no accuracy loss.",
+      "consequence": "Set the acceptance budget before evaluation, for lexical retrieval or a separately justified spatial-reading alternative. Do not move the threshold afterward or expand scope merely because a prototype exists."
+    }
+  ],
+  "repository_mutation": {
+    "files_changed": false,
+    "commits_created": false,
+    "branches_changed": false,
+    "pull_requests_opened": false,
+    "local_checkout_accessed": false
+  },
+  "collection_handoff": "Codex will collect and preserve originals, reconcile intent and alternatives, and apply full software-design-sleuth before a review PR. No repository destination was written by this research."
+}
