@@ -22,7 +22,7 @@ Each milestone leaves the app working. Without canvas data, the Sessions window 
 
 - **First proof:** On a real session, Canvas mode shows change cards. Clicking one switches the stage to the video at that card's exact frame.
 - **Primary seam:** `canvas.json` plus `canvas/` images in the session folder. The file is versioned and records the video's SHA-256 and the content box. The analyzer writes it; `SessionModel` reads it. The engine choice stays behind this file.
-- **Fast local loop:** `python3 scripts/canvas/test_canvas.py` generates fixtures, runs the analyzer, and checks offsets, refusals, and frame mapping. It needs no app build, recording, or network. Run `swift build` only when UI changes.
+- **Fast local loop:** `swift run -c release canvas-tool check` generates fixtures, runs the analyzer, and checks offsets, refusals, and frame mapping. It needs no app build, recording, or network. Run `swift build` only when UI changes.
 - **Local dependencies:** FFmpeg/ffprobe (existing). Milestone 2 adds either OpenCV-headless + NumPy in a pinned optional virtualenv or no Python dependency at all (Vision).
 - **Live confirmation:** Two or three scripted recordings under five minutes, then your own sessions.
 - **Rollout and rollback:** Build canvas runs only on request. A missing or mismatched `canvas.json` disables the toggle or offers Rebuild. Rollback means deleting `canvas.json` and `canvas/`.
@@ -39,8 +39,8 @@ engine + fake scroll clips with known offsets (deterministic)
 
 ## Milestone 1: Storyboard in Canvas mode
 
-- **Change — Frame index and change cards in `scripts/analyze_canvas.py`**
-  - Decode with FFmpeg `showinfo` to get frame number, PTS, time base, size, and SHA-256. Compare downscaled frames inside the content box to find changes, and save one image per card under `canvas/`.
+- **Change — Frame index and change cards in `Sources/CanvasKit`** *(as built: Swift instead of `scripts/analyze_canvas.py`)*
+  - Decode with AVFoundation (`FrameSource`), which gives the exact presentation times the player uses, and record the video's SHA-256. Compare half-resolution frames inside the content box to find settled states, and save one image per card under `canvas/`. The project's Python is standard-library only, so a Swift library avoids adding NumPy and lets the app call the analyzer directly.
   - Test: a fake clip with a burned-in frame counter and three known changes yields three cards with correct frame numbers. A blinking cursor yields none.
 - **Change — Build canvas action**
   - Add a toolbar or menu action. It opens `RegionPicker` on the current frame for the content box, then runs the analyzer the same way `Review.reprocess` runs `process_session.py`. It shows progress and errors.
@@ -110,7 +110,7 @@ engine + fake scroll clips with known offsets (deterministic)
 
 ## Open decisions and spikes
 
-- **Engine:** Python + OpenCV vs Apple Vision, decided by the Milestone 2 bake-off.
+- **Engine:** decided in Milestone 2: an in-app row-profile estimator, chosen over both Apple Vision and OpenCV. See [the bake-off](spikes/engine-bakeoff.md).
 
 ## Below the cut line
 

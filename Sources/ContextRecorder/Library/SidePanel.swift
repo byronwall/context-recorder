@@ -269,7 +269,7 @@ struct TranscriptList: View {
         if model.transcript.isEmpty {
             ContentUnavailableView("Silent Recording", systemImage: "mic.slash", description: Text("There's no narration for this session."))
         } else {
-            let current = model.sentenceAt(model.currentTime)
+            let current = model.sentenceAt(model.focusTime)
             ScrollViewReader { proxy in
                 List(Array(model.transcript.enumerated()), id: \.offset) { i, s in
                     TimedRow(time: s.start, highlighted: s == current) {
@@ -280,7 +280,7 @@ struct TranscriptList: View {
                 }
                 .listStyle(.plain)
                 .onChange(of: current) { _, s in
-                    guard model.isPlaying, let s, let i = model.transcript.firstIndex(of: s) else { return }
+                    guard model.isPlaying || model.previewTime != nil, let s, let i = model.transcript.firstIndex(of: s) else { return }
                     withAnimation { proxy.scrollTo(i, anchor: .center) }
                 }
             }

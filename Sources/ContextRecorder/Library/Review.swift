@@ -16,6 +16,14 @@ extension SessionModel {
         await addReview(region: nil, shot: false)
     }
 
+    /// S: drag out a region on the video for a shot.
+    func startShot() {
+        player.pause()
+        stage = .video
+        regionPurpose = .shot
+        regionMode = true
+    }
+
     /// S: a region shot. `region` is normalized to the video (0…1, top-left origin); nil = whole frame.
     func addReviewShot(region: CGRect?) async {
         await addReview(region: region, shot: true)
