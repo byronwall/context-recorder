@@ -30,17 +30,77 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var activity: ActivityLog?
     private var busy = false
     private var recordMicrophone: Bool {
-        get { UserDefaults.standard.object(forKey: "recordMicrophone") as? Bool ?? true }
+        get { devLibraryFolder == nil && (UserDefaults.standard.object(forKey: "recordMicrophone") as? Bool ?? true) }
         set { UserDefaults.standard.set(newValue, forKey: "recordMicrophone") }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // UI automation can reopen the bundle without the harness arguments.
+        guard Bundle.main.bundleIdentifier != "com.byronwall.ContextRecorder.UITest" || devLibraryFolder != nil else {
+            fputs("UI test bundle requires --library; refusing the real session library\n", stderr)
+            NSApp.terminate(nil)
+            return
+        }
         if let devLibraryFolder {
+            let args = CommandLine.arguments
+            func value(_ flag: String) -> String? {
+                args.firstIndex(of: flag).flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+            }
+            if args.contains("--capture-check") {
+                print(CGPreflightScreenCaptureAccess() ? "Screen Recording permission: granted" : "Screen Recording permission: unavailable; capture tests skipped")
+                NSApp.terminate(nil)
+                return
+            }
+            if args.contains("--check-transcript") {
+                let model = SessionModel(folder: devLibraryFolder)
+                let failed = model.transcript.filter { model.sentenceAt($0.start) != $0 }
+                guard model.loadError == nil, !model.transcript.isEmpty, failed.isEmpty else {
+                    fputs("Transcript start checks failed: \(failed.count)\n", stderr)
+                    exit(1)
+                }
+                print("Transcript start checks passed: \(model.transcript.count)")
+                model.tearDown()
+                NSApp.terminate(nil)
+                return
+            }
+            if args.contains("--check-previews") {
+                Task {
+                    let previews = FramePreviews(video: devLibraryFolder.appendingPathComponent("recording.mp4"))
+                    // The first frame of a cold video can take a second; time the sweep, not the open.
+                    previews.request(0)
+                    for _ in 0..<100 where previews.image == nil { try? await Task.sleep(for: .milliseconds(50)) }
+                    var frames = Set<ObjectIdentifier>()
+                    for step in 0..<60 {
+                        previews.request(Double(step) * 0.5)
+                        try? await Task.sleep(for: .milliseconds(16))
+                        if let image = previews.image { frames.insert(ObjectIdentifier(image)) }
+                    }
+                    guard frames.count > 1 else {
+                        fputs("Preview sweep stalled: \(frames.count) frames\n", stderr)
+                        exit(1)
+                    }
+                    print("Preview sweep passed: \(frames.count) frames during 60 requests")
+                    NSApp.terminate(nil)
+                }
+                return
+            }
             if let look = ProcessInfo.processInfo.environment["CR_APPEARANCE"] {   // light | dark, for screenshots
                 NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
             }
             library.show(session: devLibraryFolder)
-            let args = CommandLine.arguments
+            if let width = value("--window-width").flatMap(Double.init), width >= 980 {
+                library.window?.setContentSize(NSSize(width: width, height: 820))
+                library.window?.center()
+            }
+            if let name = value("--recording-fixture") {
+                library.state.library.recordingFolder = library.state.library.entries.first { $0.url.lastPathComponent == name }?.url
+            }
+            if let name = value("--session"), let entry = library.state.library.entries.first(where: { $0.url.lastPathComponent == name }) {
+                library.show(session: entry.url)
+            }
+            if let tab = value("--tab") {
+                library.state.model?.tab = SessionModel.Tab.allCases.first { $0.rawValue.lowercased().hasPrefix(tab) } ?? .marks
+            }
             if let i = args.firstIndex(of: "--mark"), i + 1 < args.count, let n = Int(args[i + 1]) {
                 library.state.model?.select(n)   // `--mark <n>` opens that mark too
             }
@@ -81,11 +141,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             }
-            return
+            if !args.contains("--capture") { return }
+            guard CGPreflightScreenCaptureAccess() else {
+                print("Screen Recording permission unavailable; capture tests skipped")
+                NSApp.terminate(nil)
+                return
+            }
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.autosaveName = "ContextRecorder"
         recorder.onError = { [weak self] error in self?.handleError(error) }
+        library.onShow = { [weak self] in
+            guard let self, self.session != nil else { return }
+            self.recorder.recordedOwnWindows = self.library.recordedWindows
+            Task { await self.recorder.refreshFilter() }
+        }
         panel = ControlPanel(actions: .init(
             toggleRecording: { [weak self] in self?.toggleRecording() },
             mark: { [weak self] in self?.addMark(screenshot: false) },
@@ -115,18 +185,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
-        bridge.start()
+        if devLibraryFolder == nil { bridge.start() }
         rebuildMenu()
         updateTitle()
         panel.show()
 
-        let mods = controlKey | optionKey
-        HotKeys.shared.register(keyCode: kVK_ANSI_R, modifiers: mods) { [weak self] in self?.toggleRecording() }
-        HotKeys.shared.register(keyCode: kVK_ANSI_M, modifiers: mods) { [weak self] in self?.addMark(screenshot: false) }
-        HotKeys.shared.register(keyCode: kVK_ANSI_S, modifiers: mods) { [weak self] in self?.addMark(screenshot: true) }
-
-        // Ask for screen-recording permission up front so the first recording doesn't fail.
-        if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
+        if devLibraryFolder == nil {
+            let mods = controlKey | optionKey
+            HotKeys.shared.register(keyCode: kVK_ANSI_R, modifiers: mods) { [weak self] in self?.toggleRecording() }
+            HotKeys.shared.register(keyCode: kVK_ANSI_M, modifiers: mods) { [weak self] in self?.addMark(screenshot: false) }
+            HotKeys.shared.register(keyCode: kVK_ANSI_S, modifiers: mods) { [weak self] in self?.addMark(screenshot: true) }
+            // Ask for screen-recording permission up front so the first recording doesn't fail.
+            if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
+        }
     }
 
     /// `open "Context Recorder.app"` while running, or clicking it in Finder/Dock, brings the panel back
@@ -227,8 +298,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showShortcuts() { library.state.showShortcuts = true }
     @objc func quitFromMenu() { quit() }
     @objc private func openSessions() {
-        try? FileManager.default.createDirectory(at: Session.root, withIntermediateDirectories: true)
-        NSWorkspace.shared.open(Session.root)
+        let folder = devLibraryFolder ?? Session.root
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(folder)
     }
     @objc private func quit() {
         if session != nil { stopRecording(thenQuit: true) } else { NSApp.terminate(nil) }
@@ -243,13 +315,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startRecording() {
         do {
-            let session = try Session()
+            let session = try Session(root: devLibraryFolder?.appendingPathComponent("capture-output") ?? Session.root)
             self.session = session
             pageCaptureFolder = session.folder
             rebuildMenu()
             updateTitle()
             Task { @MainActor in
                 do {
+                    recorder.recordedOwnWindows = library.recordedWindows
                     try await recorder.start(outputURL: session.videoURL, recordMicrophone: recordMicrophone)
                     let activity = ActivityLog(url: session.folder.appendingPathComponent("activity.jsonl")) { [weak self] in
                         self?.recorder.currentOffset()

@@ -138,8 +138,11 @@ final class SessionModel {
         return current?.context
     }
 
+    /// Keep the latest started sentence lit briefly after it ends. A lead-in can select the next
+    /// sentence when the clicked sentence is shorter than that lead-in.
     func sentenceAt(_ t: Double) -> Sentence? {
-        transcript.first { t >= $0.start - 0.2 && t <= $0.end + 0.6 }
+        guard let s = transcript.last(where: { $0.start <= t }), t <= s.end + 0.6 else { return nil }
+        return s
     }
 
     // MARK: App colors (fixed muted palette, in order of first appearance)
