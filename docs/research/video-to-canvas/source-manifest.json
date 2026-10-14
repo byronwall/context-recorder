@@ -1,0 +1,145 @@
+{
+  "repository": "https://github.com/byronwall/context-recorder",
+  "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+  "kind": "selected source snapshot; not a runnable checkout",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 9908,
+      "sha256": "a8974d327a25101f15bdb2ffb4aff1ec201438858fe0032471b8a71b0d89167b",
+      "source": "baseline"
+    },
+    {
+      "path": "Package.swift",
+      "bytes": 564,
+      "sha256": "ee4be4430ba641a33aa6f99829bc486aee4b7e9acbf775828d4ea9c5b6125174",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/Recorder.swift",
+      "bytes": 7431,
+      "sha256": "397eb46ba9f77593661168106ea2c255dbf883b3e1a9b28f35c7d86e2f918c6d",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/Session.swift",
+      "bytes": 2853,
+      "sha256": "b5f1ad2b06bdc3a4829f0f0bb50e8721a91ffee47304f6d935a1c8bdcb2da761",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/ActivityLog.swift",
+      "bytes": 2144,
+      "sha256": "3529ca90d021a6859d77e0c5439797d3512a2956b12d714c39c7e7bb5a641fe3",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/ContextProbe.swift",
+      "bytes": 2778,
+      "sha256": "751beb96e2c0234f9c7ebf3dae4967473fdc676eccef6c0fca5383b9ee879a1d",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/main.swift",
+      "bytes": 22047,
+      "sha256": "9413e44b721980102e60fc27931f650246873ba46781a1a67bb84dd3d7fb4510",
+      "source": "baseline"
+    },
+    {
+      "path": "extension/page.js",
+      "bytes": 22435,
+      "sha256": "19045817d88bf4b8d4e7bda277f4a5a434bb1ef61442fc3a8eb6be8791114fae",
+      "source": "baseline"
+    },
+    {
+      "path": "extension/background.js",
+      "bytes": 5332,
+      "sha256": "99f630918360f8b63ac32f03bcde1037c6e730a116bc4416156c0163912f7d33",
+      "source": "baseline"
+    },
+    {
+      "path": "extension/relay.js",
+      "bytes": 1316,
+      "sha256": "0da9b076a4810adeeeff2dd138042e1c5beb6f4671e1851f563cf29444b419fc",
+      "source": "baseline"
+    },
+    {
+      "path": "extension/manifest.json",
+      "bytes": 1061,
+      "sha256": "58a83f30532ebd23a7a12e9c6606f7d01504627a3de14197c768374dd9436a85",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/BrowserBridge.swift",
+      "bytes": 6569,
+      "sha256": "a74f395005f81a2eb524e108ecb8655ad870ce7fa4cdbae518f6c8c77dee1b3b",
+      "source": "baseline"
+    },
+    {
+      "path": "scripts/process_session.py",
+      "bytes": 13850,
+      "sha256": "5ea7c4db660728bdc900eb8c21885a8724ec837fdb0c1a1a0e0cb6eb6728b819",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionData.swift",
+      "bytes": 8627,
+      "sha256": "381db50d44e524ae04194f5b16282cf759791a59b1f0e488d5841b963fcfca67",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionModel.swift",
+      "bytes": 8179,
+      "sha256": "499dee6ea290fba23f68faa5b805e40043f699bd334dcf26ce35f6c4cedd1dc4",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionView.swift",
+      "bytes": 17426,
+      "sha256": "747b1630bde793562985fafc099a2ab9b139ad055c52de21cec257eaaecda500",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/SessionTimeline.swift",
+      "bytes": 16884,
+      "sha256": "9e88d8ab32dca23493f276497b028a8b4cfc9fdeac66814082ffd2e8b1d82f73",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/Library/Review.swift",
+      "bytes": 9721,
+      "sha256": "887465c6b0ffa62284f3b7f5cdd4b5989d47027bcdc3e682e0b9854d00dfd40e",
+      "source": "baseline"
+    },
+    {
+      "path": "scripts/viewer.html",
+      "bytes": 39722,
+      "sha256": "a8f2d60a616d65f3c9bb09fd159806b7fcf1bb7525b1f427b6e470e4b016c8d9",
+      "source": "baseline"
+    },
+    {
+      "path": "Sources/ContextRecorder/Export/PgmExport.swift",
+      "bytes": 9061,
+      "sha256": "63cc34b04201ce5dfed5cdcb78f502b461d1d1c1cb5809ced5a4f551234e4908",
+      "source": "baseline"
+    },
+    {
+      "path": "scripts/build-app.sh",
+      "bytes": 1706,
+      "sha256": "c04036f6685fc4c212f83d7aac5223edd623f67632df3d94a6f05c45e49e62a9",
+      "source": "baseline"
+    },
+    {
+      "path": "docs/research/video-to-canvas/intent-brief.md",
+      "bytes": 3588,
+      "sha256": "88f2b0f0d991131c13d9358ed8c13e3e67e0b6b163dcfaf0df567aaad7775027",
+      "source": "local addition"
+    },
+    {
+      "path": "docs/research/video-to-canvas/pro-prompt.md",
+      "bytes": 16040,
+      "sha256": "4cb6485421398cbf5b41d66449729352b001a0dff271b51e38bc35998363f3cc",
+      "source": "local addition"
+    }
+  ]
+}
