@@ -272,6 +272,8 @@ struct RenameField: View {
 struct Thumbnail: View {
     var url: URL?
     var maxPixel: CGFloat = 400
+    /// Change it to reload the same file (an annotated copy rewritten in place).
+    var revision = 0
     @State private var image: NSImage?
 
     var body: some View {
@@ -283,18 +285,19 @@ struct Thumbnail: View {
                 Image(systemName: "photo").foregroundStyle(.tertiary)
             }
         }
-        .task(id: url) { image = await ImageCache.shared.image(url, maxPixel: maxPixel) }
+        .task(id: "\(url?.path ?? "")#\(revision)") { image = await ImageCache.shared.image(url, maxPixel: maxPixel) }
     }
 }
 
-/// Downsampled images keyed by file and size. Session images don't change once written.
+/// Downsampled images keyed by file, size and modification date: annotated copies are rewritten in place.
 actor ImageCache {
     static let shared = ImageCache()
     private var cache: [String: NSImage] = [:]
 
     func image(_ url: URL?, maxPixel: CGFloat) -> NSImage? {
         guard let url else { return nil }
-        let key = "\(url.path)@\(Int(maxPixel))"
+        let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        let key = "\(url.path)@\(Int(maxPixel))@\(modified?.timeIntervalSince1970 ?? 0)"
         if let hit = cache[key] { return hit }
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
               let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, [
@@ -323,7 +326,9 @@ struct ShortcutsSheet: View {
         ("⌘Z  ⇧⌘Z", "Undo or redo a cut or drawing"),
         ("E", "Draw on the video (E or Esc to finish)"),
         ("S R A T H D", "In draw mode: select, rectangle, arrow, text, highlight, draw"),
-        ("Esc", "Close Quick Look"),
+        ("V R A T H P C", "Image viewer: select, rectangle, arrow, text, highlight, freehand, crop"),
+        ("⌘Z  ⇧⌘Z", "Image viewer: undo, redo"),
+        ("Esc", "Close the image viewer"),
         ("Return", "Rename the selected session"),
         ("⌘⌫", "Move the selected sessions to the Trash"),
         ("⌃⌥R", "Start or stop recording (anywhere)"),

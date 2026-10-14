@@ -42,8 +42,10 @@ struct SessionMark: Decodable, Identifiable, Hashable {
     var kind: String              // "mark" | "screenshot"
     var offsetSeconds: Double
     var wallTime: String?
-    var image: String?            // screenshot when it exists, else the video frame
-    var frame: String?
+    var image: String?            // screenshot when it exists, else the video frame; annotated copy if drawn on
+    var frame: String?            // annotated copy if drawn on
+    var sourceImage: String?      // `image` and `frame` as captured (older session.json files lack these)
+    var sourceFrame: String?
     var screenshot: String?
     var narration: String?        // spoken window around the mark, with ⚑ where the mark landed
     var context: MarkContext?
@@ -63,6 +65,11 @@ struct SessionMark: Decodable, Identifiable, Hashable {
     var storedIndex: Int { rawIndex ?? index }
 
     var id: Int { index }
+    /// The captured image and frame: what the viewer opens and draws on.
+    var originalImage: String? { sourceImage ?? image }
+    var originalFrame: String? { sourceFrame ?? frame }
+    var imageAnnotated: Bool { image != originalImage }
+    var frameAnnotated: Bool { frame != originalFrame }
     var isShot: Bool { kind == "screenshot" }
     var isReview: Bool { source == "review" }
 

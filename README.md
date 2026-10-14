@@ -60,6 +60,32 @@ Each drawing shows for 3 seconds from where you drew it. The **Drawn** lane on t
 
 Select two or more sessions in the sidebar (⌘-click or ⇧-click) and choose **Join into One Session** (also in the right-click menu). A new session plays them end to end, oldest first, with one timeline: marks are numbered in play order and a purple label shows where each source starts. Cuts already made in a source carry over, and you can cut the joined session like any other. The sources aren't changed or copied: the joined folder's `edits.json` points at them (`"source": "../2026-10-13_00-57-10"`), so keep them next to it. A note on a mark from a source is saved in that source, and marks added while reviewing the joined session are saved in the joined session. If a source is moved or deleted, the joined session says which one is missing. Sources of different sizes are scaled to fit one frame.
 
+### Viewing images
+
+Click a mark's picture (or its **Full screen** inset, or **View Image** in a mark's menu) to open it large over the session, inside the window. Nothing opens in Quick Look or Preview.
+
+| Input | Action |
+| --- | --- |
+| Pinch, mouse wheel, ⌘+ / ⌘− | Zoom toward the pointer |
+| Two-finger scroll, drag, middle-drag, Space-drag | Pan |
+| ⌘0 / ⌘1, double-click | Fit / actual pixels (double-click toggles) |
+| ← / → | Previous / next image in the session |
+| Esc | Close |
+
+**Annotating.** The toolbar has RegionShot's tools, one key each, drawn straight onto the image:
+
+| Key | Tool |
+| --- | --- |
+| V | Select: click a shape to select it, drag to move, drag a handle to resize, Delete removes it, arrow keys nudge it (⇧ for 10 px). Double-click text to edit it. |
+| R / A / H | Rectangle, arrow, translucent highlight. Drag to draw (⇧ for squares and 45° arrows). Each tool also grabs and edits shapes of its own kind. |
+| T | Text: click to type, Return to finish, ⇧Return for a new line, Esc to cancel. Drag a selected note's side handles to change where it wraps. |
+| P | Freehand, lightly smoothed. |
+| C | Crop: drag the area to keep, Return to apply. **Reset** keeps the whole image. |
+
+**Saving.** Annotations save when you leave an image (← →, Esc, closing the window or switching sessions), with no dialog. The original capture is never changed: the drawing goes to `annotations/<dir>-<name>.json` and a flattened copy to `annotations/<dir>-<name>.png`, and the session is re-processed so the mark's Markdown, `session.md`, Copy as Markdown, the browser viewer and **Export to Product Grid** all use the marked-up image. `session.json` keeps the captures in `sourceImage` and `sourceFrame`. Annotated pictures show a pencil badge, and reopening one brings the shapes back to edit. **Revert to Original** clears everything (undoable until you leave the image); deleting the `annotations/` folder and re-processing does the same for a whole session.
+
+One color applies to strokes and text backgrounds, and highlight remembers its own (yellow by default). Picking a color while a shape is selected recolors it. ⌘Z and ⇧⌘Z undo and redo everything, crop included. Space-drag pans with any tool.
+
 ### Marking up a recording afterwards
 
 You can mark things you notice while reviewing, not just while recording. **M** (or the flag in the playback controls) adds a mark at the playhead. **S** (or the viewfinder) pauses and lets you drag a box on the video; the region is cut from the frame at full resolution. Every mark has a **Note** field, and a note becomes the mark's title.

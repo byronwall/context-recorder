@@ -1,5 +1,4 @@
 import AVKit
-import QuickLook
 import SwiftUI
 
 /// One session: the video on a stage, the shared timeline and the "now" strip, marks in the inspector.
@@ -7,7 +6,6 @@ struct SessionView: View {
     @Bindable var model: SessionModel
     var title: String
     @State private var showInspector = true
-    @State private var quickLook: URL?
     @State private var copiedAll = false
 
     var body: some View {
@@ -16,11 +14,17 @@ struct SessionView: View {
             .navigationTitle(title)
             .navigationSubtitle(subtitle)
             .inspector(isPresented: $showInspector) {
-                SidePanel(model: model, quickLook: $quickLook)
+                SidePanel(model: model)
                     .inspectorColumnWidth(min: 340, ideal: 360, max: 620)
             }
+            // Over the stage, timeline and inspector: the image gets the whole session area.
+            .overlay {
+                if let viewer = model.viewer {
+                    ImageViewerOverlay(viewer: viewer)
+                        .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                }
+            }
             .toolbar { toolbar }
-            .quickLookPreview($quickLook, in: quickLookItems)
             .sheet(item: $model.export) { ExportSheet(model: $0) }
     }
 
@@ -122,11 +126,6 @@ struct SessionView: View {
             Button { withAnimation { showInspector.toggle() } } label: { Label("Marks", systemImage: "sidebar.trailing") }
                 .help(showInspector ? "Hide marks" : "Show marks")
         }
-    }
-
-    private var quickLookItems: [URL] {
-        model.marks.flatMap { m in [m.image, m.frame].compactMap { model.url($0) } }
-            .reduce(into: [URL]()) { if !$0.contains($1) { $0.append($1) } }
     }
 
     private var subtitle: String {

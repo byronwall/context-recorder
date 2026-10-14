@@ -10,14 +10,13 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "ContextRecorder",
-            dependencies: ["CanvasKit"],
+            dependencies: ["CanvasKit", "Annotation"],
             path: "Sources/ContextRecorder",
             linkerSettings: [
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("Carbon"),
                 .linkedFramework("AVKit"),
-                .linkedFramework("QuickLook"),
             ]
         ),
         // Video → canvas analysis: decoding with exact frame times, segmentation, canvas.json.
@@ -39,5 +38,9 @@ let package = Package(
             dependencies: ["CanvasKit"],
             path: "Sources/CanvasTool"
         ),
+        // Image annotation shapes, hit-testing, rendering and undo. No AppKit, so it's unit-testable and
+        // can be reused for annotations on video.
+        .target(name: "Annotation", path: "Sources/Annotation"),
+        .testTarget(name: "AnnotationTests", dependencies: ["Annotation"], path: "Tests/AnnotationTests"),
     ]
 )

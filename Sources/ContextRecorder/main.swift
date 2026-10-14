@@ -223,6 +223,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             print("Rendered \(args[i + 2])")
                         } catch { fputs("Render failed: \(error)\n", stderr) }
                     }
+                    // `--view <n>` opens mark n's image in the viewer; `--view-zoom <percent>` zooms it.
+                    if let n = value("--view").flatMap(Int.init), let mark = model.mark(n) {
+                        model.view(mark.originalImage)
+                        if let zoom = value("--view-zoom").flatMap(Double.init) {
+                            try? await Task.sleep(for: .milliseconds(600))
+                            model.viewer?.canvas?.zoom(percent: zoom, animated: false)
+                        }
+                    }
+                    // `--script "<steps>"` drives the window with in-app events (see DevScript).
+                    if let script = value("--script"), let window = library.window {
+                        await DevScript.run(script, in: window, flags: devLibraryFolder.deletingLastPathComponent().appendingPathComponent("flags"))
+                    }
                     if args.contains("--quit") { NSApp.terminate(nil) }
                 }
             }

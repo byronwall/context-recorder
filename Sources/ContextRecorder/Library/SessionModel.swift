@@ -33,6 +33,11 @@ final class SessionModel {
     var markFilter: MarkFilter = .all
     /// The open export sheet, if any.
     var export: ExportSheetModel?
+    /// The image viewer over the stage, if open.
+    var viewer: ImageViewerModel?
+    /// Bumped whenever annotations are saved; image views reload when it changes (an annotated copy is
+    /// rewritten under the same name).
+    var annotationRevision = 0
 
     // Review (marking up the recording afterwards)
     /// Dragging out a region on the video for a shot.
@@ -68,6 +73,9 @@ final class SessionModel {
         var id: String { rawValue }
     }
     enum RegionPurpose { case shot, canvasBox }
+    /// Re-processing after annotations were saved; another save while it runs queues one more pass.
+    @ObservationIgnored var annotationPass: Task<Void, Never>?
+    @ObservationIgnored var annotationPassAgain = false
 
     enum Tab: String, CaseIterable, Identifiable {
         case marks = "Marks", transcript = "Transcript", page = "Page Events", activity = "Activity"
@@ -108,6 +116,7 @@ final class SessionModel {
 
     func tearDown() {
         canvasTask?.cancel()
+        viewer?.save()
         player.pause()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         timeObserver = nil
