@@ -16,7 +16,7 @@ struct SessionView: View {
             .navigationSubtitle(subtitle)
             .inspector(isPresented: $showInspector) {
                 SidePanel(model: model, quickLook: $quickLook)
-                    .inspectorColumnWidth(min: 340, ideal: 400, max: 620)
+                    .inspectorColumnWidth(min: 340, ideal: 360, max: 620)
             }
             .toolbar { toolbar }
             .quickLookPreview($quickLook, in: quickLookItems)

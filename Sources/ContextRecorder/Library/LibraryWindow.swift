@@ -40,7 +40,7 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
                               backing: .buffered, defer: false)
         window.title = "Sessions"
         window.toolbarStyle = .unified
-        // Sidebar (220) + inspector (340) + room for the compact transport.
+        // Sidebar (240) + inspector (360) at their default widths, plus room for the compact transport.
         window.minSize = NSSize(width: 980, height: 560)
         window.isReleasedWhenClosed = false
         super.init(window: window)

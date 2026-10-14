@@ -6,7 +6,7 @@ struct LibraryView: View {
     var body: some View {
         NavigationSplitView {
             SessionSidebar(state: state)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 340)
         } detail: {
             if let model = state.model {
                 SessionView(model: model)
