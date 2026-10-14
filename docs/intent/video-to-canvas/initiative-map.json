@@ -5,10 +5,10 @@
     "slug": "video-to-canvas",
     "scale": "capability",
     "current_phase": "execution",
-    "last_updated": "2026-10-13",
+    "last_updated": "2026-10-14",
     "summary": "Turn a narrated screen recording into a spatial, source-linked canvas reviewed in the portable HTML viewer; storyboard first, verified scroll joining second.",
     "status": "active",
-    "next_action": "M2: engine bake-off and scroll joining on fixtures"
+    "next_action": "M3: tall columns in Canvas mode on scripted recordings"
   },
   "artifacts": {
     "intent_brief": {
@@ -358,9 +358,7 @@
       "HTML viewer canvas",
       "maintaining two analysis engines"
     ],
-    "open_decisions": [
-      "engine-bakeoff"
-    ]
+    "open_decisions": []
   },
   "implementation": {
     "status": "current",
@@ -387,7 +385,7 @@
     "dependencies": [
       {
         "id": "DEP-001",
-        "name": "Stitching engine (Python+OpenCV or Apple Vision)",
+        "name": "Stitching engine: row-profile estimator (chosen over Apple Vision and OpenCV)",
         "material": true,
         "application_seam": "canvas.json written by the analyzer, read by SessionModel",
         "semantic_contract": [
@@ -478,7 +476,10 @@
         "proof": "Fixture suite: p95 <= 2 px, zero false joins, refusal on every jump/edit fixture.",
         "valid_intermediate_state": "Storyboard still works; joining validated offline.",
         "rollback": "Disable joining; storyboard only.",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "canvas-tool check: 10/10 clips pass with joining (p95 0 px, no false joins, refusals on jump/repeated/blank); bake-off in spikes/engine-bakeoff.md; real 97 s session -> 20 columns (max 8867 px) + 17 cards in 4.7 s"
+        ]
       },
       {
         "id": "M3",
@@ -523,9 +524,7 @@
       "browser scroll instrumentation",
       "token-level transcript alignment"
     ],
-    "open_decisions": [
-      "engine-bakeoff"
-    ]
+    "open_decisions": []
   },
   "history": [
     {
@@ -552,6 +551,11 @@
       "date": "2026-10-13",
       "phase": "execution",
       "change": "M1 built: CanvasKit (AVFoundation decode with exact PTS, storyboard tracker, canvas.json), canvas-tool fixtures/check, Canvas stage mode. Analyzer moved from planned Python/FFmpeg to Swift because the project Python is stdlib-only."
+    },
+    {
+      "date": "2026-10-14",
+      "phase": "execution",
+      "change": "M2: bake-off chose the in-app row-profile estimator (100% exact, 3.9 ms/pair, ambiguity signal, no dependency) over Vision (99.7%, 416 px miss) and OpenCV (100%, 25 ms, 50 MB dep). Added sub-pixel-tolerant verification and sticky-sidebar cropping from real footage."
     }
   ],
   "closure": null,

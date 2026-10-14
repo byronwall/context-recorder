@@ -8,6 +8,8 @@ canvas-tool: build and check Context Recorder canvases.
       Generate synthetic clips if missing, analyze each, check against known answers. Exit 1 on failure.
   canvas-tool fixtures [--fixtures DIR] [--only a,b]
       (Re)generate the synthetic clips.
+  canvas-tool bakeoff [--fixtures DIR]
+      Compare scroll estimators on fixture frame pairs with known shifts.
   canvas-tool analyze SESSION_FOLDER [--box x,y,w,h] [--storyboard]
       Build canvas.json for a session (the same code the app runs).
 
@@ -42,6 +44,8 @@ do {
         }
         let results = try await Check.run(root: fixtures, only: only, options: options)
         exit(Check.report(results) ? 0 : 1)
+    case "bakeoff":
+        try await Bakeoff.run(root: fixtures)
     case "analyze":
         guard args.count > 1 else { print(usage); exit(2) }
         let folder = URL(fileURLWithPath: args[1])

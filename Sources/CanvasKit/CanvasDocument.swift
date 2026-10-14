@@ -133,9 +133,11 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
     public var height: Int
     /// Columns only: which frame supplied which rows. Cards have none (the whole image is `frame`).
     public var patches: [Patch]
+    /// Columns only: the image starts this many pixels into the content box (a sticky sidebar was left out).
+    public var sourceX: Int?
 
     public init(id: String, kind: Kind, reason: Reason, start: Double, end: Double, frame: FrameRef,
-                image: String, width: Int, height: Int, patches: [Patch] = []) {
+                image: String, width: Int, height: Int, patches: [Patch] = [], sourceX: Int? = nil) {
         self.id = id
         self.kind = kind
         self.reason = reason
@@ -146,6 +148,7 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
         self.width = width
         self.height = height
         self.patches = patches
+        self.sourceX = sourceX
     }
 
     /// The frame that supplied the pixel at `y` in this item's image.

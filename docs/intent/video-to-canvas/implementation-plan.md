@@ -110,7 +110,7 @@ engine + fake scroll clips with known offsets (deterministic)
 
 ## Open decisions and spikes
 
-- **Engine:** Python + OpenCV vs Apple Vision, decided by the Milestone 2 bake-off.
+- **Engine:** decided in Milestone 2: an in-app row-profile estimator, chosen over both Apple Vision and OpenCV. See [the bake-off](spikes/engine-bakeoff.md).
 
 ## Below the cut line
 

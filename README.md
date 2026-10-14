@@ -52,10 +52,14 @@ The window updates on its own when a session is re-processed.
 
 ### Canvas
 
-**Build Canvas** (toolbar) lays the recording out in space so you can find what went past faster than by scrubbing. Drag a box around the page content once (click for the whole frame), and the stage switches to **Canvas**: one card per moment the content settled into a new state, left to right in time order, with a card now and then while it keeps moving.
+**Build Canvas** (toolbar) lays the recording out in space so you can find what went past faster than by scrubbing. Drag a box around the page content once (click for the whole frame), and the stage switches to **Canvas**. It reads left to right in time order:
 
-- Hover a card: the now strip and the transcript show what was said at that moment.
-- Click a card: the stage goes back to the video at the exact frame the card came from.
+- A page you scrolled becomes one tall **column**, joined from the frames that showed it. A fixed header or footer appears once, and a sticky sidebar inside the box is cropped off.
+- Everything else is a **card**: one frame for each moment the content settled into a new state, plus a card now and then while it keeps moving without joining (animation, video).
+- A join is made only when the frames verifiably line up. A jump past the overlap, or rows that repeat so that several distances fit, ends the column, and the next item is labelled **Not joined**.
+
+- Hover: the now strip and the transcript show what was said when that part was on screen (in a column, the frame that supplied the row under the pointer).
+- Click: the stage goes back to the video at that exact frame.
 - **Session** menu: **Rebuild Canvas** (same content box), **Choose Content Area and Rebuild…**, **Delete Canvas**.
 
 Building runs only when you ask, takes a few seconds for a few minutes of video, and never runs during recording or re-processing. It writes `canvas.json` and `canvas/` into the session folder; delete them (or use **Delete Canvas**) and the session is exactly as before. If the recording changes, the canvas says so and offers **Rebuild**.
@@ -137,7 +141,7 @@ Delete `transcript.json` first if you want the audio transcribed again.
 
 - `Sources/ContextRecorder/`: Swift app. `Recorder` (ScreenCaptureKit and AVAssetWriter), `HotKeys` (Carbon), `ContextProbe` (front app, window, Chrome tab), `ActivityLog`, `Session`.
 - `Sources/ContextRecorder/Library/`: the Sessions window (SwiftUI, macOS 26). `SessionLibrary` scans the folders, `SessionModel` owns one open session and its player, `SessionData` decodes `session.json`, `MarkText` builds titles and the Markdown.
-- `Sources/CanvasKit/`: video → canvas analysis. `FrameSource` decodes with exact presentation times (AVFoundation, so they match the player), `StoryboardTracker` finds settled states, `CanvasAnalyzer` writes `canvas.json`.
+- `Sources/CanvasKit/`: video → canvas analysis. `FrameSource` decodes with exact presentation times (AVFoundation, so they match the player), `Segmenter` splits it into runs, `Joiner` and `RowProfileEstimator` find and verify scrolling, and `CanvasAnalyzer` composes the columns and writes `canvas.json`.
 - `Sources/CanvasTool/`: `canvas-tool`, the fast loop for canvas work. `swift run -c release canvas-tool check` generates synthetic scrolling clips with known answers (a barcode below the content encodes each frame number), analyzes them and checks the result, including that every seek shows the right frame. `canvas-tool analyze <session> --box x,y,w,h` builds a session's canvas from the command line.
 - `scripts/process_session.py`: post-processing (ffmpeg, parakeet-mlx). Standard library only.
 - `scripts/viewer.html`: viewer template. The session data gets embedded in it.
@@ -148,4 +152,4 @@ Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `p
 ## Next
 
 - rrweb DOM recording, to replay the DOM over time alongside the video.
-- [Video to canvas](docs/intent/video-to-canvas/shape-brief.md): the storyboard is in (see Canvas above); joining scrolled pages into tall columns is next.
+- [Video to canvas](docs/intent/video-to-canvas/shape-brief.md): built (see Canvas above).

@@ -30,6 +30,7 @@ let package = Package(
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("Accelerate"),
                 .linkedFramework("CoreText"),
+                .linkedFramework("Vision"),
             ]
         ),
         // Fixtures, analysis and contract checks from the command line (the fast local loop).
