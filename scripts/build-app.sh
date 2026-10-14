@@ -2,7 +2,7 @@
 # Builds "Context Recorder.app" and signs it with a stable identity so macOS keeps
 # Screen Recording / Microphone / Automation permissions across rebuilds.
 # Then installs a copy to /Applications (override with INSTALL_DIR, or set
-# INSTALL_DIR= to skip). If the app is running, it's quit first and reopened after.
+# INSTALL_DIR= to skip). If the app is running, it's quit first. Launches after installing.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -12,7 +12,29 @@ APP_NAME="Context Recorder.app"
 APP="build/$APP_NAME"
 INSTALL_DIR="${INSTALL_DIR-/Applications}"
 
-swift build -c release
+if ! manifest_error=$(swift package dump-package 2>&1 >/dev/null); then
+  case "$manifest_error" in
+    *"Undefined symbols"*"PackageDescription"*)
+      echo "Working around the installed Swift toolchain's PackageDescription mismatch."
+      compiler="$(xcrun --find swiftc)"
+      manifest_api="$(dirname "$compiler")/../lib/swift/pm/ManifestAPI"
+      export CONTEXT_RECORDER_MANIFEST_CACHE="$PWD/.build/manifest-api"
+      mkdir -p "$CONTEXT_RECORDER_MANIFEST_CACHE"
+      "$compiler" -frontend -compile-module-from-interface \
+        "$manifest_api/PackageDescription.swiftmodule/$(uname -m)-apple-macos.swiftinterface" \
+        -sdk "$(xcrun --show-sdk-path)" \
+        -o "$CONTEXT_RECORDER_MANIFEST_CACHE/PackageDescription.swiftmodule" \
+        -module-cache-path "$CONTEXT_RECORDER_MANIFEST_CACHE"
+      export SWIFT_EXEC="$PWD/scripts/swiftc.sh"
+      ;;
+    *)
+      printf '%s\n' "$manifest_error" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+swift build -c release --product ContextRecorder
 rm -rf "$APP" build/ContextRecorder.app
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/ContextRecorder "$APP/Contents/MacOS/ContextRecorder"
@@ -25,9 +47,7 @@ codesign --verify --verbose=1 "$APP"
 echo "Built $APP"
 
 if [ -n "$INSTALL_DIR" ]; then
-  was_running=false
   if pgrep -xq ContextRecorder; then
-    was_running=true
     # Quitting mid-recording finishes the video first; give it time.
     osascript -e 'quit app id "com.byronwall.ContextRecorder"' || true
     for _ in $(seq 1 30); do pgrep -xq ContextRecorder || break; sleep 0.5; done
@@ -43,5 +63,6 @@ if [ -n "$INSTALL_DIR" ]; then
   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$INSTALL_DIR/$APP_NAME" || true
   touch "$INSTALL_DIR/$APP_NAME"
   echo "Installed $INSTALL_DIR/$APP_NAME"
-  if $was_running; then open "$INSTALL_DIR/$APP_NAME"; echo "Reopened it"; fi
+  open "$INSTALL_DIR/$APP_NAME"
+  echo "Opened $INSTALL_DIR/$APP_NAME"
 fi

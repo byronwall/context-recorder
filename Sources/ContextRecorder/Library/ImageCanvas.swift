@@ -483,7 +483,7 @@ final class ImageCanvasView: NSView, NSTextViewDelegate {
         if view.textContainerInset != inset { view.textContainerInset = inset }
         // Only touch the text's attributes when they change: resetting them on every keystroke re-lays
         // out the text inside AppKit's constraint pass.
-        if view.font?.pointSize != size { view.font = Renderer.font(size: size) as NSFont }
+        if view.font?.pointSize != CGFloat(size) { view.font = Renderer.font(size: size) as NSFont }
         if view.backgroundColor != fill { view.backgroundColor = fill }
         if view.textColor != ink { view.textColor = ink; view.insertionPointColor = ink }
         view.layer?.cornerRadius = layout.padding * scale

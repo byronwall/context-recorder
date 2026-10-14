@@ -6,10 +6,11 @@ A macOS app that records your screen while you use your apps. You mark the momen
 
 ```bash
 ./scripts/build-app.sh
-open "/Applications/Context Recorder.app"
 ```
 
-The build script also installs the app to `/Applications`, so you can launch it from Spotlight or Raycast. If the app is running, the script quits it (finishing any recording first) and reopens the new build. Set `INSTALL_DIR=` (empty) to skip installing, or point it somewhere else such as `~/Applications`.
+The build script builds, signs, installs the app to `/Applications`, and launches it, so you can also launch it from Spotlight or Raycast. If the app is running, the script quits it (finishing any recording first) and opens the new build. Set `INSTALL_DIR=` (empty) to skip installing and launching, or point it somewhere else such as `~/Applications`.
+
+If the installed Swift Command Line Tools have a `PackageDescription` linker mismatch, the script automatically compiles their public manifest interface into `.build/manifest-api` and uses it for the build. No temporary scripts or system toolchain changes are needed.
 
 | Hotkey | Action |
 | --- | --- |
