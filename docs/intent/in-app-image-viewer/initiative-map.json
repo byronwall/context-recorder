@@ -7,8 +7,8 @@
     "current_phase": "plan",
     "last_updated": "2026-10-13",
     "summary": "Replace Quick Look with a native in-app image viewer that has RegionShot-grade pan/zoom and RegionShot's basic annotation tools, sharing an annotation model with the session-editing video layer.",
-    "status": "planned",
-    "next_action": "Start m1: replace .quickLookPreview with overlay ZoomCanvas; run the SwiftUI vs AppKit gesture spike."
+    "status": "active",
+    "next_action": "m2: Annotation target + tools"
   },
   "artifacts": {
     "intent_brief": {
@@ -301,14 +301,17 @@
       {
         "id": "m1",
         "title": "Mark images open in an in-app overlay with pan and zoom",
-        "status": "planned",
+        "status": "completed",
         "proof": "No Quick Look anywhere; RegionShot-like gestures; canvas tech decided",
         "outcome": "All mark images view in-app with pan/zoom; no Quick Look",
         "dependencies_introduced": [
           "SwiftUI/AppKit gesture handling"
         ],
         "valid_intermediate_state": "Viewer-only overlay; app fully usable",
-        "rollback": "Revert PR; .quickLookPreview restored"
+        "rollback": "Revert PR; .quickLookPreview restored",
+        "evidence": [
+          "Viewer overlay + AppKit ImageCanvasView; scripted in-app input verified wheel/drag/swipe/middle-drag/⌘0/double-click/←→/Esc"
+        ]
       },
       {
         "id": "m2",

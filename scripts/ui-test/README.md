@@ -24,6 +24,16 @@ python3 scripts/ui-test/harness.py run --session 2026-10-13_20-48-53 --window-wi
 python3 scripts/ui-test/harness.py run --capture --session 2026-10-13_20-48-53
 ```
 
+Image viewer and scripted input:
+
+```sh
+python3 scripts/ui-test/harness.py launch --session 2026-10-13_00-57-10 --view 3 --view-zoom 200
+python3 scripts/ui-test/harness.py launch --session 2026-10-13_00-57-10 --view 3 \
+  --script "wait 1; flag fit; wheel 600 500 3; flag zoomed; key esc; flag done"
+```
+
+`--view <n>` opens mark n's image in the in-app viewer and `--view-zoom` zooms it. `--script` sends real NSEvents through the Sessions window's `sendEvent` (clicks, drags including middle-button, wheel, trackpad swipes, keys), so routing and hit-testing run as they do for a person, while nothing is posted system-wide. Each `flag <name>` step writes `tmp/ui-test/flags/<name>` and waits until the file is deleted, so a watcher can screenshot that exact state with `screencapture -l <window id>`. Steps are documented in `Sources/ContextRecorder/Library/DevScript.swift`.
+
 `run` calls `swift run ContextRecorder --library <fixtures-root>` and passes `--session`, `--tab`, `--recording-fixture`, `--mark`, `--export`, `--timeline-hover`, `--window-width`, and `--capture`. Width must be at least 980 points. The timeline flag opens the hover card at a deterministic fraction, including the `0` and `1` edges. It checks the hover-card renderer; it does not simulate a mouse move.
 
 For non-UI checks, run:

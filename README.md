@@ -41,6 +41,18 @@ A native library of every recording (menu bar → **Sessions…**, or the play b
 | M | Add a mark at the playhead |
 | S | Capture a region of the current frame (drag; click for the whole frame; Esc cancels) |
 
+### Viewing images
+
+Click a mark's picture (or its **Full screen** inset, or **View Image** in a mark's menu) to open it large over the session, inside the window. Nothing opens in Quick Look or Preview.
+
+| Input | Action |
+| --- | --- |
+| Pinch, mouse wheel, ⌘+ / ⌘− | Zoom toward the pointer |
+| Two-finger scroll, drag, middle-drag, Space-drag | Pan |
+| ⌘0 / ⌘1, double-click | Fit / actual pixels (double-click toggles) |
+| ← / → | Previous / next image in the session |
+| Esc | Close |
+
 ### Marking up a recording afterwards
 
 You can mark things you notice while reviewing, not just while recording. **M** (or the flag in the playback controls) adds a mark at the playhead. **S** (or the viewfinder) pauses and lets you drag a box on the video; the region is cut from the frame at full resolution. Every mark has a **Note** field, and a note becomes the mark's title.

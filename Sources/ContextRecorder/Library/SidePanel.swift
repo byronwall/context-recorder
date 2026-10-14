@@ -3,14 +3,13 @@ import SwiftUI
 /// Inspector column: marks (default), transcript, page events and activity.
 struct SidePanel: View {
     @Bindable var model: SessionModel
-    @Binding var quickLook: URL?
 
     var body: some View {
         VStack(spacing: 0) {
             InspectorTabs(model: model)
             Divider()
             switch model.tab {
-            case .marks: MarksList(model: model, quickLook: $quickLook)
+            case .marks: MarksList(model: model)
             case .transcript: TranscriptList(model: model)
             case .page: PageEventsList(model: model)
             case .activity: ActivityList(model: model)
@@ -123,7 +122,6 @@ private struct TabButton: View {
 
 struct MarksList: View {
     var model: SessionModel
-    @Binding var quickLook: URL?
 
     var body: some View {
         if model.filteredMarks.isEmpty {
@@ -138,7 +136,7 @@ struct MarksList: View {
                     // Not lazy: marks are few, and a lazy stack scrolls to the wrong spot when a card expands.
                     VStack(spacing: 4) {
                         ForEach(model.filteredMarks) { m in
-                            MarkCard(model: model, mark: m, expanded: model.selectedMark == m.index, quickLook: $quickLook)
+                            MarkCard(model: model, mark: m, expanded: model.selectedMark == m.index)
                                 .id(m.index)
                         }
                     }
@@ -160,13 +158,12 @@ struct MarkCard: View {
     var model: SessionModel
     var mark: SessionMark
     var expanded: Bool
-    @Binding var quickLook: URL?
     @State private var hovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if expanded {
-                MarkDetail(model: model, mark: mark, quickLook: $quickLook) {
+                MarkDetail(model: model, mark: mark) {
                     withAnimation(.snappy) { model.select(nil, seek: false) }
                 }
                 .padding(12)
@@ -198,7 +195,7 @@ struct MarkCard: View {
             Button("Copy Markdown", systemImage: "doc.on.doc") { copy(model.markdown(for: mark)) }
             Button("Play from 5 s Before", systemImage: "play") { model.playFromBefore(mark) }
             if let url = model.url(mark.image) {
-                Button("Quick Look", systemImage: "eye") { quickLook = url }
+                Button("View Image", systemImage: "eye") { model.view(url) }
                 Button("Reveal Image in Finder", systemImage: "folder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
             }
         }

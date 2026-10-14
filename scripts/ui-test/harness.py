@@ -159,6 +159,12 @@ def app_command(args: argparse.Namespace, executable: str) -> list[str]:
         command += ["--timeline-hover", str(args.timeline_hover)]
     if args.window_width is not None:
         command += ["--window-width", str(args.window_width)]
+    if getattr(args, "view", None) is not None:
+        command += ["--view", str(args.view)]
+    if getattr(args, "view_zoom", None) is not None:
+        command += ["--view-zoom", str(args.view_zoom)]
+    if getattr(args, "script", None) is not None:
+        command += ["--script", args.script]
     if args.capture:
         command.append("--capture")
     if args.export is not None:
@@ -306,6 +312,9 @@ def main() -> None:
     launch_parser.add_argument("--export", help="open export for this project folder")
     launch_parser.add_argument("--capture", action="store_true", help="enable isolated production capture for fixture-library output")
     launch_parser.add_argument("--appearance", choices=("light", "dark"))
+    launch_parser.add_argument("--view", type=int, help="open this mark's image in the image viewer")
+    launch_parser.add_argument("--view-zoom", type=float, help="zoom the image viewer to this percent")
+    launch_parser.add_argument("--script", help="in-app input steps; see Library/DevScript.swift")
     run_parser = commands.add_parser("run", help="run the fixture with swift run")
     run_parser.add_argument("--session", choices=SESSIONS)
     run_parser.add_argument("--tab", choices=("marks", "transcript", "page", "activity"))
@@ -316,6 +325,9 @@ def main() -> None:
     run_parser.add_argument("--export", help="open export for this project folder")
     run_parser.add_argument("--capture", action="store_true", help="enable isolated production capture for fixture-library output")
     run_parser.add_argument("--appearance", choices=("light", "dark"))
+    run_parser.add_argument("--view", type=int, help="open this mark's image in the image viewer")
+    run_parser.add_argument("--view-zoom", type=float, help="zoom the image viewer to this percent")
+    run_parser.add_argument("--script", help="in-app input steps; see Library/DevScript.swift")
     commands.add_parser("stop", help="stop only the PID started by this harness")
     commands.add_parser("self-check", help="check fixture path and process identity gates")
     commands.add_parser("check", help="check transcript starts and preview frame changes")

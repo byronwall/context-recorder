@@ -309,7 +309,7 @@ struct ShortcutsSheet: View {
         ("M", "Add a mark at the playhead"),
         ("S", "Capture a region of the current frame"),
         ("→  ←", "Skip 5 seconds forward or back"),
-        ("Esc", "Close Quick Look"),
+        ("Esc", "Close the image viewer"),
         ("Return", "Rename the selected session"),
         ("⌘⌫", "Move the selected sessions to the Trash"),
         ("⌃⌥R", "Start or stop recording (anywhere)"),

@@ -13,7 +13,6 @@ let package = Package(
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("Carbon"),
                 .linkedFramework("AVKit"),
-                .linkedFramework("QuickLook"),
             ]
         )
     ]

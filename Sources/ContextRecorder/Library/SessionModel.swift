@@ -25,6 +25,8 @@ final class SessionModel {
     var markFilter: MarkFilter = .all
     /// The open export sheet, if any.
     var export: ExportSheetModel?
+    /// The image viewer over the stage, if open.
+    var viewer: ImageViewerModel?
 
     // Review (marking up the recording afterwards)
     /// Dragging out a region on the video for a shot.

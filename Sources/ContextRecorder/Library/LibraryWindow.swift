@@ -134,6 +134,8 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, event.window === self.window else { return event }
             if self.window?.firstResponder is NSText { return event }
+            // The image viewer's canvas has its own keys (Esc, arrows, zoom, tools).
+            if self.state.model?.viewer != nil { return event }
             if event.keyCode == 51, event.modifierFlags.intersection([.command, .control, .option, .shift]) == .command {
                 self.state.requestTrash(self.state.selection)
                 return nil

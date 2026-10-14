@@ -122,6 +122,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if let note = value("--note"), let index = model.selectedMark { await model.setNote(note, for: index) }
                     if let n = value("--delete-mark").flatMap(Int.init) { await model.deleteReviewMark(n) }
                     if args.contains("--region-mode") { model.regionMode = true }
+                    // `--view <n>` opens mark n's image in the viewer; `--view-zoom <percent>` zooms it.
+                    if let n = value("--view").flatMap(Int.init), let url = model.url(model.mark(n)?.image) {
+                        model.view(url)
+                        if let zoom = value("--view-zoom").flatMap(Double.init) {
+                            try? await Task.sleep(for: .milliseconds(600))
+                            model.viewer?.canvas?.zoom(percent: zoom, animated: false)
+                        }
+                    }
+                    // `--script "<steps>"` drives the window with in-app events (see DevScript).
+                    if let script = value("--script"), let window = library.window {
+                        await DevScript.run(script, in: window, flags: devLibraryFolder.deletingLastPathComponent().appendingPathComponent("flags"))
+                    }
                 }
             }
             // `--export <folder>` opens the export sheet with that project folder chosen; add

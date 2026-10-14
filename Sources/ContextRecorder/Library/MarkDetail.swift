@@ -5,7 +5,6 @@ import SwiftUI
 struct MarkDetail: View {
     var model: SessionModel
     var mark: SessionMark
-    @Binding var quickLook: URL?
     var collapse: () -> Void
     @State private var copied = false
     @State private var confirmDelete = false
@@ -81,11 +80,11 @@ struct MarkDetail: View {
     /// else was on screen.
     @ViewBuilder private var images: some View {
         if let url = model.url(mark.image) {
-            MarkImage(url: url, label: "Mark \(mark.index) image") { quickLook = url }
+            MarkImage(url: url, label: "Mark \(mark.index) image") { model.view(url) }
                 .overlay(alignment: .bottomLeading) {
                     if mark.isShot, let frame = model.url(mark.frame), mark.frame != mark.image,
                        FileManager.default.fileExists(atPath: frame.path) {
-                        MarkImage(url: frame, label: "Full screen frame for mark \(mark.index)", compact: true) { quickLook = frame }
+                        MarkImage(url: frame, label: "Full screen frame for mark \(mark.index)", compact: true) { model.view(frame) }
                             .frame(width: 92)
                             .overlay(alignment: .bottom) {
                                 Text("Full screen")
@@ -139,9 +138,9 @@ struct MarkImage: View {
         }
         .buttonStyle(.plain)
         .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hovering = h } }
-        .help("Quick Look")
+        .help("View image")
         .accessibilityLabel(label)
-        .accessibilityHint("Opens Quick Look")
+        .accessibilityHint("Opens the image viewer")
         .task(id: url) { image = await ImageCache.shared.image(url, maxPixel: compact ? 400 : 1400) }
     }
 }
