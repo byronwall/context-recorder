@@ -90,8 +90,8 @@ struct SessionTimeline: View {
                         hover = nil
                     }
                 }
-                .task(id: w) {
-                    previews = FramePreviews(video: model.folder.appendingPathComponent("recording.mp4"))
+                .task(id: PreviewKey(width: w, asset: ObjectIdentifier(model.playbackAsset))) {
+                    previews = FramePreviews(asset: model.playbackAsset)
                     let args = CommandLine.arguments
                     if args.contains("--library"), let i = args.firstIndex(of: "--timeline-hover"),
                        i + 1 < args.count, let fraction = Double(args[i + 1]) {
@@ -389,8 +389,8 @@ final class FramePreviews {
     @ObservationIgnored private var pending: Task<Void, Never>?
     @ObservationIgnored private var requestedKey: Int?
 
-    init(video: URL) {
-        generator = AVAssetImageGenerator(asset: AVURLAsset(url: video))
+    init(asset: AVAsset) {
+        generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 480, height: 480)
         // A nearby frame is fine for a preview and much faster than an exact one.
@@ -421,6 +421,9 @@ final class FramePreviews {
         if order.count > 150 { cache[order.removeFirst()] = nil }
     }
 }
+
+/// Rebuild the previews when the width changes or an edit swaps the video.
+private struct PreviewKey: Hashable { var width: CGFloat; var asset: ObjectIdentifier }
 
 struct LaneLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {

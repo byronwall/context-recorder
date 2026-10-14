@@ -1,0 +1,33 @@
+{
+  "about": "Time-mapping cases shared by scripts/test_process_session.py and `ContextRecorder --self-test edits`. toEdited: [source, sourceTime, expected edited time or null]. toSource: [editedTime, expected source, expected source time].",
+  "cases": [
+    {
+      "name": "unedited",
+      "segments": [{"source": ".", "start": 0, "end": 100}],
+      "duration": 100,
+      "toEdited": [[".", 0, 0], [".", 42.5, 42.5], [".", 100, 100]],
+      "toSource": [[0, ".", 0], [42.5, ".", 42.5], [100, ".", 100]]
+    },
+    {
+      "name": "cut start, middle and end",
+      "segments": [{"source": ".", "start": 5, "end": 40}, {"source": ".", "start": 60, "end": 90}],
+      "duration": 65,
+      "toEdited": [[".", 0, null], [".", 5, 0], [".", 20, 15], [".", 40, 35], [".", 50, null], [".", 60, 35], [".", 75, 50], [".", 90, 65], [".", 95, null]],
+      "toSource": [[0, ".", 5], [15, ".", 20], [34.9, ".", 39.9], [35, ".", 60], [50, ".", 75], [65, ".", 90], [80, ".", 90]]
+    },
+    {
+      "name": "back-to-back cuts",
+      "segments": [{"source": ".", "start": 0, "end": 10}, {"source": ".", "start": 12, "end": 14}, {"source": ".", "start": 20, "end": 30}],
+      "duration": 22,
+      "toEdited": [[".", 11, null], [".", 13, 11], [".", 15, null], [".", 25, 17]],
+      "toSource": [[10, ".", 12], [12, ".", 20], [21.5, ".", 29.5]]
+    },
+    {
+      "name": "joined sessions",
+      "segments": [{"source": "../a", "start": 0, "end": 30}, {"source": "../b", "start": 2, "end": 22}],
+      "duration": 50,
+      "toEdited": [["../a", 10, 10], ["../b", 1, null], ["../b", 12, 40], [".", 5, null]],
+      "toSource": [[10, "../a", 10], [30, "../b", 2], [45, "../b", 17]]
+    }
+  ]
+}

@@ -16,6 +16,13 @@ Output:
   session.json                    everything above, machine-readable
   viewer.html                     "control center" UI (open directly in a browser)
 
+Edits (optional, written by the Sessions window):
+  edits.json   {"segments": [{"source": ".", "start": s, "end": s}, ...]}
+               The kept ranges of the recording, in play order. Everything above is then written in
+               edited time: marks, activity, page events and the transcript move with the video, and
+               anything inside a removed range drops out (marks go to "hiddenMarks"). Raw files are
+               never changed, so deleting edits.json restores the session.
+
 Recordings without a microphone track (silent mode) skip transcription.
 
 Re-runnable: `python3 scripts/process_session.py <session-folder> [--before 20] [--after 10]`
@@ -117,6 +124,133 @@ def narration_window(tokens, offset, before, after):
     return "".join(out).strip()
 
 
+# ---------------------------------------------------------------------------------------------------
+# Edits: a session is an ordered list of segments, each a [start, end) range of a source recording.
+# Raw data stays in source time; these functions map it into edited (play) time.
+
+
+def load_edits(folder):
+    """The segment list from edits.json, or None when the session is unedited."""
+    path = folder / "edits.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text())
+    segments = [{"source": s.get("source", "."), "start": float(s["start"]), "end": float(s["end"])}
+                for s in data.get("segments", [])]
+    for s in segments:
+        if s["end"] <= s["start"]:
+            raise ValueError(f"edits.json: segment ends before it starts: {s}")
+    return segments
+
+
+def resolve(segments):
+    """Segments with editedStart filled in; play order is list order."""
+    out, at = [], 0.0
+    for s in segments:
+        out.append({**s, "editedStart": round(at, 6)})
+        at += s["end"] - s["start"]
+    return out
+
+
+def edited_duration(segments):
+    return sum(s["end"] - s["start"] for s in segments)
+
+
+def to_edited(segments, source, t):
+    """Edited time for source time `t`, or None when `t` was cut. Segments must be resolved."""
+    for s in segments:
+        if s["source"] == source and s["start"] <= t <= s["end"]:
+            return round(s["editedStart"] + t - s["start"], 6)
+    return None
+
+
+def to_source(segments, edited):
+    """(source, time) for an edited time; clamps to the ends."""
+    if not segments:
+        return (".", edited)
+    for s in segments:
+        if edited < s["editedStart"] + (s["end"] - s["start"]):
+            return (s["source"], round(s["start"] + max(0.0, edited - s["editedStart"]), 6))
+    last = segments[-1]
+    return (last["source"], last["end"])
+
+
+def kept_pieces(segments, source, a, b):
+    """The parts of source range [a, b] that survive, as edited (start, end) pairs."""
+    out = []
+    for s in segments:
+        if s["source"] != source:
+            continue
+        lo, hi = max(a, s["start"]), min(b, s["end"])
+        if hi > lo or (hi == lo and a == b and s["start"] <= a <= s["end"]):
+            out.append((s["editedStart"] + lo - s["start"], s["editedStart"] + hi - s["start"]))
+    return out
+
+
+def map_points(items, segments, source, key="offsetSeconds"):
+    """Point events (page events): converted, or dropped when cut."""
+    out = []
+    for item in items:
+        t = to_edited(segments, source, item[key])
+        if t is not None:
+            out.append({**item, key: t})
+    return out
+
+
+def map_states(items, segments, source, key="offsetSeconds"):
+    """State changes (activity): each kept range starts with the state that was active at its start,
+    so the Apps lane stays continuous across a cut."""
+    out = []
+    for s in segments:
+        if s["source"] != source:
+            continue
+        active = None
+        for item in items:
+            if item[key] <= s["start"]:
+                active = item
+        if active is not None:
+            out.append({**active, key: s["editedStart"]})
+        for item in items:
+            if s["start"] < item[key] < s["end"]:
+                out.append({**item, key: round(s["editedStart"] + item[key] - s["start"], 6)})
+    return out
+
+
+def map_sentences(sentences, segments, source):
+    """Sentences survive when more than half of them is kept; times are clamped to what is kept and
+    tokens inside cuts are dropped."""
+    out = []
+    for sentence in sentences:
+        pieces = kept_pieces(segments, source, sentence["start"], sentence["end"])
+        length = max(1e-6, sentence["end"] - sentence["start"])
+        if not pieces or sum(b - a for a, b in pieces) <= length / 2:
+            continue
+        tokens = []
+        for tok in sentence.get("tokens", []):
+            mid = to_edited(segments, source, (tok["start"] + tok["end"]) / 2)
+            if mid is None:
+                continue
+            half = (tok["end"] - tok["start"]) / 2
+            tokens.append({**tok, "start": round(mid - half, 6), "end": round(mid + half, 6)})
+        out.append({**sentence, "start": round(pieces[0][0], 6), "end": round(pieces[-1][1], 6), "tokens": tokens})
+    return out
+
+
+def map_marks(marks, segments, source):
+    """(visible, hidden): visible marks get edited offsetSeconds and keep sourceOffsetSeconds."""
+    visible, hidden = [], []
+    for mark in marks:
+        original = mark["offsetSeconds"]
+        t = to_edited(segments, source, original)
+        mapped = {**mark, "sourceOffsetSeconds": original, "sourceSession": source}
+        if t is None:
+            hidden.append(mapped)
+        else:
+            mapped["offsetSeconds"] = t
+            visible.append(mapped)
+    return visible, hidden
+
+
 def check_page_file(folder, mark):
     """Drop pageFile if the MHTML never arrived, recording why when the extension reported an error."""
     browser = mark.get("browser") or {}
@@ -134,7 +268,7 @@ def extract_frame(folder, mark):
     dest = frames / f"{mark['index']:03d}.jpg"
     if not dest.exists():
         # Nudge slightly forward so we don't land before the first decodable frame.
-        ts = max(0.0, mark["offsetSeconds"])
+        ts = max(0.0, mark.get("sourceOffsetSeconds", mark["offsetSeconds"]))
         run(["ffmpeg", "-loglevel", "error", "-y", "-ss", f"{ts:.3f}", "-i", folder / "recording.mp4",
              "-frames:v", "1", "-q:v", "3", dest])
     return dest.relative_to(folder).as_posix()
@@ -255,7 +389,9 @@ def mark_markdown(mark, image, narration, rel_prefix=""):
     if narration:
         lines += ["> " + narration, ""]
     lines += context_lines(mark["context"])
-    lines += [f"- **Video:** `recording.mp4` @ {mark['offsetSeconds']:.1f}s", f"- **Kind:** {mark['kind']}"]
+    original = mark.get("sourceOffsetSeconds", mark["offsetSeconds"])
+    video = "recording.mp4" if mark.get("sourceSession", ".") == "." else f"{mark['sourceSession']}/recording.mp4"
+    lines += [f"- **Video:** `{video}` @ {original:.1f}s", f"- **Kind:** {mark['kind']}"]
     if mark.get("source") == "review":
         lines.append("- **Added:** while reviewing the recording (no live page snapshot)")
     lines += [l.replace("PAGE_PREFIX", rel_prefix) for l in browser_lines(mark.get("browser"))]
@@ -304,10 +440,27 @@ def main():
 
     marks = load_marks(folder)
     transcript = transcribe(folder)
-    tokens = tokens_of(transcript)
+    sentences = (transcript or {}).get("sentences", [])
+    activity = load_jsonl(folder / "activity.jsonl")
+    browser = load_jsonl(folder / "browser.jsonl")
+
+    edits = load_edits(folder)
+    hidden = []
+    if edits is None:
+        # Unedited: everything stays exactly as recorded; one segment covers the whole video.
+        duration = duration_of(folder / "recording.mp4")
+        segments = resolve([{"source": ".", "start": 0.0, "end": duration or 0.0}])
+    else:
+        segments = resolve(edits)
+        duration = round(edited_duration(segments), 6)
+        marks, hidden = map_marks(marks, segments, ".")
+        sentences = map_sentences(sentences, segments, ".")
+        activity = map_states(activity, segments, ".")
+        browser = map_points(browser, segments, ".")
+    tokens = [t for s_ in sentences for t in s_.get("tokens", [])]
 
     (folder / "marks").mkdir(exist_ok=True)
-    # Marks can be deleted while reviewing: drop their old Markdown.
+    # Marks can be deleted while reviewing, or cut: drop their old Markdown.
     keep = {f"{m['index']:03d}.md" for m in marks}
     for old in (folder / "marks").glob("*.md"):
         if old.name not in keep:
@@ -325,27 +478,37 @@ def main():
         mark["narration"] = narration
         (folder / "marks" / f"{mark['index']:03d}.md").write_text(mark_markdown(mark, image, narration, "../"))
         sections.append(mark_markdown(mark, image, narration))
+    for mark in hidden:
+        check_page_file(folder, mark)
+        mark["frame"] = extract_frame(folder, mark)
+        shot = mark.get("screenshot")
+        mark["image"] = shot if shot and (folder / shot).exists() else mark["frame"]
 
     # Machine-readable rollup for the viewer and later exporters (pgm, etc.).
     data = {
         "name": folder.name,
         "folder": str(folder),
-        "duration": duration_of(folder / "recording.mp4"),
+        "duration": duration,
+        "segments": segments,
         "marks": marks,
-        "activity": load_jsonl(folder / "activity.jsonl"),
-        "browser": load_jsonl(folder / "browser.jsonl"),
-        "transcript": [{"start": s_["start"], "end": s_["end"], "text": s_["text"].strip()}
-                       for s_ in (transcript or {}).get("sentences", [])],
+        "hiddenMarks": hidden,
+        "activity": activity,
+        "browser": browser,
+        "transcript": [{"start": s_["start"], "end": s_["end"], "text": s_["text"].strip()} for s_ in sentences],
     }
     (folder / "session.json").write_text(json.dumps(data, indent=2))
     write_viewer(folder, data)
 
     title = session_title(folder)
-    out = [f"# {title} ({folder.name})" if title else f"# Session {folder.name}", "", f"{len(marks)} marks · video: `recording.mp4`", ""]
+    video = "video: `recording.mp4`"
+    if edits is not None:
+        cut = (duration_of(folder / "recording.mp4") or duration) - duration
+        video += f", edited to {fmt_ts(duration)} ({fmt_ts(cut)} cut; times below are edited times)"
+    out = [f"# {title} ({folder.name})" if title else f"# Session {folder.name}", "", f"{len(marks)} marks · {video}", ""]
     out += sections
-    if transcript:
+    if sentences:
         out += ["---", "", "## Full transcript", ""]
-        for s in transcript.get("sentences", []):
+        for s in sentences:
             out.append(f"- `{fmt_ts(s['start'])}` {s['text'].strip()}")
     (folder / "session.md").write_text("\n".join(out) + "\n")
     print(f"wrote {folder / 'session.md'}")

@@ -10,8 +10,12 @@ struct SessionData: Decodable {
     var activity: [ActivityEntry]
     var browser: [BrowserEntry]
     var transcript: [Sentence]
+    /// The kept ranges in play order (always present once processed; one segment when unedited).
+    var segments: [Segment]
+    /// Marks inside removed ranges, in source time. Restoring the cut brings them back.
+    var hiddenMarks: [SessionMark]
 
-    enum CodingKeys: String, CodingKey { case name, folder, duration, marks, activity, browser, transcript }
+    enum CodingKeys: String, CodingKey { case name, folder, duration, marks, activity, browser, transcript, segments, hiddenMarks }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -22,6 +26,8 @@ struct SessionData: Decodable {
         activity = try c.decodeIfPresent([ActivityEntry].self, forKey: .activity) ?? []
         browser = try c.decodeIfPresent([BrowserEntry].self, forKey: .browser) ?? []
         transcript = try c.decodeIfPresent([Sentence].self, forKey: .transcript) ?? []
+        segments = try c.decodeIfPresent([Segment].self, forKey: .segments) ?? []
+        hiddenMarks = try c.decodeIfPresent([SessionMark].self, forKey: .hiddenMarks) ?? []
     }
 }
 
@@ -38,6 +44,11 @@ struct SessionMark: Decodable, Identifiable, Hashable {
     var browser: PageSnapshot?
     var note: String?             // typed while reviewing
     var source: String?           // "review" for marks added from the video afterwards
+    /// Where the mark is in its source recording, when the session is edited (offsetSeconds is edited time).
+    var sourceOffsetSeconds: Double?
+    var sourceSession: String?    // "." or the source folder of a joined session
+
+    var originalOffset: Double { sourceOffsetSeconds ?? offsetSeconds }
 
     var id: Int { index }
     var isShot: Bool { kind == "screenshot" }

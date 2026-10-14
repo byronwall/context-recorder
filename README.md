@@ -111,7 +111,20 @@ Input values are never recorded, only which field changed. The app accepts conne
 | `transcript.json` | Parakeet output, with timestamps for every sentence and token |
 | `marks/NNN.md`, `session.md` | Markdown for each mark, with the narration window (20 s before and 10 s after the mark; ⚑ shows where the mark landed) |
 | `session.json` | Everything above in one file, for the viewer and exporters |
+| `edits.json` | Only in edited sessions: the kept ranges of the recording, in play order (see below) |
 | `viewer.html` | Portable web copy of the session. Opens straight from disk, no server needed |
+
+### Edited sessions
+
+A session with an `edits.json` plays only its kept ranges:
+
+```json
+{"segments": [{"source": ".", "start": 10, "end": 60}, {"source": ".", "start": 100, "end": 200}]}
+```
+
+Processing writes `session.json`, the Markdown and the export data in *edited* time: marks, activity, page events and the transcript move with the video, and anything inside a removed range drops out (cut marks are kept under `hiddenMarks`). Each mark keeps `sourceOffsetSeconds`, and Markdown video references point at the original recording and time. `recording.mp4` and the raw `.jsonl` files are never changed; marks added while reviewing an edited session are stored at their original time. Delete `edits.json` and re-process to get the session back as recorded.
+
+The time mapping is tested by `python3 -m unittest scripts/test_process_session.py` and, in the app, `swift run ContextRecorder --library <session> --self-test edits`; both read the cases in `scripts/fixtures/edit-cases.json`.
 
 To re-run processing, for example with a different narration window:
 

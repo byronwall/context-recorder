@@ -63,9 +63,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
                 return
             }
+            if value("--self-test") == "edits" {
+                let fixture = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+                    .appendingPathComponent("scripts/fixtures/edit-cases.json")
+                let failures = EditSelfTest.run(fixture: fixture)
+                for f in failures { fputs("FAIL \(f)\n", stderr) }
+                print(failures.isEmpty ? "Edit map checks passed" : "Edit map checks failed: \(failures.count)")
+                exit(failures.isEmpty ? 0 : 1)
+            }
             if args.contains("--check-previews") {
                 Task {
-                    let previews = FramePreviews(video: devLibraryFolder.appendingPathComponent("recording.mp4"))
+                    let previews = FramePreviews(asset: AVURLAsset(url: devLibraryFolder.appendingPathComponent("recording.mp4")))
                     // The first frame of a cold video can take a second; time the sweep, not the open.
                     previews.request(0)
                     for _ in 0..<100 where previews.image == nil { try? await Task.sleep(for: .milliseconds(50)) }

@@ -24,6 +24,8 @@ extension SessionModel {
     private func addReview(region: CGRect?, shot: Bool) async {
         player.pause()
         let t = currentTime
+        // marks.jsonl is in source time, so a later cut or restore keeps the mark on its moment.
+        let at = sourcePoint(t)
         reviewStatus = shot ? "Saving shot…" : "Adding mark…"
         defer { reviewStatus = nil }
         do {
@@ -32,16 +34,17 @@ extension SessionModel {
             var mark: [String: JSONValue] = [
                 "index": .number(Double(index)),
                 "kind": .string(shot ? "screenshot" : "mark"),
-                "offsetSeconds": .number((t * 1000).rounded() / 1000),
-                "wallTime": .string(wallTime(at: t)),
+                "offsetSeconds": .number((at.time * 1000).rounded() / 1000),
+                "wallTime": .string(wallTime(at: at.time, in: at.folder)),
                 "source": .string("review"),
                 "context": contextJSON(at: t),
             ]
-            let recent = recentPageEvents(before: t)
+            if at.source != "." { mark["sourceSession"] = .string(at.source) }
+            let recent = recentPageEvents(before: at.time, in: at.folder)
             if !recent.isEmpty { mark["browser"] = .object(["recent": .array(recent)]) }
             if shot {
                 let name = String(format: "screenshots/%03d.png", index)
-                let size = try await saveFrame(at: t, crop: region, to: folder.appendingPathComponent(name))
+                let size = try await saveFrame(at: at.time, of: at.folder, crop: region, to: folder.appendingPathComponent(name))
                 mark["screenshot"] = .string(name)
                 if let region {
                     mark["region"] = .object([
@@ -105,8 +108,8 @@ extension SessionModel {
     }
 
     /// Page events from the 30 s before the mark, as recorded (so problems show up like on live marks).
-    private func recentPageEvents(before t: Double) -> [JSONValue] {
-        guard let raw = try? String(contentsOf: folder.appendingPathComponent("browser.jsonl"), encoding: .utf8) else { return [] }
+    private func recentPageEvents(before t: Double, in source: URL) -> [JSONValue] {
+        guard let raw = try? String(contentsOf: source.appendingPathComponent("browser.jsonl"), encoding: .utf8) else { return [] }
         return raw.split(separator: "\n").compactMap { line -> JSONValue? in
             guard let v = try? JSONDecoder().decode(JSONValue.self, from: Data(line.utf8)),
                   let offset = v["offsetSeconds"]?.numberValue, offset <= t, offset >= t - 30 else { return nil }
@@ -114,17 +117,17 @@ extension SessionModel {
         }.suffix(40)
     }
 
-    private func wallTime(at t: Double) -> String {
+    private func wallTime(at t: Double, in source: URL) -> String {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         f.locale = Locale(identifier: "en_US_POSIX")
-        let start = f.date(from: folder.lastPathComponent) ?? .now
+        let start = f.date(from: source.lastPathComponent) ?? .now
         return ISO8601DateFormatter().string(from: start.addingTimeInterval(t))
     }
 
     /// Writes the video frame at `t` (cropped to the normalized region) as PNG; returns the frame's pixel size.
-    private func saveFrame(at t: Double, crop: CGRect?, to url: URL) async throws -> CGSize {
-        let asset = AVURLAsset(url: folder.appendingPathComponent("recording.mp4"))
+    private func saveFrame(at t: Double, of source: URL, crop: CGRect?, to url: URL) async throws -> CGSize {
+        let asset = AVURLAsset(url: source.appendingPathComponent("recording.mp4"))
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.requestedTimeToleranceBefore = .zero
