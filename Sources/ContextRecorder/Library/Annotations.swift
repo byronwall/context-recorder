@@ -227,8 +227,15 @@ extension SessionModel {
     /// Moves one end of an annotation's time span to an edited time (from its timeline bar).
     func setAnnotationSpan(_ id: UUID, startEdited: Double?, endEdited: Double?) {
         guard var a = annotations.first(where: { $0.id == id }) else { return }
-        if let e = startEdited { let p = sourcePoint(e); if p.source == a.source { a.start = min(p.time, a.end - 0.2) } }
-        if let e = endEdited { let p = sourcePoint(e); if p.source == a.source { a.end = max(p.time, a.start + 0.2) } }
+        // Work out both ends first: a bar moved past its old end must not be clamped by it.
+        var start = a.start, end = a.end
+        if let e = startEdited { let p = sourcePoint(e); if p.source == a.source { start = p.time } }
+        if let e = endEdited { let p = sourcePoint(e); if p.source == a.source { end = p.time } }
+        if startEdited != nil && endEdited == nil { start = min(start, end - 0.2) }
+        if endEdited != nil && startEdited == nil { end = max(end, start + 0.2) }
+        guard end - start >= 0.2 else { return }
+        a.start = start
+        a.end = end
         updateAnnotation(a)
     }
 }
