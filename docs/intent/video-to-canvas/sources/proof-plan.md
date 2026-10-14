@@ -119,7 +119,7 @@ Keep canonical input hashes unchanged except for an intentional note edit in the
 
 ## 7. Keep implementation boundaries clear
 
-The proposed first surface is [viewer.html](../../../scripts/viewer.html), with its existing player and inline session data.
+The proposed first surface is [viewer.html](../../../../scripts/viewer.html), with its existing player and inline session data.
 The proposed analyzer and canvas files do not exist yet.
 Dependency setup and source reuse need separate local validation during implementation.
 

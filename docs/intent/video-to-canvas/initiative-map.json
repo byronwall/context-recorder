@@ -1,0 +1,478 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Video to canvas",
+    "slug": "video-to-canvas",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-13",
+    "summary": "Turn a narrated screen recording into a spatial, source-linked canvas reviewed in the portable HTML viewer; storyboard first, verified scroll joining second.",
+    "status": "planned",
+    "next_action": "Answer the viewport-selection and test-clip questions, then start M1 when implementation is requested"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    }
+  },
+  "sources": [
+    {
+      "id": "SRC-001",
+      "type": "direct-user-input",
+      "location": "sources/intent-brief.md",
+      "anchor": "Desired outcome; Experiences to preserve",
+      "authority": "direct current intent",
+      "supports": [
+        "INT-001",
+        "INT-002",
+        "INT-003",
+        "INT-004",
+        "INT-005"
+      ]
+    },
+    {
+      "id": "SRC-002",
+      "type": "external-research",
+      "location": "sources/pro-output/video-to-canvas-report.md",
+      "anchor": "ChatGPT Pro report, recommendations VC-01..VC-09",
+      "authority": "implementation research",
+      "supports": [
+        "INT-006",
+        "SHAPE-001"
+      ]
+    },
+    {
+      "id": "SRC-003",
+      "type": "accepted-decision",
+      "location": "sources/research-review.md",
+      "anchor": "Recommendation decisions",
+      "authority": "reviewed research decisions",
+      "supports": [
+        "INT-006",
+        "INT-007",
+        "INT-008"
+      ]
+    },
+    {
+      "id": "SRC-004",
+      "type": "proposed-design",
+      "location": "sources/design.md and sources/proof-plan.md",
+      "anchor": "First proof; Repository fit; Decide whether to continue",
+      "authority": "prior proposal",
+      "supports": [
+        "SHAPE-001"
+      ]
+    },
+    {
+      "id": "SRC-005",
+      "type": "repository",
+      "location": "scripts/process_session.py (write_viewer, extract_frame), scripts/viewer.html (DATA, video)",
+      "anchor": "6c74158",
+      "authority": "current implementation reality",
+      "supports": [
+        "REAL-001",
+        "REAL-002",
+        "REAL-003"
+      ]
+    },
+    {
+      "id": "SRC-006",
+      "type": "external-primary-documentation",
+      "location": "OpenCV motion API, FFmpeg showinfo, opencv-python-headless 4.14.0.94, scrollsnap",
+      "anchor": "checked 2026-10-13 in sources/research-review.md",
+      "authority": "implementation research",
+      "supports": [
+        "DEP-001",
+        "DEP-002"
+      ]
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "INT-001",
+        "type": "outcome",
+        "statement": "A narrated recording becomes a canvas explored in space, with every part linked back to its source video moment.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-002",
+        "type": "required-behavior",
+        "statement": "Displayed pixels come from real frames at known times; unobserved areas are never filled and different moments are never blended across text.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-001",
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "INT-003",
+        "type": "scope",
+        "statement": "Primary case is a narrated product walkthrough over scrolling static content; lecture is second; general video is a research question.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-004",
+        "type": "experience",
+        "statement": "Changed states sit to the right, frequent changes collapse into stacks, motion plays in place, returns are linked, narration sits near its visit, and large regions can be captured.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "later",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-005",
+        "type": "implementation-hypothesis",
+        "statement": "Fixed 1/5/10 second sampling intervals.",
+        "commitment": "illustrative",
+        "importance": "supporting",
+        "status": "superseded",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-006",
+        "type": "constraint",
+        "statement": "First version needs no browser instrumentation, cloud service, or new frontend stack; analysis is offline and on request.",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-002",
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "INT-007",
+        "type": "constraint",
+        "statement": "The canvas must beat ordinary video and a change-selected storyboard on real tasks, or the simpler view wins.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "INT-008",
+        "type": "decision",
+        "statement": "The portable HTML viewer is the first surface; native SwiftUI waits for proven value.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "REAL-001",
+        "type": "current-repository-reality",
+        "statement": "process_session.py already embeds session data into viewer.html via write_viewer and uses ffmpeg/ffprobe.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "current",
+        "sources": [
+          "SRC-005"
+        ]
+      },
+      {
+        "id": "REAL-002",
+        "type": "current-repository-reality",
+        "statement": "Mark images and browser event offsets are not exact frame-exposure times; extract_frame discards actual output time.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "current",
+        "sources": [
+          "SRC-005"
+        ]
+      },
+      {
+        "id": "REAL-003",
+        "type": "current-repository-reality",
+        "statement": "No test suite or tracked sample recording; OpenCV is not installed locally; FFmpeg is.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "current",
+        "sources": [
+          "SRC-005"
+        ]
+      }
+    ],
+    "themes": [
+      "time into space",
+      "source truth",
+      "beat the simpler storyboard",
+      "offline and optional"
+    ],
+    "conflicts": [],
+    "human_questions": [
+      {
+        "id": "HQ-001",
+        "question": "Is one manual viewport selection per recording acceptable in the first proof?",
+        "reason": "Determines whether automatic content-area detection is in the first slice.",
+        "status": "open"
+      },
+      {
+        "id": "HQ-002",
+        "question": "May the proof use purpose-made short test recordings, or only existing sessions?",
+        "reason": "Determines the strength of real-footage evidence in M3/M4.",
+        "status": "open"
+      }
+    ]
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Experiment-sized: storyboard plus verified scroll joining on short recordings in the HTML viewer, enough to decide whether spatial geometry earns its cost.",
+    "problem": "Ordinary video review hides how much content was traversed, where it changed, and what was said about it.",
+    "recommended_shape": {
+      "summary": "Optional offline analyzer writes canvas.json; viewer.html renders a source-linked storyboard first, then tall scroll columns and changed states, with refused joins falling back to storyboard cards.",
+      "selected_option": null,
+      "provisional_choices": [
+        "OpenCV phase correlation vs scrollsnap reuse",
+        "manual viewport selection"
+      ]
+    },
+    "success_moves": [
+      "Ship the change-selected storyboard first; it is the comparison baseline, the refusal fallback, and a useful result if stitching fails.",
+      "Develop joining against synthetic scroll clips cut from tall screenshots with FFmpeg so every offset is known exactly.",
+      "Burn a frame counter into synthetic clips to verify click-to-seek lands on the true source frame.",
+      "Keep canvas.json as the single seam; absent or mismatched data leaves today's viewer unchanged.",
+      "Introduce OpenCV in one milestone, in an optional pinned virtualenv used only by the analyzer.",
+      "Freeze thresholds on synthetic fixtures before running real footage."
+    ],
+    "first_proof": {
+      "question": "Can verified translation joining reconstruct scrolled content accurately with zero false joins, and does a real walkthrough produce a readable tall view?",
+      "artifact": "Synthetic fixture suite plus one 60-90 s real walkthrough rendered in viewer.html.",
+      "decision_rule": "Continue to the value comparison if synthetic p95 error <= 2 px with zero false joins and the real clip yields a readable tall view; otherwise stop at the storyboard."
+    },
+    "rabbit_holes": [
+      "general video support",
+      "DOM replay or scroll instrumentation",
+      "return detection",
+      "long-session tiling",
+      "native canvas before value is shown",
+      "maintaining two analysis engines"
+    ],
+    "open_decisions": [
+      "HQ-001",
+      "HQ-002"
+    ]
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "context-recorder",
+      "revision": "6c74158ca96abd36819d2a58f75bacdc44107bb0",
+      "worktree_status": "clean before this run",
+      "subsystems": [
+        "scripts/process_session.py",
+        "scripts/viewer.html",
+        "Sources/ContextRecorder/Library (later native view)",
+        "Sources/ContextRecorder/Export/PgmExport.swift (later export)"
+      ],
+      "test_commands": [
+        "python3 scripts/canvas/test_canvas.py (proposed)",
+        "python3 scripts/process_session.py --help"
+      ],
+      "deployment_surfaces": [
+        "local viewer.html output per session"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "DEP-001",
+        "name": "OpenCV-headless + NumPy",
+        "material": true,
+        "application_seam": "join/verify functions inside scripts/analyze_canvas.py producing canvas.json",
+        "semantic_contract": [
+          "estimate translation",
+          "verify overlap",
+          "refuse with reason"
+        ],
+        "failure_modes": [
+          "false join on repeated text",
+          "fixed header bias",
+          "cursor motion",
+          "insufficient overlap",
+          "install incompatibility"
+        ],
+        "proof_rungs": [
+          "deterministic-fake",
+          "contract-test",
+          "live-sandbox"
+        ],
+        "local_proof": "Synthetic FFmpeg-cut scroll clips with known offsets in test_canvas.py.",
+        "live_proof": "One or two real disposable walkthrough recordings.",
+        "rollout": "Optional pinned virtualenv; analyzer only runs on request.",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Joining accuracy is the core uncertainty; it is exercised on synthetic clips with exact ground truth."
+        }
+      },
+      {
+        "id": "DEP-002",
+        "name": "FFmpeg decode timing (showinfo)",
+        "material": true,
+        "application_seam": "frame index in canvas.json",
+        "semantic_contract": [
+          "frame number",
+          "presentation time",
+          "time base",
+          "size"
+        ],
+        "failure_modes": [
+          "irregular frame gaps",
+          "seek lands on neighbor frame",
+          "first/last frame offsets"
+        ],
+        "proof_rungs": [
+          "deterministic-fake",
+          "live-sandbox"
+        ],
+        "local_proof": "Synthetic clip with burned-in frame counter.",
+        "live_proof": "Spot-check seeks on a real recording.",
+        "rollout": "Already a project dependency.",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Already installed and used; mapping is verified directly in M1."
+        }
+      }
+    ],
+    "fast_local_loop": {
+      "command": "python3 scripts/canvas/test_canvas.py",
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "dependencies_started": [],
+      "failure_injection": [
+        "generated fixtures: fixed header, cursor, repeated rows, blank gap, fast jump, mid-scroll edit"
+      ],
+      "slower_confirmation": "Real disposable walkthrough opened in viewer.html."
+    },
+    "milestones": [
+      {
+        "id": "M1",
+        "title": "Source-mapped storyboard in the viewer",
+        "outcome": "Change-selected cards in viewer.html seek the shared player to their exact source frame.",
+        "dependencies_introduced": [],
+        "proof": "Burned-in counter matches card frame after seek; synthetic change clip yields expected cards.",
+        "valid_intermediate_state": "Useful storyboard; sessions without canvas data unchanged.",
+        "rollback": "Delete canvas output.",
+        "status": "planned"
+      },
+      {
+        "id": "M2",
+        "title": "Scroll joining proven on synthetic clips",
+        "outcome": "Analyzer emits tall columns and changed states with refusals falling back to cards.",
+        "dependencies_introduced": [
+          "DEP-001"
+        ],
+        "proof": "Fixture suite: p95 <= 2 px, zero false joins, refusal on every jump/edit fixture.",
+        "valid_intermediate_state": "Storyboard still works; joining validated offline.",
+        "rollback": "Disable joining; storyboard only.",
+        "status": "planned"
+      },
+      {
+        "id": "M3",
+        "title": "Real walkthrough on the canvas",
+        "outcome": "A 60-90 s real clip renders a readable tall view, a changed state, and a refusal card.",
+        "dependencies_introduced": [],
+        "proof": "Random click-to-frame checks and seam inspection.",
+        "valid_intermediate_state": "Canvas usable on short real recordings.",
+        "rollback": "Storyboard only.",
+        "status": "planned"
+      },
+      {
+        "id": "M4",
+        "title": "Decide whether the canvas earns its cost",
+        "outcome": "Recorded go/no-go versus video and storyboard.",
+        "dependencies_introduced": [],
+        "proof": "Small rotated task comparison with time, errors, cost, and direct judgment.",
+        "valid_intermediate_state": "Decision recorded; storyboard kept regardless.",
+        "rollback": "Keep storyboard, stop canvas work.",
+        "status": "planned"
+      }
+    ],
+    "cut_line": [
+      "motion posters and stacks",
+      "return arrows",
+      "larger-than-frame export",
+      "lecture mode",
+      "native SwiftUI canvas",
+      "browser scroll instrumentation",
+      "long-session tiling",
+      "token-level transcript alignment"
+    ],
+    "open_decisions": [
+      "HQ-001",
+      "HQ-002",
+      "scrollsnap-reuse"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-13",
+      "phase": "intent",
+      "change": "Prior research (intent brief, Pro report, design, proof plan, review) moved from docs/research/video-to-canvas to sources/ and reconciled into a sleuth intent brief."
+    },
+    {
+      "date": "2026-10-13",
+      "phase": "shape",
+      "change": "Reordered proof: storyboard first as baseline and fallback; synthetic ground-truth clips before real footage."
+    },
+    {
+      "date": "2026-10-13",
+      "phase": "plan",
+      "change": "Four milestones with one new dependency (OpenCV) isolated in M2 and a go/no-go in M4."
+    }
+  ],
+  "closure": null
+}

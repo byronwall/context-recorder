@@ -52,13 +52,13 @@ The research branch contained only the prior handoff commit before artifact coll
 
 | Claim | Direct check and consequence |
 | --- | --- |
-| Capture requests 15 fps, width at most 1920, and H.264 at 4 Mbps | Confirmed in [Recorder.start](../../../Sources/ContextRecorder/Recorder.swift). Requested cadence does not replace actual decoded times. |
-| Still exposure can follow mark time | Confirmed in [addMark and addRegionMark](../../../Sources/ContextRecorder/main.swift). The saved offset precedes region selection and asynchronous capture. |
-| Browser event offsets are receipt times | Confirmed in `bridge.onEvent`, [background.js](../../../extension/background.js), and [page.js](../../../extension/page.js). Queued delivery and tab identity matter. |
+| Capture requests 15 fps, width at most 1920, and H.264 at 4 Mbps | Confirmed in [Recorder.start](../../../../Sources/ContextRecorder/Recorder.swift). Requested cadence does not replace actual decoded times. |
+| Still exposure can follow mark time | Confirmed in [addMark and addRegionMark](../../../../Sources/ContextRecorder/main.swift). The saved offset precedes region selection and asynchronous capture. |
+| Browser event offsets are receipt times | Confirmed in `bridge.onEvent`, [background.js](../../../../extension/background.js), and [page.js](../../../../extension/page.js). Queued delivery and tab identity matter. |
 | Scroll geometry is sparse | `snapshot` includes viewport and scroll coordinates on demand. `STREAM` contains no continuous scroll event. |
-| Native page data omits viewport geometry | Confirmed in [PageSnapshot](../../../Sources/ContextRecorder/Library/SessionData.swift). Raw JSON and native projection differ. |
-| Transcript rollup contains sentences | Confirmed in [process_session.py](../../../scripts/process_session.py). Raw transcript token times remain separate. |
-| Existing frame extraction lacks recorded actual output time | `extract_frame` saves a JPEG; [Review.saveFrame](../../../Sources/ContextRecorder/Library/Review.swift) discards the returned actual time. |
+| Native page data omits viewport geometry | Confirmed in [PageSnapshot](../../../../Sources/ContextRecorder/Library/SessionData.swift). Raw JSON and native projection differ. |
+| Transcript rollup contains sentences | Confirmed in [process_session.py](../../../../scripts/process_session.py). Raw transcript token times remain separate. |
+| Existing frame extraction lacks recorded actual output time | `extract_frame` saves a JPEG; [Review.saveFrame](../../../../Sources/ContextRecorder/Library/Review.swift) discards the returned actual time. |
 | HTML already has an inline data and shared-player path | Confirmed in `write_viewer`, `DATA`, `video`, `renderNow`, and the `seeked` listener. |
 | Note edits rerun processing | Confirmed in `Review.reprocess`. Canvas analysis should stay outside that automatic path. |
 
