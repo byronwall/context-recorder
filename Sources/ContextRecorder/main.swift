@@ -66,6 +66,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if args.contains("--check-previews") {
                 Task {
                     let previews = FramePreviews(video: devLibraryFolder.appendingPathComponent("recording.mp4"))
+                    // The first frame of a cold video can take a second; time the sweep, not the open.
+                    previews.request(0)
+                    for _ in 0..<100 where previews.image == nil { try? await Task.sleep(for: .milliseconds(50)) }
                     var frames = Set<ObjectIdentifier>()
                     for step in 0..<60 {
                         previews.request(Double(step) * 0.5)
@@ -85,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
             }
             library.show(session: devLibraryFolder)
-            if let width = value("--window-width").flatMap(Double.init), width >= 1100 {
+            if let width = value("--window-width").flatMap(Double.init), width >= 980 {
                 library.window?.setContentSize(NSSize(width: width, height: 820))
                 library.window?.center()
             }

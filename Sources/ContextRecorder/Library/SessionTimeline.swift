@@ -13,12 +13,14 @@ struct SessionTimeline: View {
 
     private static let labelWidth: CGFloat = 72
     private static let laneGap: CGFloat = 7
-    private static let pinSize: CGFloat = 20
+    private static let pinSize: CGFloat = 18
+    /// Time labels get their own strip at the top of the ruler, so a pin never hides one.
+    private static let labelStrip: CGFloat = 13
 
     enum Lane: CaseIterable {
         case ruler, apps, page, speech
         var height: CGFloat {
-            switch self { case .ruler: 24; case .apps: 26; case .page: 16; case .speech: 16 }
+            switch self { case .ruler: 32; case .apps: 26; case .page: 16; case .speech: 16 }
         }
         var title: String {
             switch self { case .ruler: ""; case .apps: "Apps"; case .page: "Page"; case .speech: "Voice" }
@@ -149,7 +151,6 @@ struct SessionTimeline: View {
         let step = steps.first { model.duration / $0 <= fit } ?? 3600
         let minor = step / (step >= 10 && Int(step) % 5 == 0 ? 5 : 2)
         let duration = model.duration
-        let pins = model.marks.map { x($0.offsetSeconds, w) }
         return Canvas { ctx, size in
             for tick in stride(from: 0, through: duration, by: minor) {
                 let px = x(tick, w)
@@ -161,8 +162,6 @@ struct SessionTimeline: View {
                 let label = ctx.resolve(Text(Format.time(tick)).font(.system(size: 10, weight: .medium).monospacedDigit()).foregroundStyle(.tertiary))
                 let s = label.measure(in: size)
                 let lx = min(max(0, px - s.width / 2), size.width - s.width)
-                // Pins sit on the ruler; a label under one would be unreadable.
-                if pins.contains(where: { abs($0 - (lx + s.width / 2)) < s.width / 2 + Self.pinSize / 2 + 2 }) { continue }
                 ctx.draw(label, in: CGRect(x: lx, y: 0, width: s.width, height: s.height))
             }
         }
@@ -183,7 +182,7 @@ struct SessionTimeline: View {
                 .buttonStyle(.plain)
                 .focusable()
                 .onHover { hoveredPin = $0 ? m.index : (hoveredPin == m.index ? nil : hoveredPin) }
-                .offset(x: x(m.offsetSeconds, w) - Self.pinSize / 2, y: (Lane.ruler.height - Self.pinSize) / 2)
+                .offset(x: x(m.offsetSeconds, w) - Self.pinSize / 2, y: Self.labelStrip + (Lane.ruler.height - Self.labelStrip - Self.pinSize) / 2)
                 .zIndex(selected ? 1 : 0)
                 .accessibilityLabel("\(m.isShot ? "Shot" : "Mark") \(m.index) at \(Format.time(m.offsetSeconds)): \(MarkText.title(m))")
                 .accessibilityAddTraits(selected ? .isSelected : [])
