@@ -1,0 +1,381 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "In-app image viewer and annotator",
+    "slug": "in-app-image-viewer",
+    "scale": "feature",
+    "current_phase": "plan",
+    "last_updated": "2026-10-13",
+    "summary": "Replace Quick Look with a native in-app image viewer that has RegionShot-grade pan/zoom and RegionShot's basic annotation tools, sharing an annotation model with the session-editing video layer.",
+    "status": "planned",
+    "next_action": "Start m1: replace .quickLookPreview with overlay ZoomCanvas; run the SwiftUI vs AppKit gesture spike."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    }
+  },
+  "sources": [
+    {
+      "id": "SRC-001",
+      "type": "direct-user-input",
+      "location": "chat request 2026-10-13",
+      "anchor": "image previews FULLY within the app; cannot open Preview (gross); pan and zoom; basic annotations; whatever RegionShot can do",
+      "authority": "direct current intent",
+      "supports": [
+        "INT-001",
+        "INT-002",
+        "INT-003",
+        "INT-004"
+      ]
+    },
+    {
+      "id": "SRC-002",
+      "type": "related-initiative",
+      "location": "worktree ocns-command-6a2e0d docs/intent/session-editing/intent-brief.md",
+      "anchor": "annotation set: rectangle, arrow, text, highlight, freehand; select/move/resize/delete/undo/redo; RegionShot as reference not component",
+      "authority": "user-referenced summary of basic annotations",
+      "supports": [
+        "INT-003",
+        "INT-005"
+      ]
+    },
+    {
+      "id": "SRC-003",
+      "type": "repository",
+      "location": "~/Projects/whiteboard README.md (RegionShot)",
+      "anchor": "tools incl. crop; zoom toward pointer, pinch, Cmd +/-/0, trackpad pan, middle-drag pan; single-key tools; handles; linear undo",
+      "authority": "reference product for feel",
+      "supports": [
+        "INT-002",
+        "INT-003"
+      ]
+    },
+    {
+      "id": "SRC-004",
+      "type": "repository",
+      "location": "Sources/ContextRecorder/Library/SessionView.swift:21, MarkDetail.swift:78-84, SidePanel.swift:128",
+      "anchor": ".quickLookPreview binding used for all mark images",
+      "authority": "current reality",
+      "supports": [
+        "INT-001"
+      ]
+    },
+    {
+      "id": "SRC-005",
+      "type": "repository",
+      "location": "scripts/viewer.html lightbox, commit 1284221",
+      "anchor": "browser pan/zoom lightbox with keys + - 0 1 arrows Esc",
+      "authority": "current reality / prior art",
+      "supports": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "SRC-006",
+      "type": "direct-user-input",
+      "location": "chat answer 2026-10-13",
+      "anchor": "exports yes, overlay in the session window",
+      "authority": "direct current intent",
+      "supports": [
+        "INT-007",
+        "INT-008"
+      ]
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "INT-001",
+        "type": "requirement",
+        "statement": "Image viewing happens fully inside the app; Quick Look/Preview are never used.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001",
+          "SRC-004"
+        ]
+      },
+      {
+        "id": "INT-002",
+        "type": "requirement",
+        "statement": "Pan and zoom with RegionShot-grade handling.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001",
+          "SRC-003",
+          "SRC-005"
+        ]
+      },
+      {
+        "id": "INT-003",
+        "type": "requirement",
+        "statement": "Basic annotations at RegionShot's level: rectangle, arrow, text, highlight, freehand, crop, select/move/resize/delete, undo/redo.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001",
+          "SRC-002",
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "INT-004",
+        "type": "anti-goal",
+        "statement": "No growth beyond RegionShot's tool set.",
+        "commitment": "inferred",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001",
+          "SRC-002"
+        ]
+      },
+      {
+        "id": "INT-005",
+        "type": "preference",
+        "statement": "Share annotation model and feel with the session-editing video annotation layer.",
+        "commitment": "inferred",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-002"
+        ]
+      },
+      {
+        "id": "INT-006",
+        "type": "requirement",
+        "statement": "Original capture is preserved when annotating.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-002"
+        ]
+      },
+      {
+        "id": "INT-007",
+        "type": "requirement",
+        "statement": "Annotated images appear in Markdown, session.md and Product Grid exports.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-006"
+        ]
+      },
+      {
+        "id": "INT-008",
+        "type": "decision",
+        "statement": "Viewer is an overlay inside the session window.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-006"
+        ]
+      }
+    ],
+    "themes": [
+      "stay in app",
+      "viewing quality",
+      "RegionShot parity",
+      "shared annotation model"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "medium: small viewer, annotation canvas is the bulk; RegionShot basics only",
+    "problem": "Mark images open in system Quick Look and cannot be inspected or marked up in-app; exports cannot carry annotations.",
+    "recommended_shape": "Overlay viewer in SessionView replacing .quickLookPreview; shared annotation model (JSON shapes in image pixels) + canvas; flattened PNG cache in annotations/ that process_session.py and PgmExport prefer.",
+    "success_moves": [
+      {
+        "id": "SM-1",
+        "move": "Ship viewer-only first by replacing the single .quickLookPreview seam; valid state with no annotation code."
+      },
+      {
+        "id": "SM-2",
+        "move": "Decide SwiftUI vs AppKit NSView canvas from the viewer's gesture feel before building annotation."
+      },
+      {
+        "id": "SM-3",
+        "move": "Own the annotation model here on stills; video layer in session-editing adds time ranges later."
+      },
+      {
+        "id": "SM-4",
+        "move": "Non-destructive: JSON + flattened PNG cache; delete annotations/ to roll back."
+      },
+      {
+        "id": "SM-5",
+        "move": "Export integration is a one-line preference in process_session.py image selection, so Markdown and PgmExport follow automatically."
+      },
+      {
+        "id": "SM-6",
+        "move": "Flattening/hit-testing are pure functions over the model, unit-testable without UI."
+      }
+    ],
+    "first_proof": {
+      "question": "Can an in-session overlay replace Quick Look with RegionShot-grade pan/zoom, and in SwiftUI or AppKit?",
+      "artifact": "Overlay viewer with pan/zoom from every Quick Look entry point",
+      "decision_rule": "SwiftUI gestures need <=1 workaround -> annotate on same view; else NSView canvas first"
+    },
+    "rabbit_holes": [
+      "SwiftUI gesture conflicts (magnify + drag + tool drags)",
+      "Text editing inside a zoomed canvas",
+      "Re-processing overwriting mark.image choice",
+      "Card thumbnails stale in ImageCache after save",
+      "Shared model with session-editing diverging"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "planned",
+    "repository_snapshot": {
+      "root": null,
+      "revision": "0166848",
+      "worktree_status": "clean",
+      "subsystems": [
+        "Library/SessionView",
+        "Library/MarkDetail",
+        "Library/SidePanel",
+        "ImageCache",
+        "scripts/process_session.py",
+        "Export/PgmExport"
+      ],
+      "test_commands": [],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "name": "SwiftUI gesture system",
+        "role": "canvas input",
+        "first_proof": "real",
+        "proof_strategy": "M1 spike; fallback NSViewRepresentable canvas"
+      },
+      {
+        "name": "scripts/process_session.py reprocess",
+        "role": "Markdown/session.json regeneration",
+        "first_proof": "absent in M1-M2; real in M3",
+        "proof_strategy": "existing Review.reprocess path; transcript/frames cached"
+      }
+    ],
+    "fast_local_loop": "swift build && .build/debug/ContextRecorder against a real session; swift test for Annotation target",
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "Mark images open in an in-app overlay with pan and zoom",
+        "status": "planned",
+        "proof": "No Quick Look anywhere; RegionShot-like gestures; canvas tech decided",
+        "outcome": "All mark images view in-app with pan/zoom; no Quick Look",
+        "dependencies_introduced": [
+          "SwiftUI/AppKit gesture handling"
+        ],
+        "valid_intermediate_state": "Viewer-only overlay; app fully usable",
+        "rollback": "Revert PR; .quickLookPreview restored"
+      },
+      {
+        "id": "m2",
+        "title": "RegionShot annotation tools work on the canvas (in memory)",
+        "status": "planned",
+        "proof": "All tools draw/edit/undo; swift test passes for Annotation target",
+        "outcome": "RegionShot tools draw/edit/undo in memory",
+        "dependencies_introduced": [
+          "Annotation library + test target"
+        ],
+        "valid_intermediate_state": "Annotation works but discards on close (stated in UI)",
+        "rollback": "Hide tool bar; viewer unaffected"
+      },
+      {
+        "id": "m3",
+        "title": "Annotations save and flow into session and exports",
+        "status": "planned",
+        "proof": "Markdown, session.md, PGM export show annotated image; revert restores originals",
+        "outcome": "Annotations persist and appear in Markdown, session.md, browser viewer and PGM export",
+        "dependencies_introduced": [
+          "process_session.py image preference",
+          "reprocess after save"
+        ],
+        "valid_intermediate_state": "Non-destructive annotations in annotations/",
+        "rollback": "Delete annotations/ and reprocess; revert one Python branch"
+      }
+    ],
+    "cut_line": [
+      "paste images / canvas growth / exact resize",
+      "clipboard copy, browser editing",
+      "video time ranges (session-editing)",
+      "extra styles"
+    ],
+    "open_decisions": [
+      {
+        "id": "D-1",
+        "decision": "Annotate frames too?",
+        "fallback": "view-only",
+        "when": "after m3"
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-13",
+      "event": "Intent brief and map created",
+      "phase": "intent",
+      "status": "planned"
+    },
+    {
+      "date": "2026-10-13",
+      "event": "Answered Q-001 (exports yes) and Q-002 (overlay in session window); intent confirmed",
+      "phase": "intent",
+      "status": "planned"
+    },
+    {
+      "date": "2026-10-13",
+      "event": "Shape brief drafted",
+      "phase": "shape",
+      "status": "planned"
+    },
+    {
+      "date": "2026-10-13",
+      "event": "Implementation plan created (m1 viewer, m2 annotation, m3 persistence/export)",
+      "phase": "plan",
+      "status": "planned"
+    }
+  ],
+  "closure": null
+}
