@@ -315,6 +315,10 @@ globalThis.crUiTest = (() => {
 
   async function quickLook(imagePattern) {
     await click(imagePattern);
+    for (let attempt = 0; attempt < 20 && !controls().some(node => node.role === "window" && node.depth === 0 && /quick ?look/i.test(node.label)); attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await fresh();
+    }
     if (!controls().some(node => node.role === "window" && node.depth === 0 && /quick ?look/i.test(node.label))) {
       throw new Error("Top-level Quick Look window did not appear in the AX tree.");
     }
