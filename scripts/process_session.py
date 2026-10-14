@@ -263,6 +263,14 @@ def mark_markdown(mark, image, narration, rel_prefix=""):
     return "\n".join(lines)
 
 
+def session_title(folder):
+    """The name given with Rename in the Sessions window (session-info.json), if any."""
+    try:
+        return (json.loads((folder / "session-info.json").read_text()).get("title") or "").strip() or None
+    except (OSError, ValueError):
+        return None
+
+
 def narration_title(narration, limit=70):
     """Short heading: the sentence being spoken when the mark was made (the one containing ⚑)."""
     if not narration:
@@ -332,7 +340,8 @@ def main():
     (folder / "session.json").write_text(json.dumps(data, indent=2))
     write_viewer(folder, data)
 
-    out = [f"# Session {folder.name}", "", f"{len(marks)} marks · video: `recording.mp4`", ""]
+    title = session_title(folder)
+    out = [f"# {title} ({folder.name})" if title else f"# Session {folder.name}", "", f"{len(marks)} marks · video: `recording.mp4`", ""]
     out += sections
     if transcript:
         out += ["---", "", "## Full transcript", ""]

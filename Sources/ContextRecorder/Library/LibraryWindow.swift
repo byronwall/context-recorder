@@ -7,14 +7,36 @@ final class LibraryState {
     let library: SessionLibrary
     init(includeDefaultRoot: Bool) { library = SessionLibrary(includeDefaultRoot: includeDefaultRoot) }
     var showShortcuts = false
-    var selection: URL? {
+    /// Sidebar selection. One session is open when exactly one is selected; several can be trashed together.
+    var selection: Set<URL> = [] {
         didSet {
             guard selection != oldValue else { return }
+            let open = selection.count == 1 ? selection.first : nil
+            guard open != model?.folder else { return }
             model?.tearDown()
-            model = selection.map { SessionModel(folder: $0) }
+            model = open.map { SessionModel(folder: $0) }
         }
     }
     private(set) var model: SessionModel?
+    /// The session whose name is being edited in the sidebar.
+    var renaming: URL?
+    /// Sessions waiting for the user to confirm Move to Trash.
+    var confirmTrash: [URL] = []
+
+    func open(_ url: URL?) { selection = url.map { [$0] } ?? [] }
+
+    /// Asks before trashing; the session being recorded is never included.
+    func requestTrash(_ urls: some Collection<URL>) {
+        confirmTrash = urls.filter { $0 != library.recordingFolder }
+    }
+
+    func trashConfirmed() {
+        let urls = confirmTrash
+        confirmTrash = []
+        selection.subtract(urls)
+        if urls.contains(where: { $0 == model?.folder }) { model?.tearDown(); model = nil }
+        library.trash(urls)
+    }
 }
 
 /// The session library: a normal window with a Dock icon while it's open; the app goes back to
@@ -24,6 +46,14 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
     let state: LibraryState
     private var keyMonitor: Any?
     private var changeWatch: Task<Void, Never>?
+    /// Called when the window is shown, so a running recording can start including it.
+    var onShow: (() -> Void)?
+
+    /// This window belongs in recordings (reviewing the app with the app); the control panel doesn't.
+    var recordedWindows: Set<CGWindowID> {
+        guard let window, window.windowNumber > 0 else { return [] }
+        return [CGWindowID(window.windowNumber)]
+    }
 
     init(includeDefaultRoot: Bool = true) {
         state = LibraryState(includeDefaultRoot: includeDefaultRoot)
@@ -32,10 +62,11 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
                               backing: .buffered, defer: false)
         window.title = "Sessions"
         window.toolbarStyle = .unified
-        window.minSize = NSSize(width: 900, height: 560)
+        // Sidebar (240) + inspector (360) at their default widths, plus room for the compact transport.
+        window.minSize = NSSize(width: 980, height: 560)
         window.isReleasedWhenClosed = false
         super.init(window: window)
-        let host = NSHostingController(rootView: LibraryView(state: state))
+        let host = NSHostingController(rootView: LibraryView(state: state).frame(minWidth: 0, minHeight: 0))
         host.sizingOptions = []   // keep the window's own size instead of shrinking to the content's ideal size
         window.contentViewController = host
         window.setContentSize(NSSize(width: 1320, height: 820))
@@ -51,10 +82,10 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
         if let session {
             // A session folder, or a folder of sessions (then the newest is opened).
             let found = state.library.add(folder: session)
-            state.selection = found.contains(session) ? session
-                : state.library.entries.first { found.contains($0.url) }?.url ?? found.first
-        } else if state.selection == nil {
-            state.selection = state.library.entries.first?.url
+            state.open(found.contains(session) ? session
+                : state.library.entries.first { found.contains($0.url) }?.url ?? found.first)
+        } else if state.selection.isEmpty {
+            state.open(state.library.entries.first?.url)
         }
         NSApp.setActivationPolicy(.regular)
         MainMenu.install()
@@ -62,6 +93,7 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate()
         installKeyMonitor()
+        onShow?()
     }
 
     func openFolder() {
@@ -100,8 +132,13 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
     private func installKeyMonitor() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, event.window === self.window, let model = self.state.model else { return event }
+            guard let self, event.window === self.window else { return event }
             if self.window?.firstResponder is NSText { return event }
+            if event.keyCode == 51, event.modifierFlags.intersection([.command, .control, .option, .shift]) == .command {
+                self.state.requestTrash(self.state.selection)
+                return nil
+            }
+            guard let model = self.state.model else { return event }
             if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty { return event }
             if model.regionMode {
                 if event.keyCode == 53 { model.regionMode = false; NSCursor.arrow.set(); return nil }   // esc

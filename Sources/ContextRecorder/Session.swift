@@ -27,10 +27,10 @@ final class Session {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Movies/ContextRecorder")
     }
 
-    init() throws {
+    init(root: URL = Session.root) throws {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        folder = Self.root.appendingPathComponent(fmt.string(from: Date()))
+        folder = root.appendingPathComponent(fmt.string(from: Date()))
         try FileManager.default.createDirectory(at: screenshotsDir, withIntermediateDirectories: true)
         FileManager.default.createFile(atPath: marksURL.path, contents: nil)
     }

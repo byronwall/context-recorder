@@ -89,6 +89,53 @@ struct GroupBlock<Content: View>: View {
     }
 }
 
+/// A section of the mark inspector that folds away. Open or closed is remembered per section, so the
+/// same sections stay open as you move from mark to mark.
+struct InspectorSection<Content: View>: View {
+    var title: String
+    var symbol: String
+    var tint: Color
+    var trailing: String?
+    @ViewBuilder var content: Content
+    @AppStorage private var open: Bool
+
+    init(_ id: String, title: String, symbol: String, tint: Color = .secondary, trailing: String? = nil,
+         open defaultOpen: Bool = true, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.symbol = symbol
+        self.tint = tint
+        self.trailing = trailing
+        self.content = content()
+        _open = AppStorage(wrappedValue: defaultOpen, "inspector.section.\(id)")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button { withAnimation(.snappy(duration: 0.2)) { open.toggle() } } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(open ? 90 : 0))
+                        .frame(width: 10)
+                    Image(systemName: symbol).foregroundStyle(tint).frame(width: 14)
+                    Text(title).foregroundStyle(.primary)
+                    if let trailing { Text(trailing).foregroundStyle(.tertiary).monospacedDigit() }
+                    Spacer(minLength: 0)
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(open ? "Expanded" : "Collapsed")
+            if open {
+                content.transition(.opacity)
+            }
+        }
+    }
+}
+
 /// One row inside a GroupBlock, with a hairline between rows.
 struct GroupRow<Content: View>: View {
     var divider = true

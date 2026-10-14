@@ -43,9 +43,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         config.captureMicrophone = recordMicrophone
         config.queueDepth = 6
 
-        // Don't record our own (menu bar) app's windows.
-        let ownApps = content.applications.filter { $0.processID == ProcessInfo.processInfo.processIdentifier }
-        let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
+        let filter = contentFilter(content, display: display)
 
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
         let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
@@ -96,6 +94,25 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         writer = nil
     }
 
+    /// Our windows that do belong in the recording: the Sessions window, so a session about this app shows
+    /// it. The control panel, the region overlay and any other window of ours stays out. Call
+    /// `refreshFilter()` after changing it while recording.
+    var recordedOwnWindows: Set<CGWindowID> = []
+
+    private func contentFilter(_ content: SCShareableContent, display: SCDisplay) -> SCContentFilter {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let ownApps = content.applications.filter { $0.processID == pid }
+        let keep = content.windows.filter { recordedOwnWindows.contains($0.windowID) }
+        return SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: keep)
+    }
+
+    /// Re-applies the filter to the running stream, e.g. once the Sessions window has opened.
+    func refreshFilter() async {
+        guard let stream, let display,
+              let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true) else { return }
+        try? await stream.updateContentFilter(contentFilter(content, display: display))
+    }
+
     /// Seconds since the first recorded video frame (nil until recording has produced a frame).
     func currentOffset() -> Double? {
         guard let startPTS else { return nil }
@@ -104,12 +121,12 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     /// Full-resolution still of part of the main display. `rect` is in display points with a top-left origin;
-    /// nil captures the whole display. Our own windows (panel, selection overlay) are excluded.
+    /// nil captures the whole display. Our own windows (panel, selection overlay) are excluded, except
+    /// `recordedOwnWindows`.
     func screenshot(to url: URL, rect: CGRect?) async throws {
         guard let display else { return }
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        let ownApps = content.applications.filter { $0.processID == ProcessInfo.processInfo.processIdentifier }
-        let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
+        let filter = contentFilter(content, display: display)
         let scale = CGFloat(filter.pointPixelScale)
         let area = rect ?? CGRect(x: 0, y: 0, width: display.width, height: display.height)
         let config = SCStreamConfiguration()

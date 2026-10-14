@@ -11,13 +11,37 @@ struct SessionEntry: Identifiable, Hashable {
     var shotCount: Int
     var thumbnail: URL?
     var appBundleIDs: [String] = []   // apps used, in order of first appearance
+    var narrated = false              // has a transcript
+    var customTitle: String?          // from session-info.json, set by Rename
     var modified: Date?
+    var infoModified: Date?
 
     var id: URL { url }
 
     var title: String {
-        guard let date else { return url.lastPathComponent }
-        return date.formatted(.dateTime.month(.abbreviated).day().year().hour().minute())
+        customTitle ?? SessionTitle.title(for: url)
+    }
+}
+
+/// `session-info.json`: things the user sets on a session (its name) that processing must not overwrite.
+/// The folder keeps its timestamp name, which is what dates and sorts the session.
+enum SessionInfo {
+    static func url(_ folder: URL) -> URL { folder.appendingPathComponent("session-info.json") }
+
+    static func title(_ folder: URL) -> String? {
+        guard let data = try? Data(contentsOf: url(folder)),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let title = (obj["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else { return nil }
+        return title
+    }
+
+    /// An empty title removes the name, so the session goes back to its date.
+    static func setTitle(_ title: String, for folder: URL) throws {
+        var obj = (try? Data(contentsOf: url(folder))).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        obj["title"] = trimmed.isEmpty ? nil : trimmed
+        let data = try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: url(folder), options: .atomic)
     }
 }
 
@@ -75,6 +99,28 @@ final class SessionLibrary {
         refresh()
     }
 
+    func rename(_ url: URL, to title: String) throws {
+        try SessionInfo.setTitle(title, for: url)
+        refresh()
+    }
+
+    /// Moves session folders to the Trash (recoverable from there) and forgets any that were added from
+    /// elsewhere. Returns the ones that couldn't be moved.
+    @discardableResult
+    func trash(_ urls: [URL]) -> [URL] {
+        var failed: [URL] = []
+        for url in urls where url != recordingFolder {
+            do {
+                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                extraFolders.removeAll { $0 == url }
+            } catch {
+                failed.append(url)
+            }
+        }
+        refresh()
+        return failed
+    }
+
     func isExternal(_ entry: SessionEntry) -> Bool { !entry.url.path.hasPrefix(Session.root.path + "/") }
 
     func refresh() {
@@ -86,10 +132,14 @@ final class SessionLibrary {
         var changed = false
         for url in folders where seen.insert(url.standardizedFileURL).inserted {
             let modified = Self.modified(url.appendingPathComponent("session.json"))
-            if let prior = old[url], prior.modified == modified {
+            let infoModified = Self.modified(SessionInfo.url(url))
+            if let prior = old[url], prior.modified == modified, prior.infoModified == infoModified {
                 next.append(prior)
             } else {
-                next.append(Self.entry(for: url, modified: modified))
+                var entry = Self.entry(for: url, modified: modified)
+                entry.infoModified = infoModified
+                entry.customTitle = SessionInfo.title(url)
+                next.append(entry)
                 if old[url] != nil { changed = true }
             }
         }
@@ -128,9 +178,11 @@ final class SessionLibrary {
     private struct Summary: Decodable {
         struct M: Decodable { var kind: String?; var image: String? }
         struct A: Decodable { struct C: Decodable { var bundleID: String? }; var context: C? }
+        struct S: Decodable {}
         var duration: Double?
         var marks: [M]?
         var activity: [A]?
+        var transcript: [S]?
     }
 
     private static func entry(for url: URL, modified: Date?) -> SessionEntry {
@@ -142,6 +194,7 @@ final class SessionLibrary {
            let data = try? Data(contentsOf: url.appendingPathComponent("session.json")),
            let s = try? JSONDecoder().decode(Summary.self, from: data) {
             e.duration = s.duration
+            e.narrated = !(s.transcript ?? []).isEmpty
             e.markCount = s.marks?.count ?? 0
             e.shotCount = s.marks?.filter { $0.kind == "screenshot" }.count ?? 0
             e.thumbnail = s.marks?.first?.image.map { url.appendingPathComponent($0) }

@@ -7,26 +7,7 @@ struct SidePanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("View", selection: $model.tab) {
-                ForEach(SessionModel.Tab.allCases) { tab in
-                    Text(tab == .page ? "Page" : tab.rawValue).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-
-            if model.tab == .marks && !model.marks.isEmpty {
-                Picker("Show", selection: $model.markFilter) {
-                    ForEach(SessionModel.MarkFilter.allCases) { f in Text("\(f.rawValue) \(count(f))").tag(f) }
-                }
-                .pickerStyle(.segmented)
-                .controlSize(.small)
-                .labelsHidden()
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
-            }
+            InspectorTabs(model: model)
             Divider()
             switch model.tab {
             case .marks: MarksList(model: model, quickLook: $quickLook)
@@ -36,13 +17,105 @@ struct SidePanel: View {
             }
         }
     }
+}
 
-    private func count(_ f: SessionModel.MarkFilter) -> Int {
+/// One row of text tabs with counts, instead of stacked segmented controls. The marks filter is a small
+/// menu at the end, shown only when a session has both marks and shots.
+struct InspectorTabs: View {
+    @Bindable var model: SessionModel
+    @Namespace private var underline
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(SessionModel.Tab.allCases) { tab in
+                TabButton(title: tab == .page ? "Page" : tab.rawValue, count: count(tab),
+                          selected: model.tab == tab, underline: underline) {
+                    withAnimation(.snappy(duration: 0.2)) { model.tab = tab }
+                }
+            }
+            Spacer(minLength: 0)
+            if model.tab == .marks, hasBothKinds { filterMenu }
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+    }
+
+    private var hasBothKinds: Bool { model.marks.contains(where: \.isShot) && model.marks.contains { !$0.isShot } }
+
+    private var filterMenu: some View {
+        Menu {
+            Picker("Show", selection: $model.markFilter) {
+                ForEach(SessionModel.MarkFilter.allCases) { f in Text("\(f.rawValue)  \(filterCount(f))").tag(f) }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Image(systemName: model.markFilter == .all ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
+                .foregroundStyle(model.markFilter == .all ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
+        }
+        .menuStyle(.button)
+        .buttonStyle(.borderless)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .padding(.bottom, 6)
+        .help(model.markFilter == .all ? "Show only marks or only shots" : "Showing \(model.markFilter.rawValue.lowercased()) only")
+    }
+
+    private func count(_ tab: SessionModel.Tab) -> Int {
+        switch tab {
+        case .marks: model.marks.count
+        case .transcript: model.transcript.count
+        case .page: model.pageEvents.count
+        case .activity: model.activity.count
+        }
+    }
+
+    private func filterCount(_ f: SessionModel.MarkFilter) -> Int {
         switch f {
         case .all: model.marks.count
         case .mark: model.marks.filter { !$0.isShot }.count
         case .screenshot: model.marks.filter(\.isShot).count
         }
+    }
+}
+
+private struct TabButton: View {
+    var title: String
+    var count: Int
+    var selected: Bool
+    var underline: Namespace.ID
+    var action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Text(title).font(.system(size: 12, weight: selected ? .semibold : .medium))
+                    if count > 0 {
+                        Text("\(count)").font(.system(size: 11, weight: .medium).monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(count == 0 ? .tertiary : .secondary))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 3)
+                .background(hovering && !selected ? AnyShapeStyle(.quaternary.opacity(0.6)) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 5))
+                ZStack {
+                    if selected {
+                        Capsule().fill(Color.accentColor).frame(height: 2)
+                            .matchedGeometryEffect(id: "underline", in: underline)
+                    } else {
+                        Color.clear.frame(height: 2)
+                    }
+                }
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityLabel("\(title), \(count)")
+        .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
     }
 }
 
@@ -203,6 +276,7 @@ struct TranscriptList: View {
                         Text(s.text).foregroundStyle(s == current ? .primary : .secondary)
                     } action: { model.seek(s.start) }
                     .id(i)
+                    .listRowBackground(s == current ? Color.accentColor.opacity(0.1) : nil)
                 }
                 .listStyle(.plain)
                 .onChange(of: current) { _, s in
