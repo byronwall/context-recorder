@@ -29,7 +29,7 @@ A native library of every recording (menu bar → **Sessions…**, or the play b
   - **Rename** (right-click, or Return on the selected session) gives a session a name. It's kept in `session-info.json`, so the folder keeps its timestamp; clear the name to go back to the date.
   - **Move to Trash** (right-click, or ⌘⌫) works on one session or several: ⌘- or ⇧-click to select more. Trashed sessions can be put back from the Trash. The session being recorded can't be trashed.
 - **Stage:** the recording, with floating playback controls.
-- **Timeline:** marks, active app, page events and narration on one time axis. Click or drag to seek; hover to see what's under the pointer.
+- **Timeline:** active app, page events and narration on one time axis, with the marks pinned on the time ruler. Click or drag to seek; hover for a preview of the frame at that moment plus the app, window, narration and any mark or page event there.
 - **Now strip:** the app, window and URL at the playhead, and the sentence being spoken.
 - **Inspector:** marks (with the full page context for the selected one), transcript, page events and activity. **Copy as Markdown** is per mark and for the whole session (toolbar).
 

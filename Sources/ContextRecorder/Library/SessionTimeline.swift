@@ -1,26 +1,30 @@
+import AVFoundation
 import SwiftUI
 
-/// Every lane on one time axis: ruler, marks, active app, page events, narration. One playhead spans
-/// all of them; click or drag anywhere to seek; hover shows the time and what's under the pointer.
+/// Every lane on one time axis: the ruler (with the mark pins on it), active app, page events, narration.
+/// One playhead spans all of them; click or drag anywhere to seek; hover shows the frame at that moment
+/// and what was going on.
 struct SessionTimeline: View {
     var model: SessionModel
     @State private var hover: CGPoint?
     @State private var hoveredPin: Int?
     @State private var cardSize: CGSize = .zero
+    @State private var previews: FramePreviews?
 
     private static let labelWidth: CGFloat = 72
     private static let laneGap: CGFloat = 7
+    private static let pinSize: CGFloat = 20
 
     enum Lane: CaseIterable {
-        case ruler, marks, apps, page, speech
+        case ruler, apps, page, speech
         var height: CGFloat {
-            switch self { case .ruler: 20; case .marks: 26; case .apps: 26; case .page: 16; case .speech: 16 }
+            switch self { case .ruler: 24; case .apps: 26; case .page: 16; case .speech: 16 }
         }
         var title: String {
-            switch self { case .ruler: ""; case .marks: "Marks"; case .apps: "Apps"; case .page: "Page"; case .speech: "Voice" }
+            switch self { case .ruler: ""; case .apps: "Apps"; case .page: "Page"; case .speech: "Voice" }
         }
         var symbol: String {
-            switch self { case .ruler: ""; case .marks: "flag"; case .apps: "macwindow"; case .page: "globe"; case .speech: "waveform" }
+            switch self { case .ruler: ""; case .apps: "macwindow"; case .page: "globe"; case .speech: "waveform" }
         }
     }
 
@@ -77,11 +81,17 @@ struct SessionTimeline: View {
                     if let hover { hoverCard(at: hover, width: w) }
                 }
                 .onContinuousHover(coordinateSpace: .local) { phase in
-                    if case .active(let p) = phase { hover = p } else { hover = nil }
+                    if case .active(let p) = phase {
+                        hover = p
+                        previews?.request(t(p.x, w))
+                    } else {
+                        hover = nil
+                    }
                 }
             }
             .frame(height: totalHeight)
         }
+        .onAppear { previews = FramePreviews(video: model.folder.appendingPathComponent("recording.mp4")) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Timeline")
     }
@@ -93,8 +103,7 @@ struct SessionTimeline: View {
 
     @ViewBuilder private func laneView(_ lane: Lane, width w: CGFloat) -> some View {
         switch lane {
-        case .ruler: ruler(width: w)
-        case .marks: markPins(width: w)
+        case .ruler: ZStack(alignment: .topLeading) { ruler(width: w); markPins(width: w) }
         case .apps: appSegments(width: w)
         case .page: pageDots(width: w)
         case .speech: speechSegments(width: w)
@@ -131,6 +140,7 @@ struct SessionTimeline: View {
         let step = steps.first { model.duration / $0 <= fit } ?? 3600
         let minor = step / (step >= 10 && Int(step) % 5 == 0 ? 5 : 2)
         let duration = model.duration
+        let pins = model.marks.map { x($0.offsetSeconds, w) }
         return Canvas { ctx, size in
             for tick in stride(from: 0, through: duration, by: minor) {
                 let px = x(tick, w)
@@ -142,6 +152,8 @@ struct SessionTimeline: View {
                 let label = ctx.resolve(Text(Format.time(tick)).font(.system(size: 10, weight: .medium).monospacedDigit()).foregroundStyle(.tertiary))
                 let s = label.measure(in: size)
                 let lx = min(max(0, px - s.width / 2), size.width - s.width)
+                // Pins sit on the ruler; a label under one would be unreadable.
+                if pins.contains(where: { abs($0 - (lx + s.width / 2)) < s.width / 2 + Self.pinSize / 2 + 2 }) { continue }
                 ctx.draw(label, in: CGRect(x: lx, y: 0, width: s.width, height: s.height))
             }
         }
@@ -155,14 +167,14 @@ struct SessionTimeline: View {
                 Button {
                     withAnimation(.snappy) { model.select(m.index); model.tab = .marks }
                 } label: {
-                    MarkGlyph(mark: m, size: 20, selected: selected)
+                    MarkGlyph(mark: m, size: Self.pinSize, selected: selected)
                         .scaleEffect(selected || hoveredPin == m.index ? 1.15 : 1)
                         .animation(.snappy(duration: 0.18), value: hoveredPin)
                 }
                 .buttonStyle(.plain)
                 .focusable()
                 .onHover { hoveredPin = $0 ? m.index : (hoveredPin == m.index ? nil : hoveredPin) }
-                .offset(x: x(m.offsetSeconds, w) - 10, y: 3)
+                .offset(x: x(m.offsetSeconds, w) - Self.pinSize / 2, y: (Lane.ruler.height - Self.pinSize) / 2)
                 .zIndex(selected ? 1 : 0)
                 .accessibilityLabel("\(m.isShot ? "Shot" : "Mark") \(m.index) at \(Format.time(m.offsetSeconds)): \(MarkText.title(m))")
                 .accessibilityAddTraits(selected ? .isSelected : [])
@@ -255,78 +267,144 @@ struct SessionTimeline: View {
     private func playheadLine(width w: CGFloat) -> some View {
         Rectangle()
             .fill(Color.accentColor)
-            .frame(width: 1.5, height: totalHeight - Lane.ruler.height + 2)
-            .offset(x: x(model.currentTime, w) - 0.75, y: Lane.ruler.height - 2)
+            .frame(width: 1.5, height: totalHeight)
+            .offset(x: x(model.currentTime, w) - 0.75, y: 0)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
 
-    /// Time in a pill on the ruler, centred on the playhead.
+    /// A small head on top of the line. The time itself is in the transport and the hover card; a pill
+    /// here would cover the pin of the mark you just selected.
     private func playheadHandle(width w: CGFloat) -> some View {
-        let label = Format.time(model.currentTime)
-        let pillWidth: CGFloat = label.count > 4 ? 44 : 38
-        let px = x(model.currentTime, w)
-        return Text(label)
-            .font(.system(size: 10, weight: .bold).monospacedDigit())
-            .foregroundStyle(.white)
-            .frame(width: pillWidth, height: 18)
-            .background(Color.accentColor, in: .capsule)
-            .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
-            .offset(x: min(max(0, px - pillWidth / 2), w - pillWidth), y: 0)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+        Path { p in
+            p.move(to: CGPoint(x: 0, y: 0)); p.addLine(to: CGPoint(x: 10, y: 0)); p.addLine(to: CGPoint(x: 5, y: 6)); p.closeSubpath()
+        }
+        .fill(Color.accentColor)
+        .frame(width: 10, height: 6)
+        .offset(x: x(model.currentTime, w) - 5, y: -3)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func hoverLine(at p: CGPoint) -> some View {
         Rectangle()
             .fill(.secondary.opacity(0.45))
-            .frame(width: 1, height: totalHeight - Lane.ruler.height)
-            .offset(x: p.x - 0.5, y: Lane.ruler.height)
+            .frame(width: 1, height: totalHeight)
+            .offset(x: p.x - 0.5, y: 0)
             .allowsHitTesting(false)
     }
 
+    /// The frame at the pointer, its time, and everything going on then: app and window, what was being
+    /// said, a mark or page event right under the pointer.
     private func hoverCard(at p: CGPoint, width w: CGFloat) -> some View {
         let time = t(p.x, w)
-        let detail = hoverDetail(at: p, width: w)
-        return VStack(alignment: .leading, spacing: 2) {
-            Text(Format.time(time)).font(.system(size: 11, weight: .semibold).monospacedDigit())
-            if let detail {
-                Text(detail).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(3)
-                    .frame(maxWidth: 280, alignment: .leading)
+        let ctx = model.contextAt(time)
+        let near = Double(8 / max(w, 1)) * model.duration
+        let mark = model.marks.min { abs($0.offsetSeconds - time) < abs($1.offsetSeconds - time) }
+            .flatMap { abs($0.offsetSeconds - time) <= near * 1.5 ? $0 : nil }
+        let event = model.pageEvents.first { abs($0.offsetSeconds - time) <= near }
+        let said = model.sentenceAt(time)
+        let aspect = model.videoSize.map { $0.width / $0.height } ?? 16 / 10
+        return VStack(alignment: .leading, spacing: 8) {
+            ZStack(alignment: .bottomLeading) {
+                Rectangle().fill(Color.stage)
+                if let image = previews?.image {
+                    Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fit)
+                }
+                Text(Format.time(time))
+                    .font(.system(size: 11, weight: .bold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(.black.opacity(0.65), in: .rect(cornerRadius: 4))
+                    .padding(6)
             }
+            .frame(width: 240, height: 240 / aspect)
+            .clipShape(.rect(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator.opacity(0.6), lineWidth: 0.5))
+
+            VStack(alignment: .leading, spacing: 5) {
+                if let mark {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        MarkGlyph(mark: mark, size: 16)
+                            .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
+                        Text(MarkText.title(mark)).font(.system(size: 12, weight: .semibold)).lineLimit(2)
+                    }
+                }
+                if let ctx {
+                    HStack(spacing: 6) {
+                        AppIcon(bundleID: ctx.bundleID, size: 14)
+                        Text(ctx.appName ?? "Unknown app").font(.system(size: 12, weight: .medium))
+                    }
+                    if let sub = (ctx.browserTitle ?? ctx.windowTitle).nonEmpty {
+                        Text(sub).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    }
+                }
+                if let said {
+                    Text("“\(said.text)”").font(.system(size: 11.5)).foregroundStyle(.primary).lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let event {
+                    HStack(spacing: 5) {
+                        Image(systemName: PageEventStyle.symbol(event.event)).foregroundStyle(PageEventStyle.color(event.event))
+                        Text(event.event.summary).lineLimit(2)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 240, alignment: .leading)
         }
-        .padding(.horizontal, 9).padding(.vertical, 6)
-        .background(.regularMaterial, in: .rect(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.separator.opacity(0.6), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.14), radius: 8, y: 3)
+        .padding(8)
+        .background(.background, in: .rect(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.separator, lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.22), radius: 14, y: 6)
         .fixedSize()
         .onGeometryChange(for: CGSize.self, of: \.size) { cardSize = $0 }
-        // Right of the pointer, flipped left near the edge, and always above the timeline: it sits at
-        // the bottom of the window, so a card below it would be cut off.
-        .offset(x: p.x + 12 + cardSize.width > w ? max(0, p.x - 12 - cardSize.width) : p.x + 12,
-                y: -cardSize.height - 8)
+        // Centred over the pointer, kept inside the timeline, and always above it: it sits at the bottom
+        // of the window, so a card below it would be cut off.
+        .offset(x: min(max(0, p.x - cardSize.width / 2), max(0, w - cardSize.width)),
+                y: -cardSize.height - 10)
         .allowsHitTesting(false)
     }
+}
 
-    /// What's under the pointer on the lane it's over.
-    private func hoverDetail(at p: CGPoint, width w: CGFloat) -> String? {
-        guard let lane = lanes.first(where: { p.y >= top(of: $0) && p.y < top(of: $0) + $0.height + Self.laneGap }) else { return nil }
-        let time = t(p.x, w)
-        let near = Double(6 / max(w, 1)) * model.duration
-        switch lane {
-        case .marks:
-            return model.marks.min { abs($0.offsetSeconds - time) < abs($1.offsetSeconds - time) }
-                .flatMap { abs($0.offsetSeconds - time) <= near * 2 ? "#\($0.index) · \(MarkText.title($0))" : nil }
-        case .apps:
-            guard let c = model.contextAt(time) else { return nil }
-            return [c.appName, c.browserTitle ?? c.windowTitle, c.browserURL].compactMap { $0.nonEmpty }.joined(separator: "\n")
-        case .page:
-            return model.pageEvents.filter { abs($0.offsetSeconds - time) <= near }.map(\.event.summary).first
-        case .speech:
-            return model.sentenceAt(time)?.text
-        case .ruler:
-            return nil
+/// Small frames from the recording for the hover card. Only the latest request runs, and frames are
+/// cached by half-second, so sweeping across the timeline stays smooth.
+@MainActor @Observable
+final class FramePreviews {
+    private(set) var image: CGImage?
+    @ObservationIgnored private let generator: AVAssetImageGenerator
+    @ObservationIgnored private var cache: [Int: CGImage] = [:]
+    @ObservationIgnored private var order: [Int] = []
+    @ObservationIgnored private var pending: Task<Void, Never>?
+
+    init(video: URL) {
+        generator = AVAssetImageGenerator(asset: AVURLAsset(url: video))
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 480, height: 480)
+        // A nearby frame is fine for a preview and much faster than an exact one.
+        generator.requestedTimeToleranceBefore = CMTime(seconds: 0.25, preferredTimescale: 600)
+        generator.requestedTimeToleranceAfter = CMTime(seconds: 0.25, preferredTimescale: 600)
+    }
+
+    func request(_ t: Double) {
+        let key = Int((t * 2).rounded())
+        pending?.cancel()
+        if let hit = cache[key] { image = hit; return }
+        pending = Task { [generator] in
+            try? await Task.sleep(for: .milliseconds(30))
+            guard !Task.isCancelled,
+                  let (frame, _) = try? await generator.image(at: CMTime(seconds: Double(key) / 2, preferredTimescale: 600)) else { return }
+            store(frame, key)
+            if !Task.isCancelled { image = frame }
         }
+    }
+
+    private func store(_ frame: CGImage, _ key: Int) {
+        guard cache[key] == nil else { return }
+        cache[key] = frame
+        order.append(key)
+        if order.count > 150 { cache[order.removeFirst()] = nil }
     }
 }
 
