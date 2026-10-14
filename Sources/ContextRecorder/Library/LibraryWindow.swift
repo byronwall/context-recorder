@@ -139,6 +139,11 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
                 return nil
             }
             guard let model = self.state.model else { return event }
+            // ⌘Z / ⇧⌘Z undo and redo cuts (text fields keep their own undo; see the NSText check above).
+            if event.keyCode == 6, event.modifierFlags.intersection([.command, .control, .option]) == .command {
+                if event.modifierFlags.contains(.shift) { model.redoEdit() } else { model.undoEdit() }
+                return nil
+            }
             if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty { return event }
             if model.regionMode {
                 if event.keyCode == 53 { model.regionMode = false; NSCursor.arrow.set(); return nil }   // esc
@@ -152,6 +157,10 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
             case 40: model.step(-1)                           // k
             case 124: model.skip(5)                           // →
             case 123: model.skip(-5)                          // ←
+            case 34: model.setSelectionEdge(start: true)      // i
+            case 31: model.setSelectionEdge(start: false)     // o
+            case 51 where model.selection != nil: model.cutSelection()   // delete
+            case 53 where model.selection != nil: model.selection = nil  // esc
             default: return event
             }
             return nil

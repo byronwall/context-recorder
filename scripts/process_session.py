@@ -490,6 +490,8 @@ def main():
         "folder": str(folder),
         "duration": duration,
         "segments": segments,
+        # Full length of each source recording, so the window can offer to restore a cut at either end.
+        "sourceDurations": {".": duration_of(folder / "recording.mp4")},
         "marks": marks,
         "hiddenMarks": hidden,
         "activity": activity,

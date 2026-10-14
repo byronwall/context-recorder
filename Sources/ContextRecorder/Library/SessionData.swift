@@ -14,8 +14,10 @@ struct SessionData: Decodable {
     var segments: [Segment]
     /// Marks inside removed ranges, in source time. Restoring the cut brings them back.
     var hiddenMarks: [SessionMark]
+    /// Full length of each source recording ("." is this session's own).
+    var sourceDurations: [String: Double]
 
-    enum CodingKeys: String, CodingKey { case name, folder, duration, marks, activity, browser, transcript, segments, hiddenMarks }
+    enum CodingKeys: String, CodingKey { case name, folder, duration, marks, activity, browser, transcript, segments, hiddenMarks, sourceDurations }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -28,6 +30,7 @@ struct SessionData: Decodable {
         transcript = try c.decodeIfPresent([Sentence].self, forKey: .transcript) ?? []
         segments = try c.decodeIfPresent([Segment].self, forKey: .segments) ?? []
         hiddenMarks = try c.decodeIfPresent([SessionMark].self, forKey: .hiddenMarks) ?? []
+        sourceDurations = (try? c.decodeIfPresent([String: Double].self, forKey: .sourceDurations)) ?? [:]
     }
 }
 

@@ -77,6 +77,13 @@ struct SessionView: View {
                 Button("Open session.md", systemImage: "doc.text") { NSWorkspace.shared.open(model.folder.appendingPathComponent("session.md")) }
                 Divider()
                 Button("Copy Folder Path", systemImage: "link") { copy(model.folder.path) }
+                Divider()
+                Button("Undo Cut", systemImage: "arrow.uturn.backward") { model.undoEdit() }
+                    .disabled(!model.canUndoEdit)
+                Button("Redo Cut", systemImage: "arrow.uturn.forward") { model.redoEdit() }
+                    .disabled(!model.canRedoEdit)
+                Button("Restore Original Recording", systemImage: "film") { model.restoreOriginal() }
+                    .disabled(model.edits == nil)
             } label: {
                 Label("Session", systemImage: "ellipsis.circle")
             }

@@ -40,6 +40,14 @@ A native library of every recording (menu bar → **Sessions…**, or the play b
 | → / ← | Skip 5 s |
 | M | Add a mark at the playhead |
 | S | Capture a region of the current frame (drag; click for the whole frame; Esc cancels) |
+| I / O | Start or end a selection at the playhead |
+| ⇧ drag | Select a range on the timeline |
+| ⌫ | Cut the selected range |
+| ⌘Z / ⇧⌘Z | Undo / redo a cut |
+
+### Cutting a recording
+
+Select a range with **Shift-drag** on the timeline (or **I** and **O** at the playhead) and press **⌫** or **Cut**. Cut anywhere, as often as you like. The video, marks, narration and every lane close up around the cut, and a scissors marker shows where it was. Click a marker to see what was removed and restore that cut. **⌘Z**/**⇧⌘Z** undo and redo, and **Session → Restore Original Recording** puts everything back. Cuts never touch `recording.mp4`; they're stored in `edits.json` (see *Edited sessions* below).
 
 ### Marking up a recording afterwards
 

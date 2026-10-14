@@ -130,6 +130,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if let note = value("--note"), let index = model.selectedMark { await model.setNote(note, for: index) }
                     if let n = value("--delete-mark").flatMap(Int.init) { await model.deleteReviewMark(n) }
                     if args.contains("--region-mode") { model.regionMode = true }
+                    // Editing hooks: `--select a,b` (edited seconds), `--cut`, `--undo-edit`, `--restore-cut <n>`
+                    // (nth cut marker, 0-based), `--restore-original`.
+                    if let sel = value("--select") {
+                        let v = sel.split(separator: ",").compactMap { Double($0) }
+                        if v.count == 2 { model.selection = min(v[0], v[1])...max(v[0], v[1]) }
+                    }
+                    if args.contains("--cut") {
+                        model.cutSelection()
+                        for _ in 0..<100 where model.reviewStatus != nil || model.edits == nil { try? await Task.sleep(for: .milliseconds(100)) }
+                    }
+                    if args.contains("--undo-edit") { model.undoEdit() }
+                    if let n = value("--restore-cut").flatMap(Int.init), n < model.cuts.count { model.restore(model.cuts[n]) }
+                    if args.contains("--restore-original") { model.restoreOriginal() }
                 }
             }
             // `--export <folder>` opens the export sheet with that project folder chosen; add

@@ -111,6 +111,12 @@ final class SessionModel {
         if map != edits { setEdits(map) }
     }
 
+    /// The range picked on the timeline (Shift-drag, or I and O), in edited time.
+    var selection: ClosedRange<Double>?
+    /// Earlier and undone cut lists for ⌘Z / ⇧⌘Z; nil means unedited.
+    var undoStack: [[Segment]?] = []
+    var redoStack: [[Segment]?] = []
+
     @ObservationIgnored private var editGeneration = 0
     @ObservationIgnored private var seekCount = 0
 

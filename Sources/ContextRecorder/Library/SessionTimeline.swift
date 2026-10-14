@@ -10,6 +10,9 @@ struct SessionTimeline: View {
     @State private var hoveredPin: Int?
     @State private var cardSize: CGSize = .zero
     @State private var previews: FramePreviews?
+    /// Decided when a drag starts: Shift selects a range, otherwise the drag seeks.
+    @State private var selectAnchor: Double?
+    @State private var dragging = false
 
     private static let labelWidth: CGFloat = 72
     private static let laneGap: CGFloat = 7
@@ -77,6 +80,7 @@ struct SessionTimeline: View {
                             .offset(y: top(of: lane))
                     }
                     playheadHandle(width: w)
+                    TimelineEditOverlay(model: model, width: w, height: totalHeight)
                 }
                 // An overlay, so the card never changes the lanes' layout.
                 .overlay(alignment: .topLeading) {
@@ -137,7 +141,24 @@ struct SessionTimeline: View {
             .fill(.clear)
             .contentShape(.rect)
             .frame(width: w, height: totalHeight)
-            .gesture(DragGesture(minimumDistance: 0).onChanged { g in model.seek(t(g.location.x, w)) })
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { g in
+                    if !dragging {
+                        dragging = true
+                        selectAnchor = NSEvent.modifierFlags.contains(.shift) ? t(g.startLocation.x, w) : nil
+                    }
+                    let time = t(g.location.x, w)
+                    if let anchor = selectAnchor {
+                        model.selection = min(anchor, time)...max(anchor, time)
+                    } else {
+                        model.seek(time)
+                    }
+                }
+                .onEnded { _ in
+                    dragging = false
+                    if let s = model.selection, s.upperBound - s.lowerBound < 0.1, selectAnchor != nil { model.selection = nil }
+                    selectAnchor = nil
+                })
             .accessibilityElement()
             .accessibilityLabel("Playhead")
             .accessibilityValue(Format.time(model.currentTime))
