@@ -8,7 +8,7 @@
     "last_updated": "2026-10-13",
     "summary": "Cut arbitrary ranges from a session, join sessions, and add a RegionShot-style annotation layer over the video, keeping marks, narration, transcript, activity and page events aligned with the edited video.",
     "status": "active",
-    "next_action": "Implement M1."
+    "next_action": "Attach live window screenshots for #20/#22/#23 when the display is available; then review and merge the stack (#15 \u2192 #23)."
   },
   "artifacts": {
     "intent_brief": {
@@ -544,8 +544,10 @@
         "proof": "pure conversion unit tests + --self-test edits + debug-app inspection of three cuts and a post-cut review mark",
         "valid_intermediate_state": "No interface yet; sessions without edits.json unchanged.",
         "rollback": "Delete edits.json; code paths with one trivial segment match today's.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #16; scripts/test_process_session.py (11 tests), --self-test edits; 72/72 composition frames pixel-identical across 24 segments"
+        ]
       },
       {
         "id": "m2",
@@ -555,8 +557,10 @@
         "proof": "Debug app: trim start/middle/end via UI, undo, restore one, Restore Original; Markdown and PGM export show edited times and source refs.",
         "valid_intermediate_state": "Cutting usable on single sessions; joins absent.",
         "rollback": "Restore Original deletes edits.json; feature can be hidden by removing the menu items.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #18; cut/restore/undo/restore-original via debug flags; reprocess 0.15-0.46 s (SPK-2 closed: no --edits-only)"
+        ]
       },
       {
         "id": "m3",
@@ -566,8 +570,10 @@
         "proof": "Join two or three tmp/ sessions incl. mixed size/audio; cut the joined session; move a source to see the banner.",
         "valid_intermediate_state": "Joined sessions coexist with normal ones; viewer.html shows a notice.",
         "rollback": "Delete the joined folder; sources untouched.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #20; joined 00:57+20:48 = 5:21, 13 marks; notes route to owning session; mixed size/silent join renders (SPK-3: one track + fit video composition)"
+        ]
       },
       {
         "id": "m4",
@@ -577,8 +583,10 @@
         "proof": "Debug app: draw, play, drag span, cut across it, restore, resize window.",
         "valid_intermediate_state": "Annotation model proven with one tool.",
         "rollback": "Delete annotations.json.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #22; annotations.json in source time; offscreen render before/after cut"
+        ]
       },
       {
         "id": "m5",
@@ -588,8 +596,10 @@
         "proof": "Debug app pass of each tool's create/move/resize/recolor/delete/undo; survives join and relaunch.",
         "valid_intermediate_state": "Full tool set.",
         "rollback": "Delete annotations.json; tools are additive.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #23; all five kinds rendered offscreen"
+        ]
       }
     ],
     "cut_line": [
@@ -606,21 +616,27 @@
         "milestone": "m1",
         "decision": "Composition good enough for exact seeking and scrubbing across many segments?",
         "evidence": "drag across a dozen cuts; compare against frames/NNN.jpg",
-        "fallback": "skip ranges on the source player for single-source cuts"
+        "fallback": "skip ranges on the source player for single-source cuts",
+        "status": "resolved",
+        "outcome": "Composition frames are pixel-identical to source (72/72); kept."
       },
       {
         "id": "SPK-2",
         "milestone": "m2",
         "decision": "Full reprocess fast enough per cut?",
         "evidence": "time process_session.py on a 30-min, 20-mark session after a cut",
-        "fallback": "--edits-only mode writing only session.json"
+        "fallback": "--edits-only mode writing only session.json",
+        "status": "resolved",
+        "outcome": "Reprocess 0.15-0.46 s; no --edits-only mode needed."
       },
       {
         "id": "SPK-3",
         "milestone": "m3",
         "decision": "How to play mixed-size / silent sources in one composition?",
         "evidence": "join 1920-wide with smaller, silent with narrated",
-        "fallback": "per-segment fit transform + empty audio; else refuse mixed-size joins"
+        "fallback": "per-segment fit transform + empty audio; else refuse mixed-size joins",
+        "status": "resolved",
+        "outcome": "One video+audio track with per-segment fit transforms in an AVVideoComposition; AVURLAsset must be retained while inserting."
       }
     ]
   },
@@ -648,6 +664,11 @@
     {
       "date": "2026-10-13",
       "event": "Reconciled with main (f5ffee4): sidebar multi-select used for Join; range selection moved to Shift-drag because ruler now holds mark pins; FramePreviews must use the composition; UI fixture harness adopted for verification. Plan otherwise unchanged.",
+      "status": "active"
+    },
+    {
+      "date": "2026-10-14",
+      "event": "M1-M5 implemented as stacked PRs #16, #18, #20, #22, #23 on planning PR #15. Deviations: Show Cuts mode replaced by restore-on-click cut markers; Join uses the sidebar's multi-select; M4/M5 window screenshots pending (display asleep), verified with offscreen renders.",
       "status": "active"
     }
   ],
