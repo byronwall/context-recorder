@@ -49,6 +49,10 @@ A native library of every recording (menu bar → **Sessions…**, or the play b
 
 Select a range with **Shift-drag** on the timeline (or **I** and **O** at the playhead) and press **⌫** or **Cut**. Cut anywhere, as often as you like. The video, marks, narration and every lane close up around the cut, and a scissors marker shows where it was. Click a marker to see what was removed and restore that cut. **⌘Z**/**⇧⌘Z** undo and redo, and **Session → Restore Original Recording** puts everything back. Cuts never touch `recording.mp4`; they're stored in `edits.json` (see *Edited sessions* below).
 
+### Joining sessions
+
+Select two or more sessions in the sidebar (⌘-click or ⇧-click) and choose **Join into One Session** (also in the right-click menu). A new session plays them end to end, oldest first, with one timeline: marks are numbered in play order and a purple label shows where each source starts. Cuts already made in a source carry over, and you can cut the joined session like any other. The sources aren't changed or copied: the joined folder's `edits.json` points at them (`"source": "../2026-10-13_00-57-10"`), so keep them next to it. A note on a mark from a source is saved in that source, and marks added while reviewing the joined session are saved in the joined session. If a source is moved or deleted, the joined session says which one is missing. Sources of different sizes are scaled to fit one frame.
+
 ### Marking up a recording afterwards
 
 You can mark things you notice while reviewing, not just while recording. **M** (or the flag in the playback controls) adds a mark at the playhead. **S** (or the viewfinder) pauses and lets you drag a box on the video; the region is cut from the frame at full resolution. Every mark has a **Note** field, and a note becomes the mark's title.

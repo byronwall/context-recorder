@@ -12,6 +12,7 @@ struct TimelineEditOverlay: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
+            ForEach(model.sourceBoundaries, id: \.at) { b in sourceBoundary(at: b.at, source: b.source) }
             if let range = model.selection { selectionBand(range) }
             ForEach(model.cuts) { cut in cutMarker(cut) }
         }
@@ -55,6 +56,33 @@ struct TimelineEditOverlay: View {
             .fixedSize()
             .offset(x: min(max(0, (left + right) / 2 - 90), max(0, width - 180)), y: -34)
         }
+    }
+
+    // MARK: Joined sessions
+
+    /// Where one source session gives way to the next, labeled with that session's name.
+    private func sourceBoundary(at t: Double, source: String) -> some View {
+        let px = x(t)
+        let folder = EditMap.folder(of: source, in: model.folder)
+        let name = SessionInfo.title(folder)
+            ?? SessionTitle.title(for: folder).split(separator: "·").last.map { $0.trimmingCharacters(in: .whitespaces) } ?? source
+        return ZStack(alignment: .topLeading) {
+            Rectangle()
+                .fill(Color.purple.opacity(0.7))
+                .frame(width: 1.5, height: height)
+                .offset(x: px - 0.75)
+            Label(name, systemImage: "film")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5).padding(.vertical, 1)
+                .background(Color.purple.opacity(0.85), in: .capsule)
+                .fixedSize()
+                .offset(x: min(px + 2, max(0, width - 90)), y: -17)
+                .help("From here: \(SessionTitle.title(for: folder))")
+        }
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(name) starts at \(Format.time(t))")
     }
 
     // MARK: Cuts

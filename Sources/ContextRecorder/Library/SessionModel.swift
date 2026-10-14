@@ -15,6 +15,8 @@ final class SessionModel {
     private(set) var edits: EditMap?
     /// What the player shows: recording.mp4, or the composition of the kept ranges. Previews read it too.
     private(set) var playbackAsset: AVAsset
+    /// Set when a joined session's sources differ in size, so they share one frame.
+    private(set) var playbackVideoComposition: AVVideoComposition?
 
     /// Seconds into the edited video (recording.mp4 when unedited). Updated ~30×/s while playing.
     private(set) var currentTime: Double = 0
@@ -95,6 +97,7 @@ final class SessionModel {
         do {
             data = try JSONDecoder().decode(SessionData.self, from: Data(contentsOf: url))
             loadError = nil
+            if let errors = data?.errors, !errors.isEmpty { reviewError = errors.joined(separator: "\n") }
             applyEdits()
             assignAppColors()
         } catch {
@@ -132,8 +135,13 @@ final class SessionModel {
         player.pause()
         Task {
             let asset: AVAsset
+            var videoComposition: AVVideoComposition?
             if let map {
-                do { asset = try await map.composition(in: folder) } catch {
+                do {
+                    let playback = try await map.composition(in: folder)
+                    asset = playback.asset
+                    videoComposition = playback.videoComposition
+                } catch {
                     reviewError = "The edited video couldn't be built: \(error.localizedDescription)"
                     return
                 }
@@ -142,8 +150,11 @@ final class SessionModel {
             }
             guard generation == editGeneration else { return }
             playbackAsset = asset
+            playbackVideoComposition = videoComposition
             videoDuration = nil
-            player.replaceCurrentItem(with: AVPlayerItem(asset: asset))
+            let item = AVPlayerItem(asset: asset)
+            item.videoComposition = videoComposition
+            player.replaceCurrentItem(with: item)
             // A seek made while the video was being built (selecting a mark) is already in edited time.
             let target = seekCount != seeksBefore ? currentTime
                 : map.map { $0.nearestEdited(source: moment.source, moment.time) } ?? moment.time

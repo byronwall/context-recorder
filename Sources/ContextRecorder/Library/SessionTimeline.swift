@@ -95,7 +95,7 @@ struct SessionTimeline: View {
                     }
                 }
                 .task(id: PreviewKey(width: w, asset: ObjectIdentifier(model.playbackAsset))) {
-                    previews = FramePreviews(asset: model.playbackAsset)
+                    previews = FramePreviews(asset: model.playbackAsset, videoComposition: model.playbackVideoComposition)
                     let args = CommandLine.arguments
                     if args.contains("--library"), let i = args.firstIndex(of: "--timeline-hover"),
                        i + 1 < args.count, let fraction = Double(args[i + 1]) {
@@ -410,8 +410,9 @@ final class FramePreviews {
     @ObservationIgnored private var pending: Task<Void, Never>?
     @ObservationIgnored private var requestedKey: Int?
 
-    init(asset: AVAsset) {
+    init(asset: AVAsset, videoComposition: AVVideoComposition? = nil) {
         generator = AVAssetImageGenerator(asset: asset)
+        generator.videoComposition = videoComposition
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 480, height: 480)
         // A nearby frame is fine for a preview and much faster than an exact one.

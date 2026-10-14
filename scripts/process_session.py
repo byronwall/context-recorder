@@ -129,6 +129,11 @@ def narration_window(tokens, offset, before, after):
 # Raw data stays in source time; these functions map it into edited (play) time.
 
 
+def source_folder(folder, source):
+    """A segment's source session: "." is this folder; joined sessions name sibling folders."""
+    return folder if source == "." else (folder / source).resolve()
+
+
 def load_edits(folder):
     """The segment list from edits.json, or None when the session is unedited."""
     path = folder / "edits.json"
@@ -262,14 +267,15 @@ def check_page_file(folder, mark):
     del browser["pageFile"]
 
 
-def extract_frame(folder, mark):
+def extract_frame(folder, mark, video=None):
+    """The video frame at a mark, cached in <folder>/frames by the mark's index in its marks.jsonl."""
     frames = folder / "frames"
     frames.mkdir(exist_ok=True)
-    dest = frames / f"{mark['index']:03d}.jpg"
+    dest = frames / f"{mark.get('rawIndex', mark['index']):03d}.jpg"
     if not dest.exists():
         # Nudge slightly forward so we don't land before the first decodable frame.
         ts = max(0.0, mark.get("sourceOffsetSeconds", mark["offsetSeconds"]))
-        run(["ffmpeg", "-loglevel", "error", "-y", "-ss", f"{ts:.3f}", "-i", folder / "recording.mp4",
+        run(["ffmpeg", "-loglevel", "error", "-y", "-ss", f"{ts:.3f}", "-i", video or folder / "recording.mp4",
              "-frames:v", "1", "-q:v", "3", dest])
     return dest.relative_to(folder).as_posix()
 
@@ -438,26 +444,74 @@ def main():
     args = ap.parse_args()
     folder = args.folder.expanduser().resolve()
 
-    marks = load_marks(folder)
-    transcript = transcribe(folder)
-    sentences = (transcript or {}).get("sentences", [])
-    activity = load_jsonl(folder / "activity.jsonl")
-    browser = load_jsonl(folder / "browser.jsonl")
-
     edits = load_edits(folder)
-    hidden = []
+    hidden, errors = [], []
+    joined = edits is not None and any(s_["source"] != "." for s_ in edits)
     if edits is None:
         # Unedited: everything stays exactly as recorded; one segment covers the whole video.
+        marks = load_marks(folder)
+        transcript = transcribe(folder)
+        sentences = (transcript or {}).get("sentences", [])
+        activity = load_jsonl(folder / "activity.jsonl")
+        browser = load_jsonl(folder / "browser.jsonl")
         duration = duration_of(folder / "recording.mp4")
         segments = resolve([{"source": ".", "start": 0.0, "end": duration or 0.0}])
+        source_durations = {".": duration}
     else:
         segments = resolve(edits)
         duration = round(edited_duration(segments), 6)
-        marks, hidden = map_marks(marks, segments, ".")
-        sentences = map_sentences(sentences, segments, ".")
-        activity = map_states(activity, segments, ".")
-        browser = map_points(browser, segments, ".")
+        marks, sentences, activity, browser, source_durations = [], [], [], [], {}
+        own = load_marks(folder)   # this folder's marks; in a joined session, ones added while reviewing it
+        for src in dict.fromkeys(s_["source"] for s_ in segments):
+            sf = source_folder(folder, src)
+            if not (sf / "recording.mp4").exists():
+                errors.append(f"Source missing: {src}")
+                continue
+            source_durations[src] = duration_of(sf / "recording.mp4")
+            if src == ".":
+                raw = [dict(m, rawSession=".") for m in own if m.get("sourceSession", ".") == "."]
+                transcript = transcribe(folder)
+            else:
+                raw = [dict(m, rawSession=src) for m in load_marks(sf)]
+                raw += [dict(m, rawSession=".") for m in own if m.get("sourceSession") == src]
+                tp = sf / "transcript.json"
+                transcript = json.loads(tp.read_text()) if tp.exists() else None
+            for m in raw:
+                m["rawIndex"] = m["index"]
+            kept, cut = map_marks(raw, segments, src)
+            marks += kept
+            hidden += cut
+            sentences += map_sentences((transcript or {}).get("sentences", []), segments, src)
+            activity += map_states(load_jsonl(sf / "activity.jsonl"), segments, src)
+            browser += map_points(load_jsonl(sf / "browser.jsonl"), segments, src)
+        marks.sort(key=lambda m: m["offsetSeconds"])
+        sentences.sort(key=lambda s_: s_["start"])
+        activity.sort(key=lambda a: a["offsetSeconds"])
+        browser.sort(key=lambda b: b["offsetSeconds"])
+        if joined:
+            # Marks from several sessions: number them in play order. rawIndex/rawSession say where each
+            # one is stored, so notes and deletes reach the right marks.jsonl.
+            for i, m in enumerate(marks, 1):
+                m["index"] = i
     tokens = [t for s_ in sentences for t in s_.get("tokens", [])]
+
+    def attach_files(mark):
+        """Frame, screenshot and saved page for a mark, as paths from this folder (a joined session's
+        marks point into their source folders)."""
+        owner = source_folder(folder, mark.get("rawSession", "."))
+        video = source_folder(folder, mark.get("sourceSession", ".")) / "recording.mp4"
+        prefix = "" if owner == folder else os.path.relpath(owner, folder) + "/"
+        check_page_file(owner, mark)
+        page = (mark.get("browser") or {}).get("pageFile")
+        if page and prefix:
+            mark["browser"]["pageFile"] = prefix + page
+        mark["frame"] = prefix + extract_frame(owner, mark, video)
+        shot = mark.get("screenshot")
+        if shot and (owner / shot).exists():
+            mark["screenshot"] = prefix + shot
+            mark["image"] = mark["screenshot"]
+        else:
+            mark["image"] = mark["frame"]
 
     (folder / "marks").mkdir(exist_ok=True)
     # Marks can be deleted while reviewing, or cut: drop their old Markdown.
@@ -467,22 +521,14 @@ def main():
             old.unlink()
     sections = []
     for mark in marks:
-        check_page_file(folder, mark)
-        frame = extract_frame(folder, mark)
-        image = mark.get("screenshot")
-        if not image or not (folder / image).exists():
-            image = frame
-        mark["frame"] = frame
+        attach_files(mark)
+        image = mark["image"]
         narration = narration_window(tokens, mark["offsetSeconds"], args.before, args.after) if tokens else ""
-        mark["image"] = image
         mark["narration"] = narration
         (folder / "marks" / f"{mark['index']:03d}.md").write_text(mark_markdown(mark, image, narration, "../"))
         sections.append(mark_markdown(mark, image, narration))
     for mark in hidden:
-        check_page_file(folder, mark)
-        mark["frame"] = extract_frame(folder, mark)
-        shot = mark.get("screenshot")
-        mark["image"] = shot if shot and (folder / shot).exists() else mark["frame"]
+        attach_files(mark)
 
     # Machine-readable rollup for the viewer and later exporters (pgm, etc.).
     data = {
@@ -491,7 +537,8 @@ def main():
         "duration": duration,
         "segments": segments,
         # Full length of each source recording, so the window can offer to restore a cut at either end.
-        "sourceDurations": {".": duration_of(folder / "recording.mp4")},
+        "sourceDurations": source_durations,
+        "errors": errors,
         "marks": marks,
         "hiddenMarks": hidden,
         "activity": activity,
@@ -503,8 +550,11 @@ def main():
 
     title = session_title(folder)
     video = "video: `recording.mp4`"
-    if edits is not None:
-        cut = (duration_of(folder / "recording.mp4") or duration) - duration
+    if joined:
+        names = ", ".join(f"`{src}`" for src in source_durations)
+        video = f"joined from {names}, {fmt_ts(duration)} (times below are times in the joined session)"
+    elif edits is not None:
+        cut = sum(source_durations.values()) - duration
         video += f", edited to {fmt_ts(duration)} ({fmt_ts(cut)} cut; times below are edited times)"
     out = [f"# {title} ({folder.name})" if title else f"# Session {folder.name}", "", f"{len(marks)} marks · {video}", ""]
     out += sections

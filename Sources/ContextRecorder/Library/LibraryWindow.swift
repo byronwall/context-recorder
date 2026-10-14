@@ -30,6 +30,26 @@ final class LibraryState {
         confirmTrash = urls.filter { $0 != library.recordingFolder }
     }
 
+    /// "Joining…" while a join is being processed, or why it failed.
+    var joinStatus: String?
+
+    /// Joins the selected sessions into a new one and opens it.
+    func join(_ urls: some Collection<URL>) {
+        let urls = Array(urls)
+        joinStatus = "Joining \(urls.count) sessions…"
+        Task {
+            do {
+                let folder = try SessionJoin.join(urls)
+                try await SessionProcessing.run(folder)
+                library.refresh()
+                joinStatus = nil
+                open(folder)
+            } catch {
+                joinStatus = error.localizedDescription
+            }
+        }
+    }
+
     func trashConfirmed() {
         let urls = confirmTrash
         confirmTrash = []

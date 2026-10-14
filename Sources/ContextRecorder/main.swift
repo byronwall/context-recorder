@@ -106,6 +106,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let name = value("--session"), let entry = library.state.library.entries.first(where: { $0.url.lastPathComponent == name }) {
                 library.show(session: entry.url)
             }
+            // `--join a,b`: join those fixture sessions (folder names) and open the result.
+            if let names = value("--join")?.split(separator: ",").map(String.init) {
+                let urls = library.state.library.entries.filter { names.contains($0.url.lastPathComponent) }.map(\.url)
+                library.state.selection = Set(urls)
+                library.state.join(urls)
+            }
             if let tab = value("--tab") {
                 library.state.model?.tab = SessionModel.Tab.allCases.first { $0.rawValue.lowercased().hasPrefix(tab) } ?? .marks
             }

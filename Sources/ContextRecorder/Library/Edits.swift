@@ -153,23 +153,90 @@ struct EditMap: Equatable {
         source == "." ? session : session.appendingPathComponent(source).standardizedFileURL
     }
 
-    /// The edited video as one asset: each segment's range of its source, back to back.
-    func composition(in session: URL) async throws -> AVComposition {
+    /// The edited video: each segment's range of its source, back to back on one video and one audio
+    /// track. Sources of different sizes (a joined session) get a video composition that fits each one
+    /// into the largest frame; sources without audio play silence.
+    struct Playback {
+        var asset: AVComposition
+        var videoComposition: AVVideoComposition?
+    }
+
+    func composition(in session: URL) async throws -> Playback {
         let composition = AVMutableComposition()
-        var assets: [String: AVURLAsset] = [:]
+        guard let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
+              let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            throw ReviewError("Couldn't create the edited video")
+        }
+        struct Source {
+            var asset: AVURLAsset   // tracks only hold their asset weakly; keep it alive while inserting
+            var video: AVAssetTrack; var audio: AVAssetTrack?
+            var videoRange: CMTimeRange; var audioRange: CMTimeRange?
+            var size: CGSize; var transform: CGAffineTransform
+        }
+        var sources: [String: Source] = [:]
+        var placed: [(range: CMTimeRange, source: Source)] = []
         var at = CMTime.zero
         for s in segments {
-            let asset = assets[s.source] ?? AVURLAsset(url: Self.folder(of: s.source, in: session).appendingPathComponent("recording.mp4"))
-            assets[s.source] = asset
-            let available = try await asset.load(.duration)
-            let start = CMTime(seconds: s.start, preferredTimescale: 600)
-            let end = CMTimeMinimum(CMTime(seconds: s.end, preferredTimescale: 600), available)
-            guard end > start else { continue }
-            let range = CMTimeRange(start: start, end: end)
-            try await composition.insertTimeRange(range, of: asset, at: at)
+            if sources[s.source] == nil {
+                let url = Self.folder(of: s.source, in: session).appendingPathComponent("recording.mp4")
+                guard FileManager.default.fileExists(atPath: url.path) else {
+                    throw ReviewError("Source missing: \(s.source)")
+                }
+                let asset = AVURLAsset(url: url)
+                guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+                    throw ReviewError("\(s.source) has no video")
+                }
+                let (size, transform, videoRange) = try await track.load(.naturalSize, .preferredTransform, .timeRange)
+                let audio = try await asset.loadTracks(withMediaType: .audio).first
+                let audioRange = try await audio?.load(.timeRange)
+                sources[s.source] = Source(asset: asset, video: track, audio: audio, videoRange: videoRange, audioRange: audioRange,
+                                           size: size, transform: transform)
+            }
+            guard let source = sources[s.source] else { continue }
+            // Tracks can end a little before the file does; never ask for time a track doesn't have.
+            let wanted = CMTimeRange(start: CMTime(seconds: s.start, preferredTimescale: 600),
+                                     end: CMTime(seconds: s.end, preferredTimescale: 600))
+            let range = wanted.intersection(source.videoRange)
+            guard range.duration > .zero else { continue }
+            do {
+                try video.insertTimeRange(range, of: source.video, at: at)
+                if let track = source.audioRange.map({ range.intersection($0) }), track.duration > .zero, let a = source.audio {
+                    try audio.insertTimeRange(track, of: a, at: at + (track.start - range.start))
+                }
+            } catch {
+                throw ReviewError("\(s.source) \(Int(s.start))–\(Int(s.end)) s: \(error.localizedDescription)")
+            }
+            placed.append((CMTimeRange(start: at, duration: range.duration), source))
             at = at + range.duration
         }
-        return composition
+        if audio.segments.isEmpty { composition.removeTrack(audio) }
+
+        let sizes = Set(placed.map { "\($0.source.size.width)x\($0.source.size.height)" })
+        guard sizes.count > 1 else {
+            video.preferredTransform = placed.first?.source.transform ?? .identity
+            return Playback(asset: composition, videoComposition: nil)
+        }
+        // Fit every source into the largest frame, centred.
+        let render = placed.reduce(CGSize.zero) { CGSize(width: max($0.width, $1.source.size.width), height: max($0.height, $1.source.size.height)) }
+        let instructions = placed.map { item -> AVVideoCompositionInstruction in
+            let size = item.source.size
+            let scale = min(render.width / size.width, render.height / size.height)
+            let fitted = item.source.transform
+                .concatenating(CGAffineTransform(scaleX: scale, y: scale))
+                .concatenating(CGAffineTransform(translationX: (render.width - size.width * scale) / 2,
+                                                 y: (render.height - size.height * scale) / 2))
+            var layer = AVVideoCompositionLayerInstruction.Configuration(assetTrack: video)
+            layer.setTransform(fitted, at: item.range.start)
+            return AVVideoCompositionInstruction(configuration: .init(
+                backgroundColor: CGColor(gray: 0, alpha: 1),
+                layerInstructions: [AVVideoCompositionLayerInstruction(configuration: layer)],
+                timeRange: item.range))
+        }
+        let videoComposition = AVVideoComposition(configuration: .init(
+            frameDuration: CMTime(value: 1, timescale: 30),
+            instructions: instructions,
+            renderSize: render))
+        return Playback(asset: composition, videoComposition: videoComposition)
     }
 }
 
@@ -284,9 +351,28 @@ extension SessionModel {
         apply(EditMap(currentSegments).restoring(cut))
     }
 
+    /// A joined session keeps its sources, each whole again; any other session drops edits.json.
     func restoreOriginal() {
-        guard edits != nil else { return }
-        apply(nil)
+        guard let edits else { return }
+        if isJoined {
+            apply(edits.sources.compactMap { source in sourceDurations[source].map { Segment(source: source, start: 0, end: $0) } })
+        } else {
+            apply(nil)
+        }
+    }
+
+    var isJoined: Bool { currentSegments.contains { $0.source != "." } }
+
+    /// Where the video moves from one source session to the next, for the timeline.
+    var sourceBoundaries: [(at: Double, source: String)] {
+        guard isJoined, let edits else { return [] }
+        var out: [(Double, String)] = []
+        var previous: String?
+        for s in edits.segments where s.source != previous {
+            out.append((s.editedStart ?? 0, s.source))
+            previous = s.source
+        }
+        return out
     }
 
     var canUndoEdit: Bool { !undoStack.isEmpty }
@@ -343,5 +429,57 @@ enum EditsFile {
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         try enc.encode(File(segments: plain)).write(to: url(folder), options: .atomic)
+    }
+}
+
+// MARK: - Joining sessions
+
+enum SessionJoin {
+    /// Makes a new session that plays `sessions` end to end (oldest first), next to the first of them.
+    /// It has no video of its own: edits.json points at each source's kept ranges, so cuts already made
+    /// in a source carry over, and the sources are never changed.
+    static func join(_ sessions: [URL]) throws -> URL {
+        let ordered = sessions.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        guard ordered.count >= 2, let parent = ordered.first?.deletingLastPathComponent() else {
+            throw ReviewError("Select two or more sessions to join.")
+        }
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        var date = Date.now
+        var folder = parent.appendingPathComponent(f.string(from: date))
+        while FileManager.default.fileExists(atPath: folder.path) {
+            date += 1
+            folder = parent.appendingPathComponent(f.string(from: date))
+        }
+
+        var segments: [Segment] = []
+        for source in ordered {
+            guard let data = try? Data(contentsOf: source.appendingPathComponent("session.json")),
+                  let session = try? JSONDecoder().decode(SessionData.self, from: data) else {
+                throw ReviewError("\(SessionTitle.title(for: source)) hasn't been processed yet.")
+            }
+            let kept = session.segments.isEmpty ? [Segment(start: 0, end: session.duration ?? 0)] : session.segments
+            for s in kept {
+                let target = EditMap.folder(of: s.source, in: source)
+                segments.append(Segment(source: relativePath(from: folder, to: target), start: s.start, end: s.end))
+            }
+        }
+
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        try EditsFile.save(segments, to: folder)
+        let names = ordered.map { SessionInfo.title($0) ?? String(SessionTitle.title(for: $0).split(separator: "·").last ?? "").trimmingCharacters(in: .whitespaces) }
+        try SessionInfo.setTitle("Joined: " + names.joined(separator: " + "), for: folder)
+        return folder
+    }
+
+    /// "../2026-10-13_00-57-10" for a sibling folder; works across any two folders.
+    static func relativePath(from base: URL, to target: URL) -> String {
+        let a = base.standardizedFileURL.pathComponents, b = target.standardizedFileURL.pathComponents
+        var common = 0
+        while common < min(a.count, b.count), a[common] == b[common] { common += 1 }
+        let up = Array(repeating: "..", count: a.count - common)
+        let parts = up + b[common...]
+        return parts.isEmpty ? "." : parts.joined(separator: "/")
     }
 }

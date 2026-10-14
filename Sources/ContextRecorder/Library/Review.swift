@@ -66,14 +66,17 @@ extension SessionModel {
 
     func setNote(_ note: String, for index: Int) async {
         let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (mark(index)?.note ?? "") != trimmed else { return }
+        guard let m = mark(index), (m.note ?? "") != trimmed else { return }
         reviewStatus = "Saving note…"
         defer { reviewStatus = nil }
         do {
-            var lines = try MarksFile.load(folder)
-            guard let i = lines.firstIndex(where: { $0["index"]?.numberValue == Double(index) }) else { return }
+            // In a joined session the note goes to the session the mark belongs to, so it shows there too.
+            let owner = owner(of: m)
+            var lines = try MarksFile.load(owner)
+            guard let i = lines.firstIndex(where: { $0["index"]?.numberValue == Double(m.storedIndex) }) else { return }
             lines[i] = lines[i].setting("note", trimmed.isEmpty ? .null : .string(trimmed))
-            try MarksFile.save(lines, to: folder)
+            try MarksFile.save(lines, to: owner)
+            if owner != folder { try await reprocess(owner) }
             try await reprocess()
         } catch {
             reviewError = error.localizedDescription
@@ -82,17 +85,19 @@ extension SessionModel {
 
     /// Only review marks can be deleted; marks made while recording are the source data.
     func deleteReviewMark(_ index: Int) async {
-        guard mark(index)?.isReview == true else { return }
+        guard let m = mark(index), m.isReview else { return }
         reviewStatus = "Deleting mark…"
         defer { reviewStatus = nil }
         do {
-            let lines = try MarksFile.load(folder).filter { $0["index"]?.numberValue != Double(index) }
-            try MarksFile.save(lines, to: folder)
+            let owner = owner(of: m), stored = m.storedIndex
+            let lines = try MarksFile.load(owner).filter { $0["index"]?.numberValue != Double(stored) }
+            try MarksFile.save(lines, to: owner)
             // Frames are cached by index; remove them so a later mark can't pick up this one's image.
-            for file in [String(format: "screenshots/%03d.png", index), String(format: "frames/%03d.jpg", index)] {
-                try? FileManager.default.removeItem(at: folder.appendingPathComponent(file))
+            for file in [String(format: "screenshots/%03d.png", stored), String(format: "frames/%03d.jpg", stored)] {
+                try? FileManager.default.removeItem(at: owner.appendingPathComponent(file))
             }
             if selectedMark == index { selectedMark = nil }
+            if owner != folder { try await reprocess(owner) }
             try await reprocess()
         } catch {
             reviewError = error.localizedDescription
@@ -100,6 +105,9 @@ extension SessionModel {
     }
 
     // MARK: Pieces
+
+    /// The session folder whose marks.jsonl holds this mark.
+    private func owner(of m: SessionMark) -> URL { EditMap.folder(of: m.rawSession ?? ".", in: folder) }
 
     private func contextJSON(at t: Double) -> JSONValue {
         guard let ctx = contextAt(t), let data = try? JSONEncoder().encode(ctx),
@@ -150,9 +158,27 @@ extension SessionModel {
     }
 
     /// Re-runs scripts/process_session.py (frames, narration, Markdown, session.json), then reloads.
-    func reprocess() async throws {
+    func reprocess(_ other: URL? = nil) async throws {
+        try await SessionProcessing.run(other ?? folder)
+        if other != nil { return }
+        reload()
+        // A new review mark is known by its index in marks.jsonl; a joined session shows it under another.
+        if let stored = pendingSelect,
+           let index = marks.first(where: { $0.storedIndex == stored && ($0.rawSession ?? ".") == "." })?.index {
+            if focusNoteFor == stored { focusNoteFor = index }
+            pendingSelect = nil
+            tab = .marks
+            markFilter = .all
+            select(index, seek: false)
+        }
+    }
+}
+
+/// Runs scripts/process_session.py on a session folder (frames, narration, Markdown, session.json).
+@MainActor
+enum SessionProcessing {
+    static func run(_ folder: URL) async throws {
         guard let script = AppDelegate.processScriptURL() else { throw ReviewError("process_session.py wasn't found") }
-        let folder = self.folder
         let status: Int32 = try await withCheckedThrowingContinuation { cont in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
@@ -162,13 +188,6 @@ extension SessionModel {
             do { try process.run() } catch { cont.resume(throwing: error) }
         }
         guard status == 0 else { throw ReviewError("Processing failed; see process.log in the session folder") }
-        reload()
-        if let index = pendingSelect, mark(index) != nil {
-            pendingSelect = nil
-            tab = .marks
-            markFilter = .all
-            select(index, seek: false)
-        }
     }
 }
 

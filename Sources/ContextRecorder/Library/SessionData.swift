@@ -16,8 +16,10 @@ struct SessionData: Decodable {
     var hiddenMarks: [SessionMark]
     /// Full length of each source recording ("." is this session's own).
     var sourceDurations: [String: Double]
+    /// Problems processing could not get past, e.g. a joined session's source that was moved.
+    var errors: [String]
 
-    enum CodingKeys: String, CodingKey { case name, folder, duration, marks, activity, browser, transcript, segments, hiddenMarks, sourceDurations }
+    enum CodingKeys: String, CodingKey { case name, folder, duration, marks, activity, browser, transcript, segments, hiddenMarks, sourceDurations, errors }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -31,6 +33,7 @@ struct SessionData: Decodable {
         segments = try c.decodeIfPresent([Segment].self, forKey: .segments) ?? []
         hiddenMarks = try c.decodeIfPresent([SessionMark].self, forKey: .hiddenMarks) ?? []
         sourceDurations = (try? c.decodeIfPresent([String: Double].self, forKey: .sourceDurations)) ?? [:]
+        errors = (try? c.decodeIfPresent([String].self, forKey: .errors)) ?? []
     }
 }
 
@@ -51,7 +54,13 @@ struct SessionMark: Decodable, Identifiable, Hashable {
     var sourceOffsetSeconds: Double?
     var sourceSession: String?    // "." or the source folder of a joined session
 
+    /// Where the mark is stored: its index in the marks.jsonl of `rawSession` ("." is this folder). Differs
+    /// from `index` in a joined session, which numbers marks from every source in play order.
+    var rawIndex: Int?
+    var rawSession: String?
+
     var originalOffset: Double { sourceOffsetSeconds ?? offsetSeconds }
+    var storedIndex: Int { rawIndex ?? index }
 
     var id: Int { index }
     var isShot: Bool { kind == "screenshot" }
