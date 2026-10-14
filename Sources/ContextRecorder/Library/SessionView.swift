@@ -5,17 +5,19 @@ import SwiftUI
 /// One session: the video on a stage, the shared timeline and the "now" strip, marks in the inspector.
 struct SessionView: View {
     @Bindable var model: SessionModel
+    var title: String
     @State private var showInspector = true
     @State private var quickLook: URL?
     @State private var copiedAll = false
 
     var body: some View {
         content
+            .frame(minWidth: 0, minHeight: 0)
             .navigationTitle(title)
             .navigationSubtitle(subtitle)
             .inspector(isPresented: $showInspector) {
                 SidePanel(model: model, quickLook: $quickLook)
-                    .inspectorColumnWidth(min: 340, ideal: 400, max: 620)
+                    .inspectorColumnWidth(min: 340, ideal: 360, max: 620)
             }
             .toolbar { toolbar }
             .quickLookPreview($quickLook, in: quickLookItems)
@@ -90,8 +92,6 @@ struct SessionView: View {
         model.marks.flatMap { m in [m.image, m.frame].compactMap { model.url($0) } }
             .reduce(into: [URL]()) { if !$0.contains($1) { $0.append($1) } }
     }
-
-    private var title: String { SessionTitle.title(for: model.folder) }
 
     private var subtitle: String {
         guard model.data != nil else { return "" }
@@ -266,6 +266,10 @@ struct PlayerSurface: NSViewRepresentable {
     func updateNSView(_ view: AVPlayerView, context: Context) {
         if view.player !== player { view.player = player }
     }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: AVPlayerView, context: Context) -> CGSize? {
+        proposal.replacingUnspecifiedDimensions()
+    }
 }
 
 /// QuickTime-style floating controls in Liquid Glass.
@@ -273,14 +277,22 @@ struct Transport: View {
     var model: SessionModel
 
     var body: some View {
+        // Narrow windows drop the 5-second skips (← → still work) before anything gets clipped.
+        ViewThatFits(in: .horizontal) {
+            controls(compact: false)
+            controls(compact: true)
+        }
+    }
+
+    private func controls(compact: Bool) -> some View {
         HStack(spacing: 4) {
             control("flag", "Add a mark here (M)") { Task { await model.addReviewMark() } }
             control("camera.viewfinder", "Capture a region of this frame (S)") { model.player.pause(); model.regionMode = true }
 
-            Divider().frame(height: 18).padding(.horizontal, 6)
+            Divider().frame(height: 18).padding(.horizontal, compact ? 2 : 6)
 
             control("backward.end.fill", "Previous mark (K)") { model.step(-1) }
-            control("gobackward.5", "Back 5 seconds (←)") { model.skip(-5) }
+            if !compact { control("gobackward.5", "Back 5 seconds (←)") { model.skip(-5) } }
             Button { model.togglePlay() } label: {
                 Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 20, weight: .semibold))
@@ -291,15 +303,16 @@ struct Transport: View {
             .buttonStyle(.plain)
             .help("Play or pause (Space)")
             .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
-            control("goforward.5", "Forward 5 seconds (→)") { model.skip(5) }
+            if !compact { control("goforward.5", "Forward 5 seconds (→)") { model.skip(5) } }
             control("forward.end.fill", "Next mark (J)") { model.step(1) }
 
-            Divider().frame(height: 18).padding(.horizontal, 6)
+            Divider().frame(height: 18).padding(.horizontal, compact ? 2 : 6)
 
             Text("\(Format.time(model.currentTime))  /  \(Format.time(model.duration))")
                 .font(.system(size: 12, weight: .medium).monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 84)
+                .fixedSize()
                 .accessibilityLabel("\(Format.time(model.currentTime)) of \(Format.time(model.duration))")
 
             Menu {
@@ -322,6 +335,7 @@ struct Transport: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .glassEffect(.regular, in: .capsule)
+        .fixedSize()
     }
 
     private func control(_ symbol: String, _ help: String, action: @escaping () -> Void) -> some View {
@@ -359,6 +373,7 @@ struct NowStrip: View {
                         if let u = ctx?.browserURL, let url = URL(string: u) {
                             Link(destination: url) {
                                 Text(u.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: ""))
+                                    .lineLimit(1)
                             }
                             .layoutPriority(-1)
                             .help(u)

@@ -185,6 +185,7 @@ struct PgmExporter {
 /// "Oct 12, 2026 · 10:00 PM" from a session folder named yyyy-MM-dd_HH-mm-ss; the folder name otherwise.
 enum SessionTitle {
     static func title(for folder: URL) -> String {
+        if let custom = SessionInfo.title(folder) { return custom }
         let name = folder.lastPathComponent
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
