@@ -24,7 +24,7 @@ Keep any essential human choice explicit. Do not invent approval for implementat
 
 - Prompt: [pro-prompt.md](pro-prompt.md).
 - Mode: research and artifact production. Codex owns integration and Git work.
-- Phase: integrated and validated; preparing the review PR.
+- Phase: complete. Research integrated; review PR open, verified, and attached.
 - Round: initial request. At most two material follow-ups after submission.
 - Conversation: https://chatgpt.com/c/6acef979-eca8-83e9-96b7-0d6d69f3935c
 - Model: live selector showed Pro, power 5 of 5. Account menu showed Byron Wall Pro.
@@ -36,7 +36,7 @@ Keep any essential human choice explicit. Do not invent approval for implementat
 - Later observation: Pro inspected source and searched product websites. This is progress, not completed research.
 - Screenshot: `tmp/recording-tools/pro-submitted.jpg`, local evidence only.
 - First scheduled check: October 14, 2026, 12:40 a.m. EDT; 04:40 UTC.
-- Heartbeat: `continue-recording-tools-pro-research`, active and attached to this chat.
+- Heartbeat: `continue-recording-tools-pro-research`, now PAUSED on this chat. Saved state verified at completion.
 - Saved schedule verified: hourly at minute 40. Automation view also succeeded.
 - The continuation prompt guards against an early queued wakeup before the first collection time.
 - Upload and send were each rejected once for missing explicit authorization.
@@ -126,4 +126,15 @@ See [validation.md](validation.md) for checks, preserved-format whitespace handl
 Collection checkpoint: `36ceeea`. Git author and committer were verified before both checkpoints.
 The first GitHub CLI read hit the network sandbox. The approved network retry passed.
 No existing PR was found for this branch. The base branch is `main`.
-PR pending. No application implementation or runtime proof has run.
+Review PR: [#28](https://github.com/byronwall/context-recorder/pull/28).
+Created with `gh pr create --body-file`; open, ready for review, base `main`, head `codex/recording-tools-research`.
+Attached to this chat through the app artifact tool.
+Verified the saved body exactly, all 21 changed paths, and all five GitHub document links through the GitHub API.
+An initial body assertion incorrectly stripped the expected final newline. The exact-byte comparison then passed; no body change was needed.
+Integration commit: `07d7655`. The branch was pushed with the required author and committer identity.
+The final run-record update follows as a separate documentation commit.
+
+The heartbeat was disabled through `automation_update`. Its saved file confirms PAUSED and the original thread ID.
+All full-process endpoints are met. No Pro follow-up was necessary; no essential user input blocked the research PR.
+The primary-job, export-policy, and benefit choices remain open for future application work.
+No application implementation or runtime proof has run. No merge, deployment, or planning-file retirement occurred.
