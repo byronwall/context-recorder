@@ -1,0 +1,816 @@
+[
+  {
+    "id": "VC-01",
+    "title": "Treat the canvas as an observed atlas, not a simultaneous page",
+    "userProblem": "Byron needs to inspect content across time without introducing fictitious page states.",
+    "proposal": "Keep immutable source-frame provenance for each owned image patch. Separate surface geometry, visual states and chronological visits. Leave unseen areas unknown; label composites as multi-time observations. Never fill gaps or carry old offscreen pixels into a new state as current evidence.",
+    "repositoryEvidence": [
+      {
+        "path": "Sources/ContextRecorder/Recorder.swift",
+        "symbol": "Recorder.currentOffset()",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          100,
+          108
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Recorder.swift#L100-L108"
+      },
+      {
+        "path": "scripts/process_session.py",
+        "symbol": "extract_frame",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          131,
+          139
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/scripts/process_session.py#L131-L139"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E13",
+        "url": "https://www.wisdom.weizmann.ac.il/~irani/abstracts/mosaics.html",
+        "accessed": "2026-10-13",
+        "supports": "Author abstract describes video mosaics, alignment/integration and residual analysis."
+      },
+      {
+        "id": "E14",
+        "url": "https://arxiv.org/abs/1609.08080",
+        "accessed": "2026-10-13",
+        "supports": "Author paper abstract describes navigable two-dimensional collections of video frames and uncertain pairwise translation."
+      }
+    ],
+    "alternatives": [
+      "One flattened panorama with a single timestamp: simpler but misleading.",
+      "Keyframes only: truthful but loses continuous page geometry."
+    ],
+    "benefit": "Preserves the distinctive scroll reconstruction while making its uncertainty inspectable.",
+    "cost": "Patch ownership and visit bookkeeping; visible gaps can make the result less seamless.",
+    "confidence": {
+      "level": "high for evidence rules; unproven for useful automatic reconstruction",
+      "basis": "Source clocks and prior-art capabilities are available; no recordings evaluated."
+    },
+    "validation": {
+      "status": "unrun",
+      "experiments": [
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "gates": [
+        "G1",
+        "G2"
+      ],
+      "method": "Round-trip every displayed patch to source pixels/time; audit state changes and unseen-region behavior."
+    }
+  },
+  {
+    "id": "VC-02",
+    "title": "Start with guarded translation and a keyframe comparator",
+    "userProblem": "A personal developer needs one small reconstruction engine rather than an ensemble.",
+    "proposal": "Use optional Python analysis with OpenCV phase correlation, regional agreement and full-resolution integer-translation verification. Select one viewport per proof clip. Stitch only adequately textured, overlapping, stable-scale content. Split/refuse nested motion, scale/layout changes and ambiguous repetition. Keep change-selected cards as both fallback and comparator.",
+    "repositoryEvidence": [
+      {
+        "path": "Sources/ContextRecorder/Recorder.swift",
+        "symbol": "Recorder.start(outputURL:recordMicrophone:)",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          24,
+          69
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Recorder.swift#L24-L69"
+      },
+      {
+        "path": "scripts/process_session.py",
+        "symbol": "processor imports",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          24,
+          31
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/scripts/process_session.py#L24-L31"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E01",
+        "url": "https://raw.githubusercontent.com/opencv/opencv/4.14.0/modules/imgproc/include/opencv2/imgproc.hpp",
+        "accessed": "2026-10-13",
+        "supports": "Tagged source, phaseCorrelate and createHanningWindow declarations and documentation. Translation estimation, floating-point inputs, optional window, response semantics."
+      },
+      {
+        "id": "E02",
+        "url": "https://docs.opencv.org/4.13.0/d7/df3/group__imgproc__motion.html",
+        "accessed": "2026-10-13",
+        "supports": "Fourier phase-correlation procedure and response; Python call shape."
+      },
+      {
+        "id": "E03",
+        "url": "https://docs.opencv.org/4.13.0/dc/d6b/group__video__track.html",
+        "accessed": "2026-10-13",
+        "supports": "Lucas–Kanade, Farneback, findTransformECC, translation motion mode and initialization/convergence caveats."
+      },
+      {
+        "id": "E04",
+        "url": "https://docs.opencv.org/4.13.0/d9/d0c/group__calib3d.html",
+        "accessed": "2026-10-13",
+        "supports": "estimateAffinePartial2D supports robust estimation but estimates translation, rotation and uniform scale; it is not a translation-only model."
+      },
+      {
+        "id": "E05",
+        "url": "https://pypi.org/project/opencv-python-headless/4.14.0.94/",
+        "accessed": "2026-10-13",
+        "supports": "Release dated July 28, 2026; macOS ARM64 wheel 46.5 MB, uploaded July 29, and x86-64 wheel 33.1 MB. Headless package choice, one cv2 package per environment, bundled binaries and licensing."
+      },
+      {
+        "id": "E09",
+        "url": "https://raw.githubusercontent.com/Brkgng/ScrollSnap/main/ScrollSnap/Managers/StitchingManager.swift",
+        "accessed": "2026-10-13",
+        "supports": "VisionOffsetEstimator compares regional translations; findTranslation uses VNTranslationalImageRegistrationRequest and its alignment result. StitchingManager retains a growing image."
+      },
+      {
+        "id": "E10",
+        "url": "https://github.com/Haruhiyuki/scrollsnap",
+        "accessed": "2026-10-13",
+        "supports": "Closely related scroll-recording reconstruction with page coordinates, boundaries, mosaics/tiles and crop traceability. Author-maintained benchmark reports exist."
+      },
+      {
+        "id": "E11",
+        "url": "https://raw.githubusercontent.com/Haruhiyuki/scrollsnap/main/pyproject.toml",
+        "accessed": "2026-10-13",
+        "supports": "Metadata declares scrollsnap-core 0.1.0, Alpha, Python >=3.10, Apache-2.0, NumPy/OpenCV/Pillow dependencies and optional integrations."
+      }
+    ],
+    "alternatives": [
+      "Apple Vision translation: credible native alternative if Python packaging becomes the decisive cost.",
+      "ORB with translation-constrained robust fitting: one bounded follow-up if phase correlation fails otherwise eligible clips.",
+      "scrollsnap-core: inspectable reuse candidate, but alpha/source-identity and output validation remain unresolved.",
+      "Dense optical flow or homography: excessive geometry freedom for UI text."
+    ],
+    "benefit": "Tests geometry-preserving reconstruction without a stack conversion or text-distorting warp.",
+    "cost": "OpenCV/NumPy environment, sequential video decoding, refusal diagnostics and seam verification.",
+    "confidence": {
+      "level": "medium",
+      "basis": "Implemented translation APIs and scroll-capture precedent; H.264 screen-video performance unknown."
+    },
+    "validation": {
+      "status": "unrun",
+      "experiments": [
+        "P1",
+        "P2"
+      ],
+      "gates": [
+        "G1",
+        "G2",
+        "G4"
+      ],
+      "method": "Freeze parameters after development clips; score accepted and rejected joins on held-out clips and real recordings."
+    }
+  },
+  {
+    "id": "VC-03",
+    "title": "Run reconstruction offline and cache it independently of review edits",
+    "userProblem": "Analysis must not destabilize recording or rerun whenever a note changes.",
+    "proposal": "Propose scripts/analyze_canvas.py as an explicit offline operation. Store canvas.json and canvas/ as derived output keyed by video digest, analysis version and parameters. Let process_session.py optionally embed a valid sidecar; do not make capture or every reprocess invocation run reconstruction. Preserve old review behavior when output is absent, invalid or stale.",
+    "repositoryEvidence": [
+      {
+        "path": "Sources/ContextRecorder/main.swift",
+        "symbol": "AppDelegate.runPostProcessing(for:completion:)",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          400,
+          422
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/main.swift#L400-L422"
+      },
+      {
+        "path": "Sources/ContextRecorder/Library/Review.swift",
+        "symbol": "SessionModel.reprocess()",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          150,
+          169
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Library/Review.swift#L150-L169"
+      },
+      {
+        "path": "scripts/process_session.py",
+        "symbol": "write_viewer",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          282,
+          287
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/scripts/process_session.py#L282-L287"
+      },
+      {
+        "path": "scripts/build-app.sh",
+        "symbol": "resource copy",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          21,
+          23
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/scripts/build-app.sh#L21-L23"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E25",
+        "url": "https://ffmpeg.org/ffprobe.html",
+        "accessed": "2026-10-13",
+        "supports": "Structured stream/frame metadata inspection."
+      },
+      {
+        "id": "E26",
+        "url": "https://ffmpeg.org/ffmpeg.html",
+        "accessed": "2026-10-13",
+        "supports": "Timestamp handling and fps_mode passthrough versus frame duplication/drop behavior."
+      },
+      {
+        "id": "E27",
+        "url": "https://ffmpeg.org/ffmpeg-filters.html#showinfo",
+        "accessed": "2026-10-13",
+        "supports": "Per-output-frame ordinal, PTS, pts_time and size information."
+      }
+    ],
+    "alternatives": [
+      "During-capture analysis: lower post-stop latency but shares capture resources and cannot be rerun cheaply.",
+      "Run inside every session reprocess: shorter initial call path but expensive note-edit coupling."
+    ],
+    "benefit": "Keeps canonical recordings untouched and allows deterministic experiments on disposable copies.",
+    "cost": "One optional command, a small sidecar and explicit packaging work only after the proof.",
+    "confidence": {
+      "level": "high",
+      "basis": "Current processor and review call paths are directly visible in the baseline."
+    },
+    "validation": {
+      "status": "unrun",
+      "experiments": [
+        "P0",
+        "P3",
+        "P4"
+      ],
+      "gates": [
+        "G1",
+        "G4"
+      ],
+      "method": "Compare canonical hashes before/after; edit a note and verify geometry analysis is not invoked; reject stale sidecars."
+    }
+  },
+  {
+    "id": "VC-04",
+    "title": "Prove the spatial interaction in the portable HTML viewer",
+    "userProblem": "Byron needs a navigable canvas before investing in native rendering infrastructure.",
+    "proposal": "Add a proposed Canvas view alongside the existing video/timeline. Render bounded images in a transformed DOM layer with chronological visit buttons and a shared video.currentTime. Put states rightward and page geometry downward. Keep keyboard-accessible temporal navigation and an overview. Integrate SwiftUI only after the proof wins.",
+    "repositoryEvidence": [
+      {
+        "path": "scripts/viewer.html",
+        "symbol": "DATA and video binding",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          238,
+          243
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/scripts/viewer.html#L238-L243"
+      },
+      {
+        "path": "scripts/viewer.html",
+        "symbol": "renderNow",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          407,
+          419
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/scripts/viewer.html#L407-L419"
+      },
+      {
+        "path": "Sources/ContextRecorder/Library/SessionModel.swift",
+        "symbol": "SessionModel.seek(_:play:)",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          169,
+          174
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Library/SessionModel.swift#L169-L174"
+      },
+      {
+        "path": "Sources/ContextRecorder/Library/SessionView.swift",
+        "symbol": "SessionView",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          6,
+          41
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Library/SessionView.swift#L6-L41"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E14",
+        "url": "https://arxiv.org/abs/1609.08080",
+        "accessed": "2026-10-13",
+        "supports": "Author paper abstract describes navigable two-dimensional collections of video frames and uncertain pairwise translation."
+      },
+      {
+        "id": "E15",
+        "url": "https://research.adobe.com/publication/video-tapestries-with-continuous-temporal-zoom/",
+        "accessed": "2026-10-13",
+        "supports": "Author-organization publication record for multi-scale visual video summaries and temporal zoom."
+      },
+      {
+        "id": "E23",
+        "url": "https://html.spec.whatwg.org/multipage/media.html#dom-media-currenttime",
+        "accessed": "2026-10-13",
+        "supports": "Media timeline seeking through currentTime and asynchronous playback/seek behavior."
+      },
+      {
+        "id": "E24",
+        "url": "https://html.spec.whatwg.org/multipage/canvas.html#security-with-canvas-elements",
+        "accessed": "2026-10-13",
+        "supports": "Origin-clean restrictions apply to pixel reads and image export."
+      }
+    ],
+    "alternatives": [
+      "SwiftUI first: native playback and review integration, but more new canvas rendering work before the central hypothesis is tested.",
+      "Page-grouped lanes: useful index, but default grouping obscures later visits.",
+      "Temporal filmstrip only: strong fallback and comparison baseline."
+    ],
+    "benefit": "Uses existing local files and playback; does not introduce a package-based web application.",
+    "cost": "DOM viewport culling, scoped keyboard handling and local-file browser smoke tests.",
+    "confidence": {
+      "level": "medium-high",
+      "basis": "Existing inline data and video behavior provide a small integration seam; proposed UI is not implemented."
+    },
+    "validation": {
+      "status": "unrun",
+      "experiments": [
+        "P3",
+        "P4"
+      ],
+      "gates": [
+        "G1",
+        "G3",
+        "G4"
+      ],
+      "method": "Test click/seek, keyboard-only navigation, long-session overview and local-file operation against raw video and cards."
+    }
+  },
+  {
+    "id": "VC-05",
+    "title": "Preserve changes, motion and return visits instead of deduplicating time",
+    "userProblem": "An attractive mosaic must not erase edits, animations or the later explanation of repeated content.",
+    "proposal": "Create a new rightward state on detected content/layout change. Represent motion as a poster with a playable source interval and expandable temporal cards. Keep a chronological node for every revisit; use URL only to shortlist identity candidates. A confirmed return must name the matched region and its earlier/later witness frames.",
+    "repositoryEvidence": [
+      {
+        "path": "extension/page.js",
+        "symbol": "STREAM and event recording",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          21,
+          31
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/extension/page.js#L21-L31"
+      },
+      {
+        "path": "Sources/ContextRecorder/Library/SessionModel.swift",
+        "symbol": "shared player",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          12,
+          24
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Library/SessionModel.swift#L12-L24"
+      },
+      {
+        "path": "scripts/viewer.html",
+        "symbol": "video time listeners",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          590,
+          593
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/scripts/viewer.html#L590-L593"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E13",
+        "url": "https://www.wisdom.weizmann.ac.il/~irani/abstracts/mosaics.html",
+        "accessed": "2026-10-13",
+        "supports": "Author abstract describes video mosaics, alignment/integration and residual analysis."
+      },
+      {
+        "id": "E14",
+        "url": "https://arxiv.org/abs/1609.08080",
+        "accessed": "2026-10-13",
+        "supports": "Author paper abstract describes navigable two-dimensional collections of video frames and uncertain pairwise translation."
+      },
+      {
+        "id": "E19",
+        "url": "https://www.microsoft.com/en-us/research/video/dynamosaics-dynamic-mosaics-with-non-chronological-time/",
+        "accessed": "2026-10-13",
+        "supports": "Research presentation demonstrates dynamic mosaic navigation with non-chronological local time."
+      }
+    ],
+    "alternatives": [
+      "Overwrite prior content: loses evidence.",
+      "Global page deduplication: hides later narration.",
+      "Autoplay all animated regions: confusing multiple time positions and higher resource cost."
+    ],
+    "benefit": "Preserves the broader vision while allowing the first slice to handle only an edit boundary and basic video playback.",
+    "cost": "Explicit state/visit distinction, conservative identity validation and some visual duplication.",
+    "confidence": {
+      "level": "high for representation; medium-low for automatic identity and motion grouping",
+      "basis": "These are product/evidence rules, not measured recognition results."
+    },
+    "validation": {
+      "status": "unrun",
+      "experiments": [
+        "P2",
+        "P3",
+        "P5"
+      ],
+      "gates": [
+        "G1",
+        "G3"
+      ],
+      "method": "Audit known edits and animation intervals; require zero false confirmed returns in the small holdout set and report abstention."
+    }
+  },
+  {
+    "id": "VC-06",
+    "title": "Use actual video PTS and keep transcript association temporal",
+    "userProblem": "Canvas clicks and narration must lead back to a defined observation, despite mixed clocks and coordinate systems.",
+    "proposal": "Use decoded presentation timestamps, source-video pixel coordinates and explicit transforms. Do not treat mark-request time as still-exposure time, bridge receipt time as browser event time, or cached mark JPEGs as frame-exact evidence. Start with sentence-to-visit overlap labeled spoken-during; retain raw token references for later refinement without inventing semantic region grounding.",
+    "repositoryEvidence": [
+      {
+        "path": "Sources/ContextRecorder/Recorder.swift",
+        "symbol": "Recorder.currentOffset()",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          100,
+          105
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Recorder.swift#L100-L105"
+      },
+      {
+        "path": "Sources/ContextRecorder/main.swift",
+        "symbol": "AppDelegate.addRegionMark",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          349,
+          364
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/main.swift#L349-L364"
+      },
+      {
+        "path": "Sources/ContextRecorder/main.swift",
+        "symbol": "bridge.onEvent",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          97,
+          100
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/main.swift#L97-L100"
+      },
+      {
+        "path": "Sources/ContextRecorder/Library/Review.swift",
+        "symbol": "saveFrame(at:crop:to:)",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          126,
+          136
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Library/Review.swift#L126-L136"
+      },
+      {
+        "path": "scripts/process_session.py",
+        "symbol": "tokens_of",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          98,
+          102
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/scripts/process_session.py#L98-L102"
+      },
+      {
+        "path": "Sources/ContextRecorder/Library/SessionData.swift",
+        "symbol": "PageSnapshot",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          69,
+          80
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Library/SessionData.swift#L69-L80"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E22",
+        "url": "https://drafts.csswg.org/cssom-view/#dom-window-devicepixelratio",
+        "accessed": "2026-10-13",
+        "supports": "CSS viewport coordinates, devicePixelRatio and page zoom semantics."
+      },
+      {
+        "id": "E23",
+        "url": "https://html.spec.whatwg.org/multipage/media.html#dom-media-currenttime",
+        "accessed": "2026-10-13",
+        "supports": "Media timeline seeking through currentTime and asynchronous playback/seek behavior."
+      },
+      {
+        "id": "E25",
+        "url": "https://ffmpeg.org/ffprobe.html",
+        "accessed": "2026-10-13",
+        "supports": "Structured stream/frame metadata inspection."
+      },
+      {
+        "id": "E27",
+        "url": "https://ffmpeg.org/ffmpeg-filters.html#showinfo",
+        "accessed": "2026-10-13",
+        "supports": "Per-output-frame ordinal, PTS, pts_time and size information."
+      }
+    ],
+    "alternatives": [
+      "Assume frameIndex/15: breaks on irregular timing or dropped frames.",
+      "Use browser scroll/DPR values as recording pixels: mixes spaces.",
+      "Attach sentences to the nearest visual object: unsupported semantic inference."
+    ],
+    "benefit": "Makes provenance reproducible and prevents precise-looking but false timestamps or associations.",
+    "cost": "Frame index metadata, coordinate tests and handling unknown/ambiguous mappings.",
+    "confidence": {
+      "level": "high for the identified gaps; untested end-to-end",
+      "basis": "Timing and data projection behavior was read directly from source."
+    },
+    "validation": {
+      "status": "unrun",
+      "experiments": [
+        "P0",
+        "P1",
+        "P3",
+        "P5"
+      ],
+      "gates": [
+        "G1"
+      ],
+      "method": "Check frame timestamp normalization, inverse transforms, later-visit click behavior and transcript source pointers."
+    }
+  },
+  {
+    "id": "VC-07",
+    "title": "Bound image memory and make composite capture carry provenance",
+    "userProblem": "Tall pages and hour-long sessions must remain inspectable without allocating a giant bitmap.",
+    "proposal": "Use at-most-1024-square lossless evidence tiles/patches, overview thumbnails and explicit LRU eviction. Export a selected surface region offline as a bounded PNG plus provenance JSON; larger selections become numbered parts. Label multi-time images and keep Product Grid export separate until the artifact semantics are explicit.",
+    "repositoryEvidence": [
+      {
+        "path": "Sources/ContextRecorder/Library/SessionView.swift",
+        "symbol": "RegionPicker",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          190,
+          204
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Library/SessionView.swift#L190-L204"
+      },
+      {
+        "path": "Sources/ContextRecorder/Library/Review.swift",
+        "symbol": "addReviewShot(region:)",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          20,
+          23
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Library/Review.swift#L20-L23"
+      },
+      {
+        "path": "Sources/ContextRecorder/Export/PgmExport.swift",
+        "symbol": "PgmExporter.imageFiles(for:)",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          155,
+          160
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Export/PgmExport.swift#L155-L160"
+      },
+      {
+        "path": "Sources/ContextRecorder/Export/PgmExport.swift",
+        "symbol": "ExportRecord",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          42,
+          58
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Export/PgmExport.swift#L42-L58"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E09",
+        "url": "https://raw.githubusercontent.com/Brkgng/ScrollSnap/main/ScrollSnap/Managers/StitchingManager.swift",
+        "accessed": "2026-10-13",
+        "supports": "VisionOffsetEstimator compares regional translations; findTranslation uses VNTranslationalImageRegistrationRequest and its alignment result. StitchingManager retains a growing image."
+      },
+      {
+        "id": "E24",
+        "url": "https://html.spec.whatwg.org/multipage/canvas.html#security-with-canvas-elements",
+        "accessed": "2026-10-13",
+        "supports": "Origin-clean restrictions apply to pixel reads and image export."
+      }
+    ],
+    "alternatives": [
+      "One full-height image: simplest but memory scales with content extent.",
+      "Browser canvas export only: local-file origin and bitmap-size risks.",
+      "Pretend a composite is a current-frame review shot: incorrect source-time semantics."
+    ],
+    "benefit": "Preserves larger-than-frame capture without hiding the observation history.",
+    "cost": "Tile index, cache eviction, export clipping and a small provenance sidecar; export can follow the initial proof.",
+    "confidence": {
+      "level": "medium-high",
+      "basis": "Memory arithmetic is deterministic; encoded size and browser cache behavior are unmeasured."
+    },
+    "validation": {
+      "status": "unrun",
+      "experiments": [
+        "P4",
+        "P5"
+      ],
+      "gates": [
+        "G1",
+        "G4"
+      ],
+      "method": "Measure worker/viewer memory at 10/60 minutes and validate every exported region against its contributor frame."
+    }
+  },
+  {
+    "id": "VC-08",
+    "title": "Add browser measurements only after a specific visual failure earns them",
+    "userProblem": "Browser assistance may improve viewport/scroll identity, but the recording must also work for supplied video-only lectures.",
+    "proposal": "Keep current page events as coarse labels and candidates. If ROI/scroll ambiguity blocks otherwise useful clips, add sampled top-level and identified nested scroll geometry, zoom/visual-viewport data, document identity and a calibrated browser-to-host clock. Continue validating with video pixels. Defer rrweb and never fill observed surfaces from MHTML/DOM content.",
+    "repositoryEvidence": [
+      {
+        "path": "extension/page.js",
+        "symbol": "snapshot(req)",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          365,
+          383
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/extension/page.js#L365-L383"
+      },
+      {
+        "path": "extension/page.js",
+        "symbol": "viewportOrigin(req)",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          391,
+          400
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/extension/page.js#L391-L400"
+      },
+      {
+        "path": "extension/background.js",
+        "symbol": "send(msg)",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          39,
+          49
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/extension/background.js#L39-L49"
+      },
+      {
+        "path": "Sources/ContextRecorder/ActivityLog.swift",
+        "symbol": "ActivityLog.sample()",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          42,
+          50
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/ActivityLog.swift#L42-L50"
+      },
+      {
+        "path": "Sources/ContextRecorder/Library/SessionData.swift",
+        "symbol": "PageSnapshot",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          69,
+          80
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Sources/ContextRecorder/Library/SessionData.swift#L69-L80"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E20",
+        "url": "https://developer.chrome.com/docs/extensions/reference/api/pageCapture",
+        "accessed": "2026-10-13",
+        "supports": "saveAsMHTML and pageCapture permission; saved page archive API."
+      },
+      {
+        "id": "E21",
+        "url": "https://github.com/rrweb-io/rrweb",
+        "accessed": "2026-10-13",
+        "supports": "DOM snapshots, incremental recording/replay components and MIT license."
+      },
+      {
+        "id": "E22",
+        "url": "https://drafts.csswg.org/cssom-view/#dom-window-devicepixelratio",
+        "accessed": "2026-10-13",
+        "supports": "CSS viewport coordinates, devicePixelRatio and page zoom semantics."
+      }
+    ],
+    "alternatives": [
+      "Mandatory rrweb: larger recording/privacy/replay scope and excludes generic video.",
+      "Interpolate mark scroll offsets: unsupported continuous trajectory.",
+      "DOM-only reconstruction: may include unseen or differently rendered content."
+    ],
+    "benefit": "Adds instrumentation where it removes a demonstrated ambiguity without making it a precondition.",
+    "cost": "Extension/native clock handshake, event throttling, document/container identity and permission/privacy review.",
+    "confidence": {
+      "level": "medium",
+      "basis": "API/recorder gaps are known; marginal benefit has not been measured."
+    },
+    "validation": {
+      "status": "unrun",
+      "experiments": [
+        "P2",
+        "P5"
+      ],
+      "gates": [
+        "G1",
+        "G2"
+      ],
+      "method": "Ablate identical clips video-only versus measured-scroll hints; require fewer abstentions with no additional false joins."
+    }
+  },
+  {
+    "id": "VC-09",
+    "title": "Use four decisive gates before broad implementation",
+    "userProblem": "A small project needs evidence of truthful spatial value, not an open-ended benchmark effort.",
+    "proposal": "Run the staged proof on eight directed short clips and actual narrated product recordings, with raw-video and change-keyframe baselines. Require truth/provenance, useful spatial coverage, personal task value and bounded resources. Allow one targeted method revision; reject or narrow stitching if it cannot pass. Do not turn unrun experiments into feasibility claims.",
+    "repositoryEvidence": [
+      {
+        "path": "Package.swift",
+        "symbol": "package targets",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          7,
+          20
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/Package.swift#L7-L20"
+      },
+      {
+        "path": "README.md",
+        "symbol": "session output",
+        "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+        "lines": [
+          96,
+          114
+        ],
+        "url": "https://github.com/byronwall/context-recorder/blob/016684895df51872aeea1be5e93e28419fd63a7f/README.md#L96-L114"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E10",
+        "url": "https://github.com/Haruhiyuki/scrollsnap",
+        "accessed": "2026-10-13",
+        "supports": "Closely related scroll-recording reconstruction with page coordinates, boundaries, mosaics/tiles and crop traceability. Author-maintained benchmark reports exist."
+      },
+      {
+        "id": "E14",
+        "url": "https://arxiv.org/abs/1609.08080",
+        "accessed": "2026-10-13",
+        "supports": "Author paper abstract describes navigable two-dimensional collections of video frames and uncertain pairwise translation."
+      }
+    ],
+    "alternatives": [
+      "Build the full editor first: hides automatic failures behind manual work.",
+      "Synthetic-only score: does not establish value on real recordings.",
+      "Judge only visual appeal: can reward misleading composites."
+    ],
+    "benefit": "Creates a concrete stop/go decision for Codex and preserves a simpler fallback.",
+    "cost": "Local fixture creation, small manual ground truth and a counterbalanced personal task comparison.",
+    "confidence": {
+      "level": "high for the decision process; all performance outcomes unknown",
+      "basis": "No sample recording or existing test suite is available in this baseline."
+    },
+    "validation": {
+      "status": "unrun",
+      "experiments": [
+        "P0",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5"
+      ],
+      "gates": [
+        "G1",
+        "G2",
+        "G3",
+        "G4"
+      ],
+      "method": "Record raw counts, failures, thresholds and hardware; score automatic outputs before any corrections."
+    }
+  }
+]

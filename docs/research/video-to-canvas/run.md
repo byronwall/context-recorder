@@ -23,8 +23,8 @@ Completion requires readable collected artifacts, reconciled findings, recorded 
 - Prompt: [pro-prompt.md](pro-prompt.md)
 - User intent: [intent-brief.md](intent-brief.md)
 - Mode: research and artifact production; Codex owns local integration.
-- Phase: submitted; Pro is researching.
-- Round: initial request submitted; no follow-ups used. Limit: two follow-ups.
+- Phase: collected, assessed, and integrated; review PR pending.
+- Round: initial request complete; no follow-ups needed or used. Limit: two follow-ups.
 - Pro conversation: https://chatgpt.com/c/6acedea9-bee8-83ea-a73e-6f127f7a1891
 - Model: GPT-6 selected; Pro power observed at level 5 of 5.
 - Session: Chrome profile `byroni.us`; ChatGPT account menu showed `Byron Wall Pro`.
@@ -33,7 +33,8 @@ Completion requires readable collected artifacts, reconciled findings, recorded 
 - Verification: both attachment names appeared in the sent message; the page showed `ChatGPT is responding` and a Stop control.
 - Later observation: Pro inspected the Swift package, parsed the packet, checked hashes, and searched primary sources.
 - Submission screenshot: `tmp/video-to-canvas/pro-submitted.jpg` (local evidence, not committed).
-- Next check: October 13, 2026, 10:45 p.m. America/Indiana/Indianapolis; 02:45 UTC on October 14.
+- First continuation: October 13, 2026, 10:48 p.m. America/Indiana/Indianapolis; 02:48 UTC on October 14.
+- Pro had completed after 36 minutes and 30 seconds. Collection began in the existing conversation.
 - Heartbeat: `continue-video-to-canvas-pro-research`, active, hourly at minute 45, attached to this chat.
 - Schedule verified from the saved automation file. Disable after the verified PR endpoint or an essential user blocker.
 - Initial scheduler approval was rejected for missing authorization. A retry cited the user's full-process request and the skill's explicit heartbeat instruction. The retry succeeded.
@@ -58,12 +59,25 @@ Completion requires readable collected artifacts, reconciled findings, recorded 
 - `python3 scripts/process_session.py --help`: passed.
 - `git diff --check`: passed before the checkpoint.
 - `swift build`: first failed under the filesystem sandbox because compiler caches were not writable.
-- Retried `swift build` with approved cache access. Result pending; log at `tmp/video-to-canvas/swift-build.log`.
+- Retried `swift build` with approved cache access. Passed in 229.47 seconds; log at `tmp/video-to-canvas/swift-build.log`.
+- Existing warning: `Recorder.swift:88` captures a non-Sendable value in a `@Sendable` closure. No application source changed.
+- A temporary document validator checked six collected files, archive safety and integrity, and standalone/archive byte equality.
+- All nine recommendation IDs and required fields passed. All 32 repository references resolve within their baseline files.
+- External source IDs resolve to the supplied ledger. Both proposed JSON examples parse and match.
+- Four example patches passed bounds, translation, inverse mapping, visit, image, frame-time, and ownership checks.
+- All local links in authored research documents and README resolved, including Markdown anchors.
+- Validation script: `tmp/video-to-canvas/validate_research.py`. This is local evidence, not a new application test suite.
 - No canvas behavior exists to test. No product experiment has run.
 
 ## Collection and review
 
-No Pro artifacts collected yet.
-No research findings adopted yet.
-No product experiment has run.
-PR: pending.
+- Originals: [pro-output](pro-output/video-to-canvas-report.md); six files, including the ZIP and all standalone companions.
+- Collection time: October 14, 2026, 02:53 UTC. Names, sizes, hashes, and paths: [collection-manifest.json](collection-manifest.json).
+- All requested deliverables and five priority questions were assessed. No material gap required a follow-up.
+- Every recommendation has a disposition in [research-review.md](research-review.md).
+- Result: [proposed design](design.md) and [proof plan](proof-plan.md).
+- First proposed proof: one scrolling viewport, one changed state, and one refused join, with source playback and narration.
+- Independently checked repository integration claims and decisive OpenCV, scrollsnap, and FFmpeg capabilities.
+- Dependency compatibility, reconstruction accuracy, resource use, and user value remain untested.
+- No product experiment has run. No implementation, merge, or deployment occurred.
+- PR: pending.

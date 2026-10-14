@@ -1,0 +1,60 @@
+{
+  "conversation": "https://chatgpt.com/c/6acedea9-bee8-83ea-a73e-6f127f7a1891",
+  "retrievedAt": "2026-10-14T02:53:43.438439+00:00",
+  "artifacts": [
+    {
+      "name": "manifest.json",
+      "bytes": 888,
+      "sha256": "1afb7d0483c478f43cfbe4f11fe1eb1ee49890e76de8e0bf7aa86b845c18778e",
+      "downloadPath": "/Users/byronwall/Downloads/manifest (1).json",
+      "localPath": "docs/research/video-to-canvas/pro-output/manifest.json"
+    },
+    {
+      "name": "video-to-canvas-proof-plan.md",
+      "bytes": 44132,
+      "sha256": "ba62ae9d20129ae65c0842ff2c69488621a697d6091b510273d8cdb48d66375e",
+      "downloadPath": "/Users/byronwall/Downloads/video-to-canvas-proof-plan.md",
+      "localPath": "docs/research/video-to-canvas/pro-output/video-to-canvas-proof-plan.md"
+    },
+    {
+      "name": "video-to-canvas-recommendations.json",
+      "bytes": 35811,
+      "sha256": "b97cf5c7920b7409771744019e97673f450075e7a096931db94472cd24bb5189",
+      "downloadPath": "/Users/byronwall/Downloads/video-to-canvas-recommendations.json",
+      "localPath": "docs/research/video-to-canvas/pro-output/video-to-canvas-recommendations.json"
+    },
+    {
+      "name": "video-to-canvas-report.md",
+      "bytes": 70512,
+      "sha256": "bd3690a724ad88f9c79ccc811d876aa8035f7886be347028f439389ad7b0bd37",
+      "downloadPath": "/Users/byronwall/Downloads/video-to-canvas-report.md",
+      "localPath": "docs/research/video-to-canvas/pro-output/video-to-canvas-report.md"
+    },
+    {
+      "name": "video-to-canvas-research.zip",
+      "bytes": 59533,
+      "sha256": "660f771e7d738e878adca0b5c5e0c57f9e360b423752948198835850a7655175",
+      "downloadPath": "/Users/byronwall/Downloads/video-to-canvas-research.zip",
+      "localPath": "docs/research/video-to-canvas/pro-output/video-to-canvas-research.zip"
+    },
+    {
+      "name": "video-to-canvas-sources.md",
+      "bytes": 34444,
+      "sha256": "3c3d2873976bf2c0149297a8d8023c40e1423db6bd9138008df6c8e929a0910f",
+      "downloadPath": "/Users/byronwall/Downloads/video-to-canvas-sources.md",
+      "localPath": "docs/research/video-to-canvas/pro-output/video-to-canvas-sources.md"
+    }
+  ],
+  "checks": {
+    "zipIntegrity": "passed",
+    "archivePaths": "five flat Markdown/JSON files; no traversal or symlinks",
+    "manifestHashes": "four substantive files match",
+    "standaloneComparison": "all five standalone companions match archive copies",
+    "recommendations": "nine unique IDs, VC-01 through VC-09"
+  },
+  "collectionNotes": [
+    "The browser download-event wait timed out, but the ZIP was saved to Downloads. No research restart was needed.",
+    "A second report download produced an identical copy named video-to-canvas-report (1).md.",
+    "The standalone manifest was saved as manifest (1).json; its bytes match the archive manifest."
+  ]
+}

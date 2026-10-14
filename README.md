@@ -132,3 +132,4 @@ Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `p
 ## Next
 
 - rrweb DOM recording, to replay the DOM over time alongside the video.
+- [Video to canvas research](docs/research/video-to-canvas/design.md): a proposed spatial storyboard and a small proof plan. Not implemented.
