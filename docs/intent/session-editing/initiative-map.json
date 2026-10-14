@@ -4,11 +4,11 @@
     "title": "Session editing: trim, combine, annotate",
     "slug": "session-editing",
     "scale": "capability",
-    "current_phase": "plan",
+    "current_phase": "execution",
     "last_updated": "2026-10-13",
     "summary": "Cut arbitrary ranges from a session, join sessions, and add a RegionShot-style annotation layer over the video, keeping marks, narration, transcript, activity and page events aligned with the edited video.",
-    "status": "planned",
-    "next_action": "Start M1 when implementation is requested: segment conversion in process_session.py with shared fixture, composition playback, review marks in original time."
+    "status": "active",
+    "next_action": "Implement M1."
   },
   "artifacts": {
     "intent_brief": {
@@ -474,10 +474,10 @@
     "open_decisions": []
   },
   "implementation": {
-    "status": "not-started",
+    "status": "active",
     "repository_snapshot": {
       "root": ".",
-      "revision": "0166848",
+      "revision": "0619286",
       "worktree_status": "clean (docs/ untracked)",
       "subsystems": [
         "scripts/process_session.py",
@@ -644,6 +644,11 @@
       "date": "2026-10-13",
       "event": "Implementation plan written: five milestones, three spikes, AVFoundation composition as the one material dependency.",
       "status": "planned"
+    },
+    {
+      "date": "2026-10-13",
+      "event": "Reconciled with main (f5ffee4): sidebar multi-select used for Join; range selection moved to Shift-drag because ruler now holds mark pins; FramePreviews must use the composition; UI fixture harness adopted for verification. Plan otherwise unchanged.",
+      "status": "active"
     }
   ],
   "closure": null

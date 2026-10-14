@@ -18,7 +18,7 @@ last_updated: "2026-10-13"
 Session editing
 ├── PLANNED ADDITIONS
 │   ├── Cut any range
-│   │   ├── Select a range: drag on the ruler, or press I and O at the playhead
+│   │   ├── Select a range: Shift-drag on the timeline, or press I and O at the playhead
 │   │   ├── Delete removes it; any number of cuts, anywhere
 │   │   ├── Timeline closes the gap; "Show cuts" reveals removed ranges, hatched
 │   │   └── Undo/redo per cut; restore a single cut; "Restore original"

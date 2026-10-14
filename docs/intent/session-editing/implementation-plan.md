@@ -36,8 +36,8 @@ Every milestone leaves the app shippable. A session without `edits.json` behaves
 - **Fast local loop:**
   1. `python3 -m unittest scripts/test_process_session.py`: pure conversion and filtering, no ffmpeg needed.
   2. `python3 scripts/process_session.py tmp/<copy>`.
-  3. `swift run ContextRecorder --library tmp/` to look at the result. Set `CR_APPEARANCE=dark` to check dark mode.
-- **Local dependencies:** session folders copied from `~/Movies/ContextRecorder` into `tmp/` (which git ignores), and a JSON fixture of conversion cases at `scripts/fixtures/edit-cases.json` shared by the Python tests and a Swift `--self-test edits` launch flag. No network.
+  3. `python3 scripts/ui-test/harness.py run --session <fixture>` (the fixture harness merged from main) to look at the result. Screenshots come from `screencapture -l <window id>`.
+- **Local dependencies:** the harness's fixture copies in `tmp/ui-test/fixtures` (`harness.py prepare`), and a JSON fixture of conversion cases at `scripts/fixtures/edit-cases.json` shared by the Python tests and a Swift `--self-test edits` launch flag. No network.
 - **Live confirmation:** the installed app (`./scripts/build-app.sh`) on a fresh recording, once per milestone.
 - **Rollout and rollback:** this is purely additive. Without `edits.json` and `annotations.json` the code paths match today's. Raw files are never written by editing. Deleting either file returns the session to its pre-edit state.
 
@@ -67,6 +67,7 @@ This proves the time model with no new interface. It deliberately leaves out ran
     - Transcript sentences are kept when more than half survives, with times clamped. Tokens are filtered the same way, so narration windows quote only kept speech.
   - Frames are extracted at `sourceOffsetSeconds` from the source recording, so the cache still works.
   - The Markdown video line becomes `` `<source>/recording.mp4` @ <original>s ``, keeping the reference to real footage.
+  - The timeline's hover previews (`FramePreviews`, new on main) read from the same composition, so they show edited time.
   - Verify with `scripts/test_process_session.py` against `scripts/fixtures/edit-cases.json`, covering:
     - a cut at the start, the middle and the end;
     - back-to-back cuts;
@@ -100,10 +101,10 @@ This proves the time model with no new interface. It deliberately leaves out ran
 This turns M1's file format into a gesture. It leaves out joins and annotations.
 
 - **Change: range selection in `SessionTimeline`**
-  - Dragging in the ruler lane selects a range. Dragging elsewhere still seeks.
+  - Shift-drag on any lane selects a range. A plain drag still seeks, and the ruler keeps its mark pins (main moved the marks onto the ruler, so the ruler can't own selection).
   - I and O set the start and end of the selection at the playhead. Esc clears it.
   - The selection shows as a band across every lane, with its length.
-  - Verify in the debug app by selecting through the ruler and with I/O on a `tmp/` session.
+  - Verify in the debug app by selecting with I/O and a new `--select <a,b>` launch flag on a harness fixture.
 - **Change: edit commands on `SessionModel` (`Edits.swift`, alongside `Review.swift`)**
   - Delete removes the selection. Edited times are converted to original ranges, so the new segment list is computed from original ranges, not from times on screen.
   - Each change writes `edits.json` and rebuilds the composition straight away. Context lanes refresh when the reprocess finishes, with "Updating…" shown in `reviewStatus`.
@@ -132,8 +133,8 @@ This turns M1's file format into a gesture. It leaves out joins and annotations.
 
 This is the second user of the segment model. It leaves out picking ranges across sources and reordering.
 
-- **Change: "Join Sessions…" command (`LibraryView`)**
-  - A sheet lists sessions with checkboxes and lets you order the ones you pick. This avoids switching the sidebar `List` to multiple selection.
+- **Change: "Join Sessions" command (`LibraryView`)**
+  - The sidebar already supports multiple selection (merged from main). With two or more sessions selected, the selection summary and the context menu offer **Join**, ordered by recording time.
   - Join creates `<root>/<timestamp>-joined/`. Its `edits.json` holds one full-length segment for each picked source, in order, plus a `sources` list. It has no `recording.mp4`.
   - The new session opens as soon as processing finishes.
 - **Change: multi-source processing in `process_session.py`**
