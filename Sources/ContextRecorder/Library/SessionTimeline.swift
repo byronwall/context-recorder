@@ -83,7 +83,7 @@ struct SessionTimeline: View {
                 .onContinuousHover(coordinateSpace: .local) { phase in
                     if case .active(let p) = phase {
                         hover = p
-                        previews?.request(t(p.x, w))
+                        previews?.request(min(t(p.x, w), max(0, model.duration - 0.5)))
                     } else {
                         hover = nil
                     }
@@ -95,7 +95,7 @@ struct SessionTimeline: View {
                        i + 1 < args.count, let fraction = Double(args[i + 1]) {
                         let point = CGPoint(x: min(1, max(0, fraction)) * w, y: 0)
                         hover = point
-                        previews?.request(t(point.x, w))
+                        previews?.request(min(t(point.x, w), max(0, model.duration - 0.5)))
                     }
                 }
             }

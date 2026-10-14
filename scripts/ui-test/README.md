@@ -19,12 +19,12 @@ python3 scripts/ui-test/harness.py run --session 2026-10-13_00-57-10 --tab trans
 python3 scripts/ui-test/harness.py run --session 2026-10-13_00-57-10 --recording-fixture 2026-10-13_00-57-10
 python3 scripts/ui-test/harness.py run --session 2026-10-13_00-57-10 --export "$PWD/tmp/ui-test/project"
 python3 scripts/ui-test/harness.py run --session 2026-10-13_20-48-53 --timeline-hover 0.5
-python3 scripts/ui-test/harness.py run --session 2026-10-13_20-48-53 --window-width 900 --timeline-hover 0
-python3 scripts/ui-test/harness.py run --session 2026-10-13_20-48-53 --window-width 900 --timeline-hover 1
+python3 scripts/ui-test/harness.py run --session 2026-10-13_20-48-53 --window-width 1100 --timeline-hover 0
+python3 scripts/ui-test/harness.py run --session 2026-10-13_20-48-53 --window-width 1100 --timeline-hover 1
 python3 scripts/ui-test/harness.py run --capture --session 2026-10-13_20-48-53
 ```
 
-`run` calls `swift run ContextRecorder --library <fixtures-root>` and passes `--session`, `--tab`, `--recording-fixture`, `--mark`, `--export`, `--timeline-hover`, `--window-width`, and `--capture`. Width must be at least 900 points. The timeline flag opens the hover card at a deterministic fraction, including the `0` and `1` edges. It checks the hover-card renderer; it does not simulate a mouse move.
+`run` calls `swift run ContextRecorder --library <fixtures-root>` and passes `--session`, `--tab`, `--recording-fixture`, `--mark`, `--export`, `--timeline-hover`, `--window-width`, and `--capture`. Width must be at least 1100 points. The timeline flag opens the hover card at a deterministic fraction, including the `0` and `1` edges. It checks the hover-card renderer; it does not simulate a mouse move.
 
 For non-UI checks, run:
 
@@ -132,11 +132,11 @@ Open the simulated timeline hover card for a screenshot with:
 ```sh
 python3 scripts/ui-test/harness.py launch --session 2026-10-13_20-48-53 --timeline-hover 0.5
 python3 scripts/ui-test/harness.py stop
-python3 scripts/ui-test/harness.py launch --session 2026-10-13_20-48-53 --window-width 900 --timeline-hover 0
+python3 scripts/ui-test/harness.py launch --session 2026-10-13_20-48-53 --window-width 1100 --timeline-hover 0
 python3 scripts/ui-test/harness.py stop
-python3 scripts/ui-test/harness.py launch --session 2026-10-13_20-48-53 --window-width 900 --timeline-hover 1
+python3 scripts/ui-test/harness.py launch --session 2026-10-13_20-48-53 --window-width 1100 --timeline-hover 1
 ```
 
-For edge cards in a narrow window, use `--timeline-hover 0` or `--timeline-hover 1` with `--window-width 900`. `runPR11` checks a selected ruler pin against Playhead Details. It can also click and drag the timeline when you provide points measured from a fresh screenshot. Those gestures assert that the playhead changed; inspect the screenshot to judge pointer placement and preview details.
+For edge cards in a narrow window, use `--timeline-hover 0` or `--timeline-hover 1` with `--window-width 1100`. `runPR11` checks a selected ruler pin against Playhead Details. It can also click and drag the timeline when you provide points measured from a fresh screenshot. Those gestures assert that the playhead changed; inspect the screenshot to judge pointer placement and preview details.
 
 Screenshot files are temporary and must not be committed. Use the CUA REPL driver for all computer UI actions.

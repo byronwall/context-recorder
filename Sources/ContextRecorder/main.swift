@@ -85,7 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
             }
             library.show(session: devLibraryFolder)
-            if let width = value("--window-width").flatMap(Double.init), width >= 900 {
+            if let width = value("--window-width").flatMap(Double.init), width >= 1100 {
                 library.window?.setContentSize(NSSize(width: width, height: 820))
                 library.window?.center()
             }

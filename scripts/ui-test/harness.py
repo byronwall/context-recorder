@@ -41,9 +41,9 @@ def window_width(value: str) -> int:
     try:
         number = int(value)
     except ValueError as error:
-        raise argparse.ArgumentTypeError("window width must be an integer of at least 900") from error
-    if number < 900:
-        raise argparse.ArgumentTypeError("window width must be at least 900")
+        raise argparse.ArgumentTypeError("window width must be an integer of at least 1100") from error
+    if number < 1100:
+        raise argparse.ArgumentTypeError("window width must be at least 1100")
     return number
 
 
@@ -283,10 +283,10 @@ def self_check() -> None:
     assert not process_matches("/Applications/Context Recorder.app/Contents/MacOS/ContextRecorder --library x", "today", exe, "today")
     assert not process_matches(valid, "yesterday", exe, "today")
     assert not process_matches("/usr/bin/python --library x", "today", exe, "today")
-    args = argparse.Namespace(session=None, tab=None, recording_fixture=None, mark=None, export=None, timeline_hover=0.5, window_width=900, capture=False)
+    args = argparse.Namespace(session=None, tab=None, recording_fixture=None, mark=None, export=None, timeline_hover=0.5, window_width=1100, capture=False)
     command = app_command(args, "ContextRecorder")
     assert command[command.index("--timeline-hover"):command.index("--timeline-hover") + 2] == ["--timeline-hover", "0.5"]
-    assert command[command.index("--window-width"):command.index("--window-width") + 2] == ["--window-width", "900"]
+    assert command[command.index("--window-width"):command.index("--window-width") + 2] == ["--window-width", "1100"]
     args.capture = True
     assert app_command(args, "ContextRecorder").count("--capture") == 1
     print("Fixture path and process identity gates passed.")
@@ -302,7 +302,7 @@ def main() -> None:
     launch_parser.add_argument("--recording-fixture", choices=SESSIONS)
     launch_parser.add_argument("--mark", type=int)
     launch_parser.add_argument("--timeline-hover", type=fraction, help="show the timeline hover card at a fraction from 0 to 1")
-    launch_parser.add_argument("--window-width", type=window_width, help="set test window width in points (minimum 900)")
+    launch_parser.add_argument("--window-width", type=window_width, help="set test window width in points (minimum 1100)")
     launch_parser.add_argument("--export", help="open export for this project folder")
     launch_parser.add_argument("--capture", action="store_true", help="enable isolated production capture for fixture-library output")
     launch_parser.add_argument("--appearance", choices=("light", "dark"))
@@ -312,7 +312,7 @@ def main() -> None:
     run_parser.add_argument("--recording-fixture", choices=SESSIONS)
     run_parser.add_argument("--mark", type=int)
     run_parser.add_argument("--timeline-hover", type=fraction, help="show the timeline hover card at a fraction from 0 to 1")
-    run_parser.add_argument("--window-width", type=window_width, help="set test window width in points (minimum 900)")
+    run_parser.add_argument("--window-width", type=window_width, help="set test window width in points (minimum 1100)")
     run_parser.add_argument("--export", help="open export for this project folder")
     run_parser.add_argument("--capture", action="store_true", help="enable isolated production capture for fixture-library output")
     run_parser.add_argument("--appearance", choices=("light", "dark"))

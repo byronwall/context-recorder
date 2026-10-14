@@ -315,8 +315,7 @@ globalThis.crUiTest = (() => {
 
   async function quickLook(imagePattern) {
     await click(imagePattern);
-    for (let attempt = 0; attempt < 20 && !controls().some(node => node.role === "window" && node.depth === 0 && /quick ?look/i.test(node.label)); attempt++) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    for (let attempt = 0; attempt < 3 && !controls().some(node => node.role === "window" && node.depth === 0 && /quick ?look/i.test(node.label)); attempt++) {
       await fresh();
     }
     if (!controls().some(node => node.role === "window" && node.depth === 0 && /quick ?look/i.test(node.label))) {
