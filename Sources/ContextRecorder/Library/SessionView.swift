@@ -278,14 +278,22 @@ struct Transport: View {
     var model: SessionModel
 
     var body: some View {
+        // Narrow windows drop the 5-second skips (← → still work) before anything gets clipped.
+        ViewThatFits(in: .horizontal) {
+            controls(compact: false)
+            controls(compact: true)
+        }
+    }
+
+    private func controls(compact: Bool) -> some View {
         HStack(spacing: 4) {
             control("flag", "Add a mark here (M)") { Task { await model.addReviewMark() } }
             control("camera.viewfinder", "Capture a region of this frame (S)") { model.player.pause(); model.regionMode = true }
 
-            Divider().frame(height: 18).padding(.horizontal, 6)
+            Divider().frame(height: 18).padding(.horizontal, compact ? 2 : 6)
 
             control("backward.end.fill", "Previous mark (K)") { model.step(-1) }
-            control("gobackward.5", "Back 5 seconds (←)") { model.skip(-5) }
+            if !compact { control("gobackward.5", "Back 5 seconds (←)") { model.skip(-5) } }
             Button { model.togglePlay() } label: {
                 Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 20, weight: .semibold))
@@ -296,15 +304,16 @@ struct Transport: View {
             .buttonStyle(.plain)
             .help("Play or pause (Space)")
             .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
-            control("goforward.5", "Forward 5 seconds (→)") { model.skip(5) }
+            if !compact { control("goforward.5", "Forward 5 seconds (→)") { model.skip(5) } }
             control("forward.end.fill", "Next mark (J)") { model.step(1) }
 
-            Divider().frame(height: 18).padding(.horizontal, 6)
+            Divider().frame(height: 18).padding(.horizontal, compact ? 2 : 6)
 
             Text("\(Format.time(model.currentTime))  /  \(Format.time(model.duration))")
                 .font(.system(size: 12, weight: .medium).monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 84)
+                .fixedSize()
                 .accessibilityLabel("\(Format.time(model.currentTime)) of \(Format.time(model.duration))")
 
             Menu {
@@ -327,6 +336,7 @@ struct Transport: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .glassEffect(.regular, in: .capsule)
+        .fixedSize()
     }
 
     private func control(_ symbol: String, _ help: String, action: @escaping () -> Void) -> some View {

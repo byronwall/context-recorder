@@ -40,7 +40,8 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
                               backing: .buffered, defer: false)
         window.title = "Sessions"
         window.toolbarStyle = .unified
-        window.minSize = NSSize(width: 1100, height: 560)
+        // Sidebar (220) + inspector (340) + room for the compact transport.
+        window.minSize = NSSize(width: 980, height: 560)
         window.isReleasedWhenClosed = false
         super.init(window: window)
         let host = NSHostingController(rootView: LibraryView(state: state).frame(minWidth: 0, minHeight: 0))
