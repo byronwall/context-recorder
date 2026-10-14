@@ -144,7 +144,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         let images = CanvasImages()
                         images.load(doc, folder: model.folder)
                         let scale = value("--canvas-scale").flatMap(Double.init) ?? 0.3
-                        let renderer = ImageRenderer(content: CanvasStrip(model: model, doc: doc, images: images, scale: scale)
+                        // `--canvas-hover <item>,<fraction>`: as if the pointer were that far down the item.
+                        var hover: (id: String, y: CGFloat)?
+                        if let h = value("--canvas-hover")?.split(separator: ",").compactMap({ Double($0) }), h.count == 2,
+                           doc.items.indices.contains(Int(h[0])) {
+                            let item = doc.items[Int(h[0])]
+                            hover = (item.id, CGFloat(Double(item.height) * h[1] * scale))
+                            model.previewTime = item.frame(atImageY: Double(item.height) * h[1]).time
+                        }
+                        let renderer = ImageRenderer(content: CanvasStrip(model: model, doc: doc, images: images, scale: scale, hover: hover)
                             .background(Color(nsColor: .underPageBackgroundColor)))
                         renderer.scale = 2
                         if let image = renderer.cgImage { try? CanvasAnalyzer.writePNG(image, to: URL(fileURLWithPath: path)) }

@@ -105,6 +105,14 @@ struct CanvasStrip: View {
     var scale: CGFloat
     @State private var hoverY: (id: String, y: CGFloat)?
 
+    init(model: SessionModel, doc: CanvasDocument, images: CanvasImages, scale: CGFloat, hover: (id: String, y: CGFloat)? = nil) {
+        self.model = model
+        self.doc = doc
+        self.images = images
+        self.scale = scale
+        _hoverY = State(initialValue: hover)
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 26) {
             ForEach(doc.items) { item in
@@ -151,6 +159,18 @@ struct CanvasStrip: View {
             .clipShape(.rect(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(current ? Color.accentColor : .black.opacity(0.12),
                                                                      lineWidth: current ? 2 : 0.5))
+            .overlay(alignment: .topTrailing) {
+                // In a column, rows come from different moments: show when the row under the pointer was on screen.
+                if item.kind == .column, let hover = hoverY, hover.id == item.id {
+                    Text(Format.time(item.frame(atImageY: Double(hover.y / scale)).time))
+                        .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.accentColor, in: .capsule)
+                        .offset(x: 6, y: max(0, hover.y - 18))
+                        .allowsHitTesting(false)
+                }
+            }
             .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
             .contentShape(.rect)
             .onContinuousHover(coordinateSpace: .local) { phase in

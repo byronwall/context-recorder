@@ -34,6 +34,26 @@ enum Geometry {
             }
         }
         if falseJoins > 3 { failures.append("\(falseJoins) false joins in total") }
+
+        // Hover and click: for rows across each column, the frame `frame(atImageY:)` returns must show that row
+        // of the page inside the box when the video is at that frame.
+        var mapped = 0, misses = 0
+        for col in columns {
+            let offsets = col.patches.map { truth.scrollY[$0.frame.index] + $0.sourceY - $0.destY }
+            guard let top = median(offsets) else { continue }
+            for i in 0..<25 {
+                let y = Double(col.height - 1) * Double(i) / 24
+                let f = col.frame(atImageY: y)
+                let pageRow = top + Int(y)
+                let visible = truth.scrollY[f.index]..<(truth.scrollY[f.index] + truth.box.height)
+                mapped += 1
+                if !visible.contains(pageRow) {
+                    misses += 1
+                    if misses <= 2 { failures.append("\(col.id): row \(Int(y)) maps to frame \(f.index), which doesn't show it") }
+                }
+            }
+        }
+        notes.append("row → frame mapping: \(mapped - misses)/\(mapped) rows land on a frame that shows them")
         let sorted = errors.sorted()
         let p95 = sorted.isEmpty ? 0 : sorted[min(sorted.count - 1, Int(Double(sorted.count) * 0.95))]
         notes.append("patches \(errors.count), p95 error \(p95) px, max \(sorted.last ?? 0) px")

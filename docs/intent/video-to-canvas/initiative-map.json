@@ -8,7 +8,7 @@
     "last_updated": "2026-10-14",
     "summary": "Turn a narrated screen recording into a spatial, source-linked canvas reviewed in the portable HTML viewer; storyboard first, verified scroll joining second.",
     "status": "active",
-    "next_action": "M3: tall columns in Canvas mode on scripted recordings"
+    "next_action": "M4: copy/export column PNG and mark from canvas"
   },
   "artifacts": {
     "intent_brief": {
@@ -489,7 +489,10 @@
         "proof": "Click-to-frame spot checks and seam inspection.",
         "valid_intermediate_state": "Canvas usable on short real recordings.",
         "rollback": "Storyboard only.",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "canvas-tool check row->frame mapping 100% of sampled rows on all fixture columns; real 97 s session renders tall columns with hover time badge (offscreen render); scripted recordings by Byron still pending, real sessions used instead"
+        ]
       },
       {
         "id": "M4",
@@ -556,6 +559,11 @@
       "date": "2026-10-14",
       "phase": "execution",
       "change": "M2: bake-off chose the in-app row-profile estimator (100% exact, 3.9 ms/pair, ambiguity signal, no dependency) over Vision (99.7%, 416 px miss) and OpenCV (100%, 25 ms, 50 MB dep). Added sub-pixel-tolerant verification and sticky-sidebar cropping from real footage."
+    },
+    {
+      "date": "2026-10-14",
+      "phase": "execution",
+      "change": "M3: columns in Canvas mode with a hover time badge; row-to-frame mapping check added to canvas-tool. Purpose-made scripted recordings not yet recorded; existing real sessions stood in."
     }
   ],
   "closure": null,
