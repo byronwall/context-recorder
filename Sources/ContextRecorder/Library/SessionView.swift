@@ -11,6 +11,7 @@ struct SessionView: View {
 
     var body: some View {
         content
+            .frame(minWidth: 0, minHeight: 0)
             .navigationTitle(title)
             .navigationSubtitle(subtitle)
             .inspector(isPresented: $showInspector) {
@@ -266,6 +267,10 @@ struct PlayerSurface: NSViewRepresentable {
     func updateNSView(_ view: AVPlayerView, context: Context) {
         if view.player !== player { view.player = player }
     }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: AVPlayerView, context: Context) -> CGSize? {
+        proposal.replacingUnspecifiedDimensions()
+    }
 }
 
 /// QuickTime-style floating controls in Liquid Glass.
@@ -359,6 +364,7 @@ struct NowStrip: View {
                         if let u = ctx?.browserURL, let url = URL(string: u) {
                             Link(destination: url) {
                                 Text(u.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: ""))
+                                    .lineLimit(1)
                             }
                             .layoutPriority(-1)
                             .help(u)
