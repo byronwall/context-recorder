@@ -78,9 +78,9 @@ struct SessionView: View {
                 Divider()
                 Button("Copy Folder Path", systemImage: "link") { copy(model.folder.path) }
                 Divider()
-                Button("Undo Cut", systemImage: "arrow.uturn.backward") { model.undoEdit() }
+                Button("Undo", systemImage: "arrow.uturn.backward") { model.undoEdit() }
                     .disabled(!model.canUndoEdit)
-                Button("Redo Cut", systemImage: "arrow.uturn.forward") { model.redoEdit() }
+                Button("Redo", systemImage: "arrow.uturn.forward") { model.redoEdit() }
                     .disabled(!model.canRedoEdit)
                 Button("Restore Original Recording", systemImage: "film") { model.restoreOriginal() }
                     .disabled(model.edits == nil)
@@ -131,6 +131,7 @@ struct Stage: View {
             Color.stage
             PlayerSurface(player: model.player)
                 .aspectRatio(aspect, contentMode: .fit)
+                .overlay { AnnotationLayer(model: model) }
                 .overlay {
                     if model.regionMode { RegionPicker(model: model) }
                 }
@@ -139,6 +140,8 @@ struct Stage: View {
                 .overlay {
                     if model.regionMode {
                         RoundedRectangle(cornerRadius: 10).strokeBorder(Color.shot, lineWidth: 2)
+                    } else if model.drawMode {
+                        RoundedRectangle(cornerRadius: 10).strokeBorder(Color.accentColor, lineWidth: 2)
                     }
                 }
                 .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
@@ -147,7 +150,7 @@ struct Stage: View {
                 .padding(.top, 22)
                 .padding(.bottom, 74)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onTapGesture { if !model.regionMode { model.togglePlay() } }
+                .onTapGesture { if !model.regionMode && !model.drawMode { model.togglePlay() } }
                 .accessibilityLabel("Recording")
                 .accessibilityAddTraits(.startsMediaSession)
 
@@ -155,6 +158,11 @@ struct Stage: View {
                 .padding(.bottom, 16)
                 .opacity(hovering || !model.isPlaying ? 1 : 0)
                 .animation(.easeOut(duration: 0.2), value: hovering || !model.isPlaying)
+        }
+        .overlay(alignment: .top) {
+            if model.drawMode && model.reviewStatus == nil && model.reviewError == nil {
+                DrawToolbar(model: model).padding(.top, 10)
+            }
         }
         .overlay(alignment: .top) {
             statusPill.padding(.top, 10)
@@ -295,6 +303,7 @@ struct Transport: View {
         HStack(spacing: 4) {
             control("flag", "Add a mark here (M)") { Task { await model.addReviewMark() } }
             control("camera.viewfinder", "Capture a region of this frame (S)") { model.player.pause(); model.regionMode = true }
+            control(model.drawMode ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle", "Draw on the video (E)") { model.enterDrawMode(!model.drawMode) }
 
             Divider().frame(height: 18).padding(.horizontal, compact ? 2 : 6)
 

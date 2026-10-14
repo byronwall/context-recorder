@@ -379,15 +379,29 @@ extension SessionModel {
     var canRedoEdit: Bool { !redoStack.isEmpty }
 
     func undoEdit() {
-        guard let previous = undoStack.popLast() else { return }
-        redoStack.append(edits?.segments)
-        apply(previous, recordUndo: false)
+        guard let step = undoStack.popLast() else { return }
+        redoStack.append(current(like: step))
+        restore(step)
     }
 
     func redoEdit() {
-        guard let next = redoStack.popLast() else { return }
-        undoStack.append(edits?.segments)
-        apply(next, recordUndo: false)
+        guard let step = redoStack.popLast() else { return }
+        undoStack.append(current(like: step))
+        restore(step)
+    }
+
+    private func current(like step: EditStep) -> EditStep {
+        switch step {
+        case .cuts: .cuts(edits?.segments)
+        case .annotations: .annotations(annotations)
+        }
+    }
+
+    private func restore(_ step: EditStep) {
+        switch step {
+        case .cuts(let segments): apply(segments, recordUndo: false)
+        case .annotations(let list): setAnnotations(list, undoable: false)
+        }
     }
 
     /// Writes the cut list (nil, or the whole recording, deletes edits.json) and updates everything.
@@ -396,7 +410,7 @@ extension SessionModel {
         let next = unedited ? nil : segments
         guard next != edits?.segments else { return }
         if recordUndo {
-            undoStack.append(edits?.segments)
+            undoStack.append(.cuts(edits?.segments))
             redoStack = []
         }
         selection = nil
@@ -413,6 +427,12 @@ extension SessionModel {
             do { try await reprocess() } catch { reviewError = error.localizedDescription }
         }
     }
+}
+
+/// One undoable change: the cut list or the annotations as they were before it.
+enum EditStep {
+    case cuts([Segment]?)
+    case annotations([Annotation])
 }
 
 /// edits.json on disk: only the kept ranges (process_session.py adds editedStart in session.json).

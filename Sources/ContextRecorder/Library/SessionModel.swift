@@ -62,6 +62,7 @@ final class SessionModel {
         playbackAsset = asset
         player = AVPlayer(playerItem: AVPlayerItem(asset: asset))
         player.actionAtItemEnd = .pause
+        annotations = AnnotationsFile.load(folder)
         reload()
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] t in
             MainActor.assumeIsolated {
@@ -116,9 +117,20 @@ final class SessionModel {
 
     /// The range picked on the timeline (Shift-drag, or I and O), in edited time.
     var selection: ClosedRange<Double>?
-    /// Earlier and undone cut lists for ⌘Z / ⇧⌘Z; nil means unedited.
-    var undoStack: [[Segment]?] = []
-    var redoStack: [[Segment]?] = []
+    /// Earlier and undone cut lists and annotation sets, for ⌘Z / ⇧⌘Z.
+    var undoStack: [EditStep] = []
+    var redoStack: [EditStep] = []
+
+    // Annotations (drawing over the video)
+    var annotations: [Annotation] = []
+    /// Draw mode: the video pauses and RegionShot's tool keys apply.
+    var drawMode = false
+    var tool: AnnotationTool = .select
+    var selectedAnnotation: UUID?
+    /// The text annotation whose inline editor is open.
+    var editingText: UUID?
+    var annotationColor = AnnotationPalette.defaultStroke
+    var highlightColor = AnnotationPalette.defaultHighlight
 
     @ObservationIgnored private var editGeneration = 0
     @ObservationIgnored private var seekCount = 0

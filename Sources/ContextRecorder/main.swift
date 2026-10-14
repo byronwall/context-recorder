@@ -149,6 +149,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if args.contains("--undo-edit") { model.undoEdit() }
                     if let n = value("--restore-cut").flatMap(Int.init), n < model.cuts.count { model.restore(model.cuts[n]) }
                     if args.contains("--restore-original") { model.restoreOriginal() }
+                    // Drawing hooks: `--annotate "rect:x1,y1,x2,y2;arrow:…;highlight:…;pen:x,y,x,y,…;text:x,y:Words"`
+                    // (normalized, at the playhead), `--color #RRGGBB`, `--select-annotation <n>`, `--draw [tool]`.
+                    if let hex = value("--color") { model.annotationColor = hex }
+                    if let spec = value("--annotate") {
+                        var list = model.annotations
+                        for item in spec.split(separator: ";") {
+                            let parts = item.split(separator: ":", maxSplits: 2).map(String.init)
+                            guard parts.count >= 2 else { continue }
+                            let v = parts[1].split(separator: ",").compactMap { Double($0) }
+                            var pts: [CGPoint] = stride(from: 0, to: v.count - 1, by: 2).map { CGPoint(x: v[$0], y: v[$0 + 1]) }
+                            let kind: Annotation.Kind? = ["rect": .rectangle, "arrow": .arrow, "highlight": .highlight, "pen": .pen, "text": .text][parts[0]]
+                            guard let kind, !pts.isEmpty else { continue }
+                            if kind == .text { pts = [pts[0], CGPoint(x: min(1, pts[0].x + AnnotationGeometry.defaultTextWidth), y: pts[0].y)] }
+                            list.append(model.newAnnotation(kind, points: pts, text: parts.count > 2 ? parts[2] : nil))
+                        }
+                        model.setAnnotations(list)
+                    }
+                    if let i = args.firstIndex(of: "--draw") {
+                        model.enterDrawMode(true)
+                        if i + 1 < args.count, let tool = AnnotationTool(rawValue: args[i + 1]) { model.tool = tool }
+                    }
+                    if let n = value("--select-annotation").flatMap(Int.init), n < model.annotations.count {
+                        model.selectedAnnotation = model.annotations[n].id
+                    }
+                    // `--render-annotated <seconds> <file.png>`: the frame at that edited time with its drawings,
+                    // rendered offscreen (works while the display is asleep).
+                    if let i = args.firstIndex(of: "--render-annotated"), i + 2 < args.count, let t = Double(args[i + 1]) {
+                        do {
+                            try await AnnotatedFrame.write(model: model, at: t, to: URL(fileURLWithPath: args[i + 2]))
+                            print("Rendered \(args[i + 2])")
+                        } catch { fputs("Render failed: \(error)\n", stderr) }
+                    }
                 }
             }
             // `--export <folder>` opens the export sheet with that project folder chosen; add

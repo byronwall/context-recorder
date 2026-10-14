@@ -21,15 +21,15 @@ struct SessionTimeline: View {
     private static let labelStrip: CGFloat = 13
 
     enum Lane: CaseIterable {
-        case ruler, apps, page, speech
+        case ruler, apps, page, speech, drawings
         var height: CGFloat {
-            switch self { case .ruler: 32; case .apps: 26; case .page: 16; case .speech: 16 }
+            switch self { case .ruler: 32; case .apps: 26; case .page: 16; case .speech: 16; case .drawings: 18 }
         }
         var title: String {
-            switch self { case .ruler: ""; case .apps: "Apps"; case .page: "Page"; case .speech: "Voice" }
+            switch self { case .ruler: ""; case .apps: "Apps"; case .page: "Page"; case .speech: "Voice"; case .drawings: "Drawn" }
         }
         var symbol: String {
-            switch self { case .ruler: ""; case .apps: "macwindow"; case .page: "globe"; case .speech: "waveform" }
+            switch self { case .ruler: ""; case .apps: "macwindow"; case .page: "globe"; case .speech: "waveform"; case .drawings: "pencil.tip" }
         }
     }
 
@@ -39,6 +39,7 @@ struct SessionTimeline: View {
             case .page: !model.pageEvents.isEmpty
             case .speech: !model.transcript.isEmpty
             case .apps: !model.activity.isEmpty
+            case .drawings: !model.annotations.isEmpty || model.drawMode
             default: true
             }
         }
@@ -122,6 +123,7 @@ struct SessionTimeline: View {
         case .apps: appSegments(width: w)
         case .page: pageDots(width: w)
         case .speech: speechSegments(width: w)
+        case .drawings: AnnotationLane(model: model, width: w, height: Lane.drawings.height)
         }
     }
 

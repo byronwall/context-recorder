@@ -165,6 +165,22 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
                 return nil
             }
             if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty { return event }
+            // Draw mode: RegionShot's tool keys; Delete removes the selected drawing; E or Esc leaves.
+            if model.drawMode {
+                let key = event.charactersIgnoringModifiers?.lowercased().first
+                if let tool = AnnotationTool.available.first(where: { $0.key == key }) { model.tool = tool; return nil }
+                switch event.keyCode {
+                case 14: model.enterDrawMode(false); return nil                       // e
+                case 53:                                                              // esc
+                    if model.selectedAnnotation != nil { model.selectedAnnotation = nil }
+                    else if model.tool != .select { model.tool = .select }
+                    else { model.enterDrawMode(false) }
+                    return nil
+                case 51, 117: model.deleteSelectedAnnotation(); return nil            // delete
+                case 49: return nil                                                   // space: stay paused while drawing
+                default: break
+                }
+            }
             if model.regionMode {
                 if event.keyCode == 53 { model.regionMode = false; NSCursor.arrow.set(); return nil }   // esc
                 return event
@@ -177,6 +193,7 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
             case 40: model.step(-1)                           // k
             case 124: model.skip(5)                           // →
             case 123: model.skip(-5)                          // ←
+            case 14: model.enterDrawMode(true)                // e
             case 34: model.setSelectionEdge(start: true)      // i
             case 31: model.setSelectionEdge(start: false)     // o
             case 51 where model.selection != nil: model.cutSelection()   // delete
