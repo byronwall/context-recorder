@@ -88,10 +88,19 @@ struct SessionTimeline: View {
                         hover = nil
                     }
                 }
+                .task(id: w) {
+                    previews = FramePreviews(video: model.folder.appendingPathComponent("recording.mp4"))
+                    let args = CommandLine.arguments
+                    if args.contains("--library"), let i = args.firstIndex(of: "--timeline-hover"),
+                       i + 1 < args.count, let fraction = Double(args[i + 1]) {
+                        let point = CGPoint(x: min(1, max(0, fraction)) * w, y: 0)
+                        hover = point
+                        previews?.request(t(point.x, w))
+                    }
+                }
             }
             .frame(height: totalHeight)
         }
-        .onAppear { previews = FramePreviews(video: model.folder.appendingPathComponent("recording.mp4")) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Timeline")
     }
@@ -302,9 +311,11 @@ struct SessionTimeline: View {
         let near = Double(8 / max(w, 1)) * model.duration
         let mark = model.marks.min { abs($0.offsetSeconds - time) < abs($1.offsetSeconds - time) }
             .flatMap { abs($0.offsetSeconds - time) <= near * 1.5 ? $0 : nil }
-        let event = model.pageEvents.first { abs($0.offsetSeconds - time) <= near }
+        let event = model.pageEvents.min { abs($0.offsetSeconds - time) < abs($1.offsetSeconds - time) }
+            .flatMap { abs($0.offsetSeconds - time) <= near ? $0 : nil }
         let said = model.sentenceAt(time)
         let aspect = model.videoSize.map { $0.width / $0.height } ?? 16 / 10
+        let previewWidth = max(1, min(240, w - 16))
         return VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .bottomLeading) {
                 Rectangle().fill(Color.stage)
@@ -318,7 +329,7 @@ struct SessionTimeline: View {
                     .background(.black.opacity(0.65), in: .rect(cornerRadius: 4))
                     .padding(6)
             }
-            .frame(width: 240, height: 240 / aspect)
+            .frame(width: previewWidth, height: previewWidth / aspect)
             .clipShape(.rect(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator.opacity(0.6), lineWidth: 0.5))
 
@@ -352,7 +363,7 @@ struct SessionTimeline: View {
                     .foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 240, alignment: .leading)
+            .frame(width: previewWidth, alignment: .leading)
         }
         .padding(8)
         .background(.background, in: .rect(cornerRadius: 10))
@@ -377,6 +388,7 @@ final class FramePreviews {
     @ObservationIgnored private var cache: [Int: CGImage] = [:]
     @ObservationIgnored private var order: [Int] = []
     @ObservationIgnored private var pending: Task<Void, Never>?
+    @ObservationIgnored private var requestedKey: Int?
 
     init(video: URL) {
         generator = AVAssetImageGenerator(asset: AVURLAsset(url: video))
@@ -388,15 +400,18 @@ final class FramePreviews {
     }
 
     func request(_ t: Double) {
-        let key = Int((t * 2).rounded())
-        pending?.cancel()
-        if let hit = cache[key] { image = hit; return }
+        requestedKey = Int((t * 2).rounded())
+        guard pending == nil else { return }
         pending = Task { [generator] in
-            try? await Task.sleep(for: .milliseconds(30))
-            guard !Task.isCancelled,
-                  let (frame, _) = try? await generator.image(at: CMTime(seconds: Double(key) / 2, preferredTimescale: 600)) else { return }
-            store(frame, key)
-            if !Task.isCancelled { image = frame }
+            defer { pending = nil }
+            // Finish one frame while movement continues, then render the latest requested position.
+            while let key = requestedKey {
+                requestedKey = nil
+                if let hit = cache[key] { image = hit; continue }
+                guard let (frame, _) = try? await generator.image(at: CMTime(seconds: Double(key) / 2, preferredTimescale: 600)) else { continue }
+                store(frame, key)
+                image = frame
+            }
         }
     }
 

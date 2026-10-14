@@ -57,6 +57,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
                 return
             }
+            if args.contains("--check-previews") {
+                Task {
+                    let previews = FramePreviews(video: devLibraryFolder.appendingPathComponent("recording.mp4"))
+                    var frames = Set<ObjectIdentifier>()
+                    for step in 0..<60 {
+                        previews.request(Double(step) * 0.5)
+                        try? await Task.sleep(for: .milliseconds(16))
+                        if let image = previews.image { frames.insert(ObjectIdentifier(image)) }
+                    }
+                    guard frames.count > 1 else {
+                        fputs("Preview sweep stalled: \(frames.count) frames\n", stderr)
+                        exit(1)
+                    }
+                    print("Preview sweep passed: \(frames.count) frames during 60 requests")
+                    NSApp.terminate(nil)
+                }
+                return
+            }
             if let look = ProcessInfo.processInfo.environment["CR_APPEARANCE"] {   // light | dark, for screenshots
                 NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
             }
