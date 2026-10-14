@@ -1,0 +1,28 @@
+{
+  "repository": "byronwall/context-recorder",
+  "baseline": "016684895df51872aeea1be5e93e28419fd63a7f",
+  "researchDate": "2026-10-13",
+  "kind": "research artifacts; no executable programs or dependencies",
+  "files": [
+    {
+      "name": "video-to-canvas-report.md",
+      "bytes": 70512,
+      "sha256": "bd3690a724ad88f9c79ccc811d876aa8035f7886be347028f439389ad7b0bd37"
+    },
+    {
+      "name": "video-to-canvas-recommendations.json",
+      "bytes": 35811,
+      "sha256": "b97cf5c7920b7409771744019e97673f450075e7a096931db94472cd24bb5189"
+    },
+    {
+      "name": "video-to-canvas-proof-plan.md",
+      "bytes": 44132,
+      "sha256": "ba62ae9d20129ae65c0842ff2c69488621a697d6091b510273d8cdb48d66375e"
+    },
+    {
+      "name": "video-to-canvas-sources.md",
+      "bytes": 34444,
+      "sha256": "3c3d2873976bf2c0149297a8d8023c40e1423db6bd9138008df6c8e929a0910f"
+    }
+  ]
+}
