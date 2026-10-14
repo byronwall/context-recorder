@@ -7,7 +7,10 @@ import SwiftUI
 @MainActor @Observable
 final class ImageViewerModel {
     struct Item: Hashable {
+        /// The original capture; annotations are drawn over it, never into it.
         var url: URL
+        /// `url` relative to the session folder, which names its annotation files.
+        var path: String
         var mark: Int
         var title: String
     }
@@ -31,9 +34,13 @@ final class ImageViewerModel {
     }
     @ObservationIgnored private weak var session: SessionModel?
     @ObservationIgnored private var loading: Task<Void, Never>?
+    @ObservationIgnored private let store: AnnotationStore
+    /// Set when a save fails, shown in the footer.
+    private(set) var saveError: String?
 
     init(session: SessionModel, items: [Item], index: Int) {
         self.session = session
+        store = AnnotationStore(folder: session.folder)
         self.items = items
         self.index = index
         load()
@@ -44,12 +51,14 @@ final class ImageViewerModel {
     func step(_ direction: Int) {
         let next = index + direction
         guard items.indices.contains(next) else { NSSound.beep(); return }
+        save()
         index = next
         session?.select(item.mark, seek: false)
         load()
     }
 
     func close() {
+        save()
         loading?.cancel()
         withAnimation(.easeOut(duration: 0.16)) { session?.viewer = nil }
     }
@@ -62,7 +71,13 @@ final class ImageViewerModel {
         loading = Task {
             let image = await Task.detached(priority: .userInitiated) { Self.fullImage(url) }.value
             guard !Task.isCancelled, url == item.url else { return }
-            editor = image.map { makeEditor(AnnotationDoc(imageSize: CGSize(width: $0.width, height: $0.height))) }
+            let path = item.path
+            editor = image.map { image in
+                let size = CGSize(width: image.width, height: image.height)
+                // Reopen earlier annotations, as long as they were drawn on this same image.
+                let saved = store.load(path).flatMap { $0.imageSize == size ? $0 : nil }
+                return makeEditor(saved ?? AnnotationDoc(imageSize: size))
+            }
             self.image = image
             loadFailed = image == nil
         }
@@ -84,6 +99,22 @@ final class ImageViewerModel {
         highlightColor = editor.highlightColor
     }
 
+    /// Writes the current image's annotations if they changed, then re-processes the session so
+    /// Markdown, session.md and export use the marked-up copy. Called when leaving an image.
+    func save() {
+        guard let editor, let image, editor.isDirty else { return }
+        if editor.editingText != nil { canvas?.endTextEditing(commit: true) }
+        do {
+            try store.save(editor.doc, original: item.path, image: image)
+            editor.markSaved()
+            saveError = nil
+            session?.annotationRevision += 1
+            session?.annotationsChanged()
+        } catch {
+            saveError = error.localizedDescription
+        }
+    }
+
     nonisolated static func fullImage(_ url: URL) -> CGImage? {
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(src, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
@@ -103,18 +134,20 @@ extension SessionModel {
         var items: [ImageViewerModel.Item] = []
         for m in marks {
             let name = m.isShot ? "Shot \(m.index)" : "Mark \(m.index)"
-            if let url = url(m.image) { items.append(.init(url: url, mark: m.index, title: name)) }
-            if m.isShot, m.frame != m.image, let frame = url(m.frame), FileManager.default.fileExists(atPath: frame.path) {
-                items.append(.init(url: frame, mark: m.index, title: "\(name) · full screen"))
+            if let path = m.originalImage, let url = url(path) { items.append(.init(url: url, path: path, mark: m.index, title: name)) }
+            if m.isShot, let path = m.originalFrame, path != m.originalImage, let frame = url(path),
+               FileManager.default.fileExists(atPath: frame.path) {
+                items.append(.init(url: frame, path: path, mark: m.index, title: "\(name) · full screen"))
             }
         }
         return items.reduce(into: []) { list, item in if !list.contains(where: { $0.url == item.url }) { list.append(item) } }
     }
 
-    /// Opens `url` in the viewer, with the session's other images a step away.
-    func view(_ url: URL) {
+    /// Opens a mark's image (`path` as captured, relative to the session) in the viewer, with the
+    /// session's other images a step away.
+    func view(_ path: String?) {
         let items = viewerItems
-        guard let i = items.firstIndex(where: { $0.url == url }) else { return }
+        guard let path, let i = items.firstIndex(where: { $0.path == path }) else { return }
         player.pause()
         withAnimation(.easeOut(duration: 0.18)) { viewer = ImageViewerModel(session: self, items: items, index: i) }
     }
@@ -282,12 +315,19 @@ struct ViewerFooter: View {
 
     var body: some View {
         HStack {
-            if viewer.editor?.isDirty == true {
-                Text("Annotations aren't saved yet")
+            if let error = viewer.saveError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .glassEffect(.regular, in: .capsule)
+            } else if let editor = viewer.editor, !editor.doc.isEmpty {
+                ViewerGroup {
+                    Button("Revert to Original", systemImage: "arrow.counterclockwise") { editor.revert() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .medium))
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .help("Remove every annotation and the crop (undoable until you leave this image)")
+                }
             }
             Spacer()
             ViewerGroup { ZoomControls(viewer: viewer) }

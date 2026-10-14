@@ -88,11 +88,28 @@ extension SessionModel {
             // Frames are cached by index; remove them so a later mark can't pick up this one's image.
             for file in [String(format: "screenshots/%03d.png", index), String(format: "frames/%03d.jpg", index)] {
                 try? FileManager.default.removeItem(at: folder.appendingPathComponent(file))
+                AnnotationStore(folder: folder).remove(file)
             }
             if selectedMark == index { selectedMark = nil }
             try await reprocess()
         } catch {
             reviewError = error.localizedDescription
+        }
+    }
+
+    /// The image viewer saved annotations: re-process so Markdown, session.md and export pick up the
+    /// marked-up copies.
+    func annotationsChanged() {
+        if annotationPass != nil { annotationPassAgain = true; return }
+        annotationPass = Task {
+            repeat {
+                annotationPassAgain = false
+                reviewStatus = "Saving annotations…"
+                do { try await reprocess() } catch { reviewError = error.localizedDescription }
+            } while annotationPassAgain
+            annotationRevision += 1
+            reviewStatus = nil
+            annotationPass = nil
         }
     }
 

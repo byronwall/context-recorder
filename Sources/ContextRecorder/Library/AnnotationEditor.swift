@@ -59,8 +59,8 @@ final class AnnotationEditor {
     }
 
     private(set) var doc: AnnotationDoc
-    /// The document as it was opened; `isDirty` compares against it.
-    let original: AnnotationDoc
+    /// The document as last saved (or opened); `isDirty` compares against it.
+    private(set) var original: AnnotationDoc
     private(set) var history = History<AnnotationDoc>()
     var tool: Tool = .select {
         didSet {
@@ -134,6 +134,17 @@ final class AnnotationEditor {
         if let s = selection, doc[s] == nil { selection = nil }
         if tool == .crop { pendingCrop = doc.crop ?? fullRect }
         canvas?.contentDidChange(refit: cropChanged)
+    }
+
+    func markSaved() { original = doc }
+
+    /// Back to the capture: no shapes and no crop. Undoable; saving it removes the annotation files.
+    func revert() {
+        if editingText != nil { canvas?.endTextEditing(commit: true) }
+        let hadCrop = doc.crop != nil
+        change { $0.shapes = []; $0.crop = nil }
+        selection = nil
+        canvas?.contentDidChange(refit: hadCrop)
     }
 
     func deleteSelection() {

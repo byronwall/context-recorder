@@ -195,7 +195,7 @@ struct MarkCard: View {
             Button("Copy Markdown", systemImage: "doc.on.doc") { copy(model.markdown(for: mark)) }
             Button("Play from 5 s Before", systemImage: "play") { model.playFromBefore(mark) }
             if let url = model.url(mark.image) {
-                Button("View Image", systemImage: "eye") { model.view(url) }
+                Button("View Image", systemImage: "eye") { model.view(mark.originalImage) }
                 Button("Reveal Image in Finder", systemImage: "folder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
             }
         }
@@ -203,7 +203,7 @@ struct MarkCard: View {
 
     private var row: some View {
         HStack(alignment: .top, spacing: 12) {
-            Thumbnail(url: model.url(mark.image), maxPixel: 280)
+            Thumbnail(url: model.url(mark.image), maxPixel: 280, revision: model.annotationRevision)
                 .frame(width: 92, height: 58)
                 .clipShape(.rect(cornerRadius: 7))
                 .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(.separator.opacity(0.7), lineWidth: 0.5))

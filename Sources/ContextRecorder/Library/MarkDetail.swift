@@ -80,11 +80,11 @@ struct MarkDetail: View {
     /// else was on screen.
     @ViewBuilder private var images: some View {
         if let url = model.url(mark.image) {
-            MarkImage(url: url, label: "Mark \(mark.index) image") { model.view(url) }
+            MarkImage(url: url, label: "Mark \(mark.index) image", annotated: mark.imageAnnotated, revision: model.annotationRevision) { model.view(mark.originalImage) }
                 .overlay(alignment: .bottomLeading) {
                     if mark.isShot, let frame = model.url(mark.frame), mark.frame != mark.image,
                        FileManager.default.fileExists(atPath: frame.path) {
-                        MarkImage(url: frame, label: "Full screen frame for mark \(mark.index)", compact: true) { model.view(frame) }
+                        MarkImage(url: frame, label: "Full screen frame for mark \(mark.index)", compact: true, annotated: mark.frameAnnotated, revision: model.annotationRevision) { model.view(mark.originalFrame) }
                             .frame(width: 92)
                             .overlay(alignment: .bottom) {
                                 Text("Full screen")
@@ -108,6 +108,10 @@ struct MarkImage: View {
     var url: URL
     var label: String
     var compact = false
+    /// Drawn on in the image viewer: shows a small badge.
+    var annotated = false
+    /// SessionModel.annotationRevision: reload when annotations are saved.
+    var revision = 0
     var open: () -> Void
     @State private var image: NSImage?
     @State private var hovering = false
@@ -124,6 +128,17 @@ struct MarkImage: View {
             .background(Color.stage.opacity(0.5))
             .clipShape(.rect(cornerRadius: compact ? 6 : 9))
             .overlay(RoundedRectangle(cornerRadius: compact ? 6 : 9).strokeBorder(.separator.opacity(0.7), lineWidth: 0.5))
+            .overlay(alignment: .topTrailing) {
+                if annotated {
+                    Image(systemName: "pencil.tip.crop.circle.fill")
+                        .font(.system(size: compact ? 11 : 14, weight: .semibold))
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, Color.accentColor)
+                        .padding(compact ? 3 : 6)
+                        .help("Annotated in the image viewer")
+                        .accessibilityLabel("Annotated")
+                }
+            }
             .overlay(alignment: .bottomTrailing) {
                 if !compact {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
@@ -141,7 +156,7 @@ struct MarkImage: View {
         .help("View image")
         .accessibilityLabel(label)
         .accessibilityHint("Opens the image viewer")
-        .task(id: url) { image = await ImageCache.shared.image(url, maxPixel: compact ? 400 : 1400) }
+        .task(id: "\(url.path)#\(revision)") { image = await ImageCache.shared.image(url, maxPixel: compact ? 400 : 1400) }
     }
 }
 

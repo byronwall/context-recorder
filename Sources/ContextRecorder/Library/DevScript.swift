@@ -13,7 +13,8 @@ import AppKit
 ///   key <name|char> [cmd|shift|opt…]   names: esc return space left right up down delete tab
 ///   keyup <name|char>
 ///   type <text…>
-///   flag <name>                    writes tmp/ui-test/flags/<name> (a screenshot cue) and waits up to 5 s
+///   flag <name>                    writes tmp/ui-test/flags/<name> (a screenshot cue) plus <name>.png (the
+///                                  window drawn in-process) and waits up to 5 s
 ///                                  for the harness to delete it
 ///
 /// `CR_SCRIPT_LOG=1` prints each step to stderr as it starts.
@@ -63,6 +64,9 @@ enum DevScript {
             case "flag":
                 try? FileManager.default.createDirectory(at: flags, withIntermediateDirectories: true)
                 let file = flags.appendingPathComponent(a.first ?? "flag")
+                // The window drawn in-process too, for when the screen is locked and screencapture can't
+                // read windows. Layer effects such as glass come out flatter than on screen.
+                snapshot(window, to: file.appendingPathExtension("png"))
                 try? Data().write(to: file)
                 // The harness deletes the flag once its screenshot is taken; hold still until then.
                 for _ in 0..<100 where FileManager.default.fileExists(atPath: file.path) {
@@ -73,6 +77,13 @@ enum DevScript {
             // Let SwiftUI and the canvas settle between steps.
             try? await Task.sleep(for: .milliseconds(60))
         }
+    }
+
+    private static func snapshot(_ window: NSWindow, to url: URL) {
+        guard let view = window.contentView?.superview ?? window.contentView,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
     }
 
     private static func windowPoint(_ p: CGPoint, _ window: NSWindow) -> CGPoint {

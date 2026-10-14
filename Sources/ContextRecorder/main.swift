@@ -123,8 +123,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if let n = value("--delete-mark").flatMap(Int.init) { await model.deleteReviewMark(n) }
                     if args.contains("--region-mode") { model.regionMode = true }
                     // `--view <n>` opens mark n's image in the viewer; `--view-zoom <percent>` zooms it.
-                    if let n = value("--view").flatMap(Int.init), let url = model.url(model.mark(n)?.image) {
-                        model.view(url)
+                    if let n = value("--view").flatMap(Int.init), let mark = model.mark(n) {
+                        model.view(mark.originalImage)
                         if let zoom = value("--view-zoom").flatMap(Double.init) {
                             try? await Task.sleep(for: .milliseconds(600))
                             model.viewer?.canvas?.zoom(percent: zoom, animated: false)

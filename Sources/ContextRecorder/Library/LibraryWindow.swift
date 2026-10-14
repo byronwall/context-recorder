@@ -109,6 +109,7 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        state.model?.viewer?.save()
         state.model?.player.pause()
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil

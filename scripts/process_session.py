@@ -5,6 +5,8 @@ Input (written by the app):
   recording.mp4      screen + mic
   marks.jsonl        one JSON object per mark
   screenshots/*.png  region stills for "screenshot" marks
+  annotations/*      marked-up copies drawn in the app's image viewer (optional): <name>.json is the
+                     editable drawing, <name>.png the flattened image Markdown and exports use
   activity.jsonl     front app / window / Chrome tab changes
   browser.jsonl      page events streamed by the Chrome extension (optional)
 
@@ -235,6 +237,17 @@ def trunc_line(s, n=400):
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
+def annotated(folder, image):
+    """The app's flattened, marked-up copy of `image` (annotations/<dir>-<name>.png) if there is one.
+
+    The original stays where it is; only the image Markdown and exports point at changes.
+    """
+    if not image:
+        return image
+    copy = Path("annotations") / (str(Path(image).with_suffix("")).replace("/", "-") + ".png")
+    return copy.as_posix() if (folder / copy).exists() else image
+
+
 def note_title(note, limit=70):
     """First line of a typed note, for headings."""
     text = " ".join((note or "").strip().splitlines()[:1]).strip() if note else ""
@@ -319,6 +332,9 @@ def main():
         image = mark.get("screenshot")
         if not image or not (folder / image).exists():
             image = frame
+        # Keep the originals for the app's viewer (it edits them); show the annotated copies everywhere else.
+        mark["sourceImage"], mark["sourceFrame"] = image, frame
+        image, frame = annotated(folder, image), annotated(folder, frame)
         mark["frame"] = frame
         narration = narration_window(tokens, mark["offsetSeconds"], args.before, args.after) if tokens else ""
         mark["image"] = image

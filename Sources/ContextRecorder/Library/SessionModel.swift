@@ -27,6 +27,9 @@ final class SessionModel {
     var export: ExportSheetModel?
     /// The image viewer over the stage, if open.
     var viewer: ImageViewerModel?
+    /// Bumped whenever annotations are saved; image views reload when it changes (an annotated copy is
+    /// rewritten under the same name).
+    var annotationRevision = 0
 
     // Review (marking up the recording afterwards)
     /// Dragging out a region on the video for a shot.
@@ -38,6 +41,9 @@ final class SessionModel {
     var focusNoteFor: Int?
     /// Select this mark once re-processing brings it in.
     @ObservationIgnored var pendingSelect: Int?
+    /// Re-processing after annotations were saved; another save while it runs queues one more pass.
+    @ObservationIgnored var annotationPass: Task<Void, Never>?
+    @ObservationIgnored var annotationPassAgain = false
 
     enum Tab: String, CaseIterable, Identifiable {
         case marks = "Marks", transcript = "Transcript", page = "Page Events", activity = "Activity"
@@ -75,6 +81,7 @@ final class SessionModel {
     }
 
     func tearDown() {
+        viewer?.save()
         player.pause()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         timeObserver = nil

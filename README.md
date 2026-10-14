@@ -63,6 +63,8 @@ Click a mark's picture (or its **Full screen** inset, or **View Image** in a mar
 | P | Freehand, lightly smoothed. |
 | C | Crop: drag the area to keep, Return to apply. **Reset** keeps the whole image. |
 
+**Saving.** Annotations save when you leave an image (← →, Esc, closing the window or switching sessions), with no dialog. The original capture is never changed: the drawing goes to `annotations/<dir>-<name>.json` and a flattened copy to `annotations/<dir>-<name>.png`, and the session is re-processed so the mark's Markdown, `session.md`, Copy as Markdown, the browser viewer and **Export to Product Grid** all use the marked-up image. `session.json` keeps the captures in `sourceImage` and `sourceFrame`. Annotated pictures show a pencil badge, and reopening one brings the shapes back to edit. **Revert to Original** clears everything (undoable until you leave the image); deleting the `annotations/` folder and re-processing does the same for a whole session.
+
 One color applies to strokes and text backgrounds, and highlight remembers its own (yellow by default). Picking a color while a shape is selected recolors it. ⌘Z and ⇧⌘Z undo and redo everything, crop included. Space-drag pans with any tool.
 
 ### Marking up a recording afterwards
