@@ -322,7 +322,7 @@ struct ShortcutsSheet: View {
         ("⌫", "Cut the selected range"),
         ("⌘Z  ⇧⌘Z", "Undo or redo a cut or drawing"),
         ("E", "Draw on the video (E or Esc to finish)"),
-        ("S  R", "In draw mode: select, rectangle"),
+        ("S R A T H D", "In draw mode: select, rectangle, arrow, text, highlight, draw"),
         ("Esc", "Close Quick Look"),
         ("Return", "Rename the selected session"),
         ("⌘⌫", "Move the selected sessions to the Trash"),

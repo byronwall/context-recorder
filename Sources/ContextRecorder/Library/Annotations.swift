@@ -40,7 +40,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     /// The tools offered in draw mode.
-    static let available: [AnnotationTool] = [.select, .rectangle]
+    static let available: [AnnotationTool] = allCases
 
     var kind: Annotation.Kind? {
         switch self {

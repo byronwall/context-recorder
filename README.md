@@ -51,7 +51,7 @@ Select a range with **Shift-drag** on the timeline (or **I** and **O** at the pl
 
 ### Drawing on the video
 
-Press **E** (or the pencil in the playback controls) to draw on the video. The video pauses and a toolbar shows the tools and colors. **R** draws a rectangle and **S** selects. Drag a drawing to move it, drag its handles to resize it, and press **⌫** to delete it. Changing the color recolors the selected drawing. **⌘Z** undoes drawings and cuts alike. **E** or **Esc** leaves draw mode.
+Press **E** (or the pencil in the playback controls) to draw on the video. The video pauses and a toolbar shows the tools and colors, with RegionShot's keys: **S** select, **R** rectangle, **A** arrow, **T** text, **H** highlight (translucent, with its own color, yellow by default) and **D** freehand (lightly smoothed). Click with the text tool to type a note; **Return** commits it, **⇧Return** adds a line break and **Esc** cancels. Double-click text to edit it, and drag its side handles to change the wrap width without changing the font size. Arrows have a handle at each end. Drag a drawing to move it, drag its handles to resize it, and press **⌫** to delete it. Changing the color recolors the selected drawing. **⌘Z** undoes drawings and cuts alike. **E** or **Esc** leaves draw mode.
 
 Each drawing shows for 3 seconds from where you drew it. The **Drawn** lane on the timeline has a bar for each one: drag the bar to move it in time, or drag an end to show it for longer. Drawings are stored in `annotations.json` at their time in the original recording, so cuts and joins never move them off their moment. Positions are fractions of the video frame, so they stay put at any window size.
 
