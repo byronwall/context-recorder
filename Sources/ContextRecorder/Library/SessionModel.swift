@@ -138,8 +138,12 @@ final class SessionModel {
         return current?.context
     }
 
+    /// The latest sentence that has started by `t` (with a little lead-in), kept lit for a moment after it ends.
+    /// Latest, not first: the trailing grace overlaps the next sentence, so seeking to a sentence's start
+    /// must not light up the one before it.
     func sentenceAt(_ t: Double) -> Sentence? {
-        transcript.first { t >= $0.start - 0.2 && t <= $0.end + 0.6 }
+        guard let s = transcript.last(where: { $0.start - 0.2 <= t }), t <= s.end + 0.6 else { return nil }
+        return s
     }
 
     // MARK: App colors (fixed muted palette, in order of first appearance)

@@ -86,6 +86,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.autosaveName = "ContextRecorder"
         recorder.onError = { [weak self] error in self?.handleError(error) }
+        library.onShow = { [weak self] in
+            guard let self, self.session != nil else { return }
+            self.recorder.recordedOwnWindows = self.library.recordedWindows
+            Task { await self.recorder.refreshFilter() }
+        }
         panel = ControlPanel(actions: .init(
             toggleRecording: { [weak self] in self?.toggleRecording() },
             mark: { [weak self] in self?.addMark(screenshot: false) },
@@ -250,6 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updateTitle()
             Task { @MainActor in
                 do {
+                    recorder.recordedOwnWindows = library.recordedWindows
                     try await recorder.start(outputURL: session.videoURL, recordMicrophone: recordMicrophone)
                     let activity = ActivityLog(url: session.folder.appendingPathComponent("activity.jsonl")) { [weak self] in
                         self?.recorder.currentOffset()

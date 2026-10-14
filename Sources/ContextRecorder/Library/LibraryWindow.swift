@@ -24,6 +24,14 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
     let state: LibraryState
     private var keyMonitor: Any?
     private var changeWatch: Task<Void, Never>?
+    /// Called when the window is shown, so a running recording can start including it.
+    var onShow: (() -> Void)?
+
+    /// This window belongs in recordings (reviewing the app with the app); the control panel doesn't.
+    var recordedWindows: Set<CGWindowID> {
+        guard let window, window.windowNumber > 0 else { return [] }
+        return [CGWindowID(window.windowNumber)]
+    }
 
     init(includeDefaultRoot: Bool = true) {
         state = LibraryState(includeDefaultRoot: includeDefaultRoot)
@@ -62,6 +70,7 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate()
         installKeyMonitor()
+        onShow?()
     }
 
     func openFolder() {
