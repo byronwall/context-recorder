@@ -24,7 +24,7 @@ Keep any essential human choice explicit. Do not invent approval for implementat
 
 - Prompt: [pro-prompt.md](pro-prompt.md).
 - Mode: research and artifact production. Codex owns integration and Git work.
-- Phase: collected and verified; integrating research through Sleuth.
+- Phase: integrated and validated; preparing the review PR.
 - Round: initial request. At most two material follow-ups after submission.
 - Conversation: https://chatgpt.com/c/6acef979-eca8-83e9-96b7-0d6d69f3935c
 - Model: live selector showed Pro, power 5 of 5. Account menu showed Byron Wall Pro.
@@ -115,4 +115,15 @@ Superwhisper, MacWhisper, Marker.io export limits, Shottr layers, Scribe, Jam, a
 A source ID check does not verify every feature cell. Most cells remain unknown.
 An optional primary-outcome question was sent through the structured question tool.
 Until answered, personal review remains a conditional recommendation, not approved intent.
+Sleuth artifacts are current under `docs/intent/recording-tools/`.
+The initiative and all milestones remain planned. Application proofs remain unrun.
+The plan covers two existing-output repairs and one decision spike. Detailed search/export architecture waits for human choices.
+All ten recommendations have dispositions in [research-review.md](research-review.md).
+The skill validator passed with zero warnings. The heuristic audit scored 9.6/10.
+Its local-loop suggestion remains explicit future fixture work, outside this research scope.
+See [validation.md](validation.md) for checks, preserved-format whitespace handling, and limits.
+
+Collection checkpoint: `36ceeea`. Git author and committer were verified before both checkpoints.
+The first GitHub CLI read hit the network sandbox. The approved network retry passed.
+No existing PR was found for this branch. The base branch is `main`.
 PR pending. No application implementation or runtime proof has run.
