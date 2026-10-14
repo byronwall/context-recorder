@@ -1,6 +1,8 @@
 import AppKit
+import CanvasKit
 import Carbon
 import ScreenCaptureKit
+import SwiftUI
 
 /// Menu-bar app. Hotkeys:
 ///   ⌃⌥R  start / stop recording
@@ -122,6 +124,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if let note = value("--note"), let index = model.selectedMark { await model.setNote(note, for: index) }
                     if let n = value("--delete-mark").flatMap(Int.init) { await model.deleteReviewMark(n) }
                     if args.contains("--region-mode") { model.regionMode = true }
+                    // Canvas hooks: `--build-canvas <x,y,w,h | full>` (video pixels), `--stage canvas|video`,
+                    // `--canvas-preview <s>` (as if hovering the canvas there),
+                    // `--canvas-render <png>` [`--canvas-items a-b`] [`--canvas-scale s`], then `--quit`.
+                    if let b = value("--build-canvas") {
+                        let n = b.split(separator: ",").compactMap { Int($0) }
+                        model.buildCanvas(box: n.count == 4 ? PixelRect(x: n[0], y: n[1], width: n[2], height: n[3]) : nil)
+                        while model.canvasBuilding { try? await Task.sleep(for: .milliseconds(100)) }
+                        if let e = model.canvasError { print(e) }
+                    }
+                    if let stage = value("--stage") { model.stage = stage == "canvas" ? .canvas : .video }
+                    if let t = value("--canvas-preview").flatMap(Double.init) { model.previewTime = t }
+                    if let path = value("--canvas-render"), var doc = model.canvas {
+                        // `--canvas-items a-b` renders a slice; very wide renders come back empty.
+                        if let r = value("--canvas-items")?.split(separator: "-").compactMap({ Int($0) }), r.count == 2 {
+                            doc.items = Array(doc.items[min(r[0], doc.items.count)..<min(r[1], doc.items.count)])
+                        }
+                        // Offscreen render of the canvas strip (no screen-recording permission needed).
+                        let images = CanvasImages()
+                        images.load(doc, folder: model.folder)
+                        let scale = value("--canvas-scale").flatMap(Double.init) ?? 0.3
+                        let renderer = ImageRenderer(content: CanvasStrip(model: model, doc: doc, images: images, scale: scale)
+                            .background(Color(nsColor: .underPageBackgroundColor)))
+                        renderer.scale = 2
+                        if let image = renderer.cgImage { try? CanvasAnalyzer.writePNG(image, to: URL(fileURLWithPath: path)) }
+                        print("canvas render:", path)
+                    }
+                    if args.contains("--quit") { NSApp.terminate(nil) }
                 }
             }
             // `--export <folder>` opens the export sheet with that project folder chosen; add

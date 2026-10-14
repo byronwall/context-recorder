@@ -4,11 +4,11 @@
     "title": "Video to canvas",
     "slug": "video-to-canvas",
     "scale": "capability",
-    "current_phase": "plan",
+    "current_phase": "execution",
     "last_updated": "2026-10-13",
     "summary": "Turn a narrated screen recording into a spatial, source-linked canvas reviewed in the portable HTML viewer; storyboard first, verified scroll joining second.",
-    "status": "planned",
-    "next_action": "Start M1 when implementation is requested"
+    "status": "active",
+    "next_action": "M2: engine bake-off and scroll joining on fixtures"
   },
   "artifacts": {
     "intent_brief": {
@@ -445,7 +445,7 @@
       }
     ],
     "fast_local_loop": {
-      "command": "python3 scripts/canvas/test_canvas.py",
+      "command": "swift run -c release canvas-tool check",
       "network_required": false,
       "shared_infrastructure_required": false,
       "dependencies_started": [],
@@ -463,7 +463,10 @@
         "proof": "Burned-in counter matches card frame after click; synthetic change clip yields expected cards.",
         "valid_intermediate_state": "Useful storyboard; sessions without canvas unchanged.",
         "rollback": "Delete canvas.json and canvas/.",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "canvas-tool check: 10/10 fixture clips pass incl. barcode seek checks; real 97 s session -> 38 cards in 2.2 s; app build path via --build-canvas hook"
+        ]
       },
       {
         "id": "M2",
@@ -544,6 +547,11 @@
       "date": "2026-10-13",
       "phase": "shape",
       "change": "Three question rounds moved the surface to the native Sessions window (Canvas stage mode), set scope to <5 min recordings on request, added column PNG export and mark-from-canvas, replaced timed comparison with personal-use judgment, and added an engine bake-off."
+    },
+    {
+      "date": "2026-10-13",
+      "phase": "execution",
+      "change": "M1 built: CanvasKit (AVFoundation decode with exact PTS, storyboard tracker, canvas.json), canvas-tool fixtures/check, Canvas stage mode. Analyzer moved from planned Python/FFmpeg to Swift because the project Python is stdlib-only."
     }
   ],
   "closure": null,

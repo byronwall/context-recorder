@@ -40,6 +40,7 @@ A native library of every recording (menu bar → **Sessions…**, or the play b
 | → / ← | Skip 5 s |
 | M | Add a mark at the playhead |
 | S | Capture a region of the current frame (drag; click for the whole frame; Esc cancels) |
+| C | Switch between the video and the canvas (once a canvas is built) |
 
 ### Marking up a recording afterwards
 
@@ -48,6 +49,16 @@ You can mark things you notice while reviewing, not just while recording. **M** 
 Review marks carry what the recording knows at that moment: the app, window and URL from the activity log, the narration around it, and page events from the 30 s before. There's no live Chrome snapshot (element under the pointer, saved page). They're stored in `marks.jsonl` with `"source": "review"` and the session is re-processed, so Markdown, Copy as Markdown and export treat them like any other mark. Review marks can be deleted; marks made while recording can't.
 
 The window updates on its own when a session is re-processed.
+
+### Canvas
+
+**Build Canvas** (toolbar) lays the recording out in space so you can find what went past faster than by scrubbing. Drag a box around the page content once (click for the whole frame), and the stage switches to **Canvas**: one card per moment the content settled into a new state, left to right in time order, with a card now and then while it keeps moving.
+
+- Hover a card: the now strip and the transcript show what was said at that moment.
+- Click a card: the stage goes back to the video at the exact frame the card came from.
+- **Session** menu: **Rebuild Canvas** (same content box), **Choose Content Area and Rebuild…**, **Delete Canvas**.
+
+Building runs only when you ask, takes a few seconds for a few minutes of video, and never runs during recording or re-processing. It writes `canvas.json` and `canvas/` into the session folder; delete them (or use **Delete Canvas**) and the session is exactly as before. If the recording changes, the canvas says so and offers **Rebuild**.
 
 ### Export to Product Grid
 
@@ -112,6 +123,7 @@ Input values are never recorded, only which field changed. The app accepts conne
 | `marks/NNN.md`, `session.md` | Markdown for each mark, with the narration window (20 s before and 10 s after the mark; ⚑ shows where the mark landed) |
 | `session.json` | Everything above in one file, for the viewer and exporters |
 | `viewer.html` | Portable web copy of the session. Opens straight from disk, no server needed |
+| `canvas.json`, `canvas/` | The canvas, when built: items left to right, each tied to the video frame it came from |
 
 To re-run processing, for example with a different narration window:
 
@@ -125,6 +137,8 @@ Delete `transcript.json` first if you want the audio transcribed again.
 
 - `Sources/ContextRecorder/`: Swift app. `Recorder` (ScreenCaptureKit and AVAssetWriter), `HotKeys` (Carbon), `ContextProbe` (front app, window, Chrome tab), `ActivityLog`, `Session`.
 - `Sources/ContextRecorder/Library/`: the Sessions window (SwiftUI, macOS 26). `SessionLibrary` scans the folders, `SessionModel` owns one open session and its player, `SessionData` decodes `session.json`, `MarkText` builds titles and the Markdown.
+- `Sources/CanvasKit/`: video → canvas analysis. `FrameSource` decodes with exact presentation times (AVFoundation, so they match the player), `StoryboardTracker` finds settled states, `CanvasAnalyzer` writes `canvas.json`.
+- `Sources/CanvasTool/`: `canvas-tool`, the fast loop for canvas work. `swift run -c release canvas-tool check` generates synthetic scrolling clips with known answers (a barcode below the content encodes each frame number), analyzes them and checks the result, including that every seek shows the right frame. `canvas-tool analyze <session> --box x,y,w,h` builds a session's canvas from the command line.
 - `scripts/process_session.py`: post-processing (ffmpeg, parakeet-mlx). Standard library only.
 - `scripts/viewer.html`: viewer template. The session data gets embedded in it.
 - `scripts/make-icon.swift`: draws the app icon and writes `Resources/AppIcon.icns` (`swift scripts/make-icon.swift`).
@@ -134,4 +148,4 @@ Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `p
 ## Next
 
 - rrweb DOM recording, to replay the DOM over time alongside the video.
-- [Video to canvas](docs/intent/video-to-canvas/shape-brief.md): a proposed spatial storyboard and a small proof plan. Not implemented.
+- [Video to canvas](docs/intent/video-to-canvas/shape-brief.md): the storyboard is in (see Canvas above); joining scrolled pages into tall columns is next.

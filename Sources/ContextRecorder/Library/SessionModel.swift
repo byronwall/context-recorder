@@ -1,4 +1,5 @@
 import AVFoundation
+import CanvasKit
 import Foundation
 import Observation
 import SwiftUI
@@ -36,6 +37,28 @@ final class SessionModel {
     var focusNoteFor: Int?
     /// Select this mark once re-processing brings it in.
     @ObservationIgnored var pendingSelect: Int?
+    /// What a region drag on the video is for.
+    var regionPurpose: RegionPurpose = .shot
+
+    // Canvas (the recording laid out in space; see CanvasModel.swift)
+    var stage: StageMode = .video
+    /// canvas.json, when built and readable.
+    var canvas: CanvasDocument?
+    /// The recording no longer matches the canvas (re-recorded or replaced).
+    var canvasStale = false
+    /// 0…1 while a canvas is being built.
+    var canvasProgress: Double?
+    var canvasError: String?
+    /// The moment under the pointer on the canvas; the now strip and transcript follow it.
+    var previewTime: Double?
+    @ObservationIgnored var canvasTask: Task<Void, Never>?
+    @ObservationIgnored var canvasStamp: Date?
+
+    enum StageMode: String, CaseIterable, Identifiable {
+        case video = "Video", canvas = "Canvas"
+        var id: String { rawValue }
+    }
+    enum RegionPurpose { case shot, canvasBox }
 
     enum Tab: String, CaseIterable, Identifiable {
         case marks = "Marks", transcript = "Transcript", page = "Page Events", activity = "Activity"
@@ -73,6 +96,7 @@ final class SessionModel {
     }
 
     func tearDown() {
+        canvasTask?.cancel()
         player.pause()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         timeObserver = nil
@@ -90,6 +114,7 @@ final class SessionModel {
             data = try JSONDecoder().decode(SessionData.self, from: Data(contentsOf: url))
             loadError = nil
             assignAppColors()
+            reloadCanvas()
         } catch {
             loadError = "session.json could not be read: \(error.localizedDescription)"
         }
@@ -140,6 +165,9 @@ final class SessionModel {
 
     /// Keep the latest started sentence lit briefly after it ends. A lead-in can select the next
     /// sentence when the clicked sentence is shorter than that lead-in.
+    /// The playhead, or the moment under the pointer while hovering the canvas.
+    var focusTime: Double { previewTime ?? currentTime }
+
     func sentenceAt(_ t: Double) -> Sentence? {
         guard let s = transcript.last(where: { $0.start <= t }), t <= s.end + 0.6 else { return nil }
         return s

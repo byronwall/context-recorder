@@ -36,7 +36,15 @@ struct SessionView: View {
             }
         } else {
             VStack(spacing: 0) {
-                Stage(model: model)
+                Group {
+                    if model.stage == .canvas { CanvasStage(model: model) } else { Stage(model: model) }
+                }
+                .overlay(alignment: .top) {
+                    StatusPill(model: model).padding(.top, 10)
+                        .animation(.snappy, value: model.reviewStatus)
+                        .animation(.snappy, value: model.regionMode)
+                        .animation(.snappy, value: model.canvasBuilding)
+                }
                 Divider()
                 VStack(alignment: .leading, spacing: 14) {
                     NowStrip(model: model)
@@ -51,6 +59,19 @@ struct SessionView: View {
     }
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            if model.canvas != nil {
+                Picker("Stage", selection: $model.stage) {
+                    ForEach(SessionModel.StageMode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .help("Switch between the video and the canvas (C)")
+            } else {
+                Button { model.chooseCanvasBox() } label: { Label("Build Canvas", systemImage: "rectangle.split.3x1") }
+                    .help("Lay this recording out in space: drag around the page content once")
+                    .disabled(model.canvasBuilding || model.data == nil)
+            }
+        }
         ToolbarItemGroup(placement: .primaryAction) {
             Button { model.export = ExportSheetModel(session: model) } label: {
                 Label("Export to Product Grid", systemImage: "square.and.arrow.up")
@@ -75,6 +96,14 @@ struct SessionView: View {
                     Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(model.folder.appendingPathComponent("viewer.html")) }
                 }
                 Button("Open session.md", systemImage: "doc.text") { NSWorkspace.shared.open(model.folder.appendingPathComponent("session.md")) }
+                Divider()
+                if model.canvas != nil {
+                    Button("Rebuild Canvas", systemImage: "arrow.clockwise") { model.rebuildCanvas() }
+                    Button("Choose Content Area and Rebuild…", systemImage: "crop") { model.chooseCanvasBox() }
+                    Button("Delete Canvas", systemImage: "trash") { model.deleteCanvas() }
+                } else {
+                    Button("Build Canvas…", systemImage: "rectangle.split.3x1") { model.chooseCanvasBox() }
+                }
                 Divider()
                 Button("Copy Folder Path", systemImage: "link") { copy(model.folder.path) }
             } label: {
@@ -149,32 +178,49 @@ struct Stage: View {
                 .opacity(hovering || !model.isPlaying ? 1 : 0)
                 .animation(.easeOut(duration: 0.2), value: hovering || !model.isPlaying)
         }
-        .overlay(alignment: .top) {
-            statusPill.padding(.top, 10)
-                .animation(.snappy, value: model.reviewStatus)
-                .animation(.snappy, value: model.regionMode)
-        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onHover { hovering = $0 }
     }
+}
 
-    /// What's happening: picking a region, saving, or an error.
-    @ViewBuilder private var statusPill: some View {
-        if model.reviewStatus != nil || model.regionMode || model.reviewError != nil {
+/// What's happening: picking a region, saving, building the canvas, or an error.
+struct StatusPill: View {
+    var model: SessionModel
+
+    var body: some View {
+        if model.reviewStatus != nil || model.regionMode || model.reviewError != nil || model.canvasBuilding
+            || model.canvasError != nil || (model.stage == .canvas && model.canvasStale) {
             Group {
                 if let status = model.reviewStatus {
                     HStack(spacing: 7) { ProgressView().controlSize(.small); Text(status) }
+                } else if model.regionMode && model.regionPurpose == .canvasBox {
+                    HStack(spacing: 7) {
+                        Image(systemName: "rectangle.split.3x1").foregroundStyle(Color.accentColor)
+                        Text("Drag around the page content to build the canvas · click for the whole frame · Esc to cancel")
+                    }
                 } else if model.regionMode {
                     HStack(spacing: 7) {
                         Image(systemName: "camera.viewfinder").foregroundStyle(Color.shot)
                         Text("Drag over the video to capture a region · click for the whole frame · Esc to cancel")
                     }
-                } else if let error = model.reviewError {
+                } else if let p = model.canvasProgress {
+                    HStack(spacing: 7) {
+                        ProgressView(value: p).progressViewStyle(.circular).controlSize(.small)
+                        Text("Building canvas… \(Int(p * 100))%").monospacedDigit()
+                        Button("Cancel") { model.cancelCanvasBuild() }.buttonStyle(.plain).foregroundStyle(.secondary)
+                    }
+                } else if let error = model.reviewError ?? model.canvasError {
                     HStack(spacing: 7) {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
                         Text(error).lineLimit(2)
-                        Button { model.reviewError = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain)
+                        Button { model.reviewError = nil; model.canvasError = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain)
                             .accessibilityLabel("Dismiss")
+                    }
+                } else {
+                    HStack(spacing: 7) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Text("The recording changed since this canvas was built.")
+                        Button("Rebuild") { model.rebuildCanvas() }
                     }
                 }
             }
@@ -233,13 +279,18 @@ struct RegionPicker: View {
         start = nil; end = nil
         model.regionMode = false
         NSCursor.arrow.set()
+        let purpose = model.regionPurpose
+        model.regionPurpose = .shot
         var region: CGRect?
         if let rect, rect.width > 6, rect.height > 6 {
             let clipped = rect.intersection(CGRect(origin: .zero, size: size))
             region = CGRect(x: clipped.minX / size.width, y: clipped.minY / size.height,
                             width: clipped.width / size.width, height: clipped.height / size.height)
         }
-        Task { await model.addReviewShot(region: region) }
+        switch purpose {
+        case .shot: Task { await model.addReviewShot(region: region) }
+        case .canvasBox: model.buildCanvas(region: region)
+        }
     }
 }
 
@@ -287,7 +338,7 @@ struct Transport: View {
     private func controls(compact: Bool) -> some View {
         HStack(spacing: 4) {
             control("flag", "Add a mark here (M)") { Task { await model.addReviewMark() } }
-            control("camera.viewfinder", "Capture a region of this frame (S)") { model.player.pause(); model.regionMode = true }
+            control("camera.viewfinder", "Capture a region of this frame (S)") { model.startShot() }
 
             Divider().frame(height: 18).padding(.horizontal, compact ? 2 : 6)
 
@@ -360,8 +411,8 @@ struct NowStrip: View {
     var model: SessionModel
 
     var body: some View {
-        let ctx = model.contextAt(model.currentTime)
-        let said = model.sentenceAt(model.currentTime)
+        let ctx = model.contextAt(model.focusTime)
+        let said = model.sentenceAt(model.focusTime)
         HStack(alignment: .center, spacing: 16) {
             HStack(spacing: 10) {
                 AppIcon(bundleID: ctx?.bundleID, size: 30)
