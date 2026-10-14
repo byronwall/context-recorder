@@ -159,6 +159,25 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
         return patches.min { abs(Double($0.destY) - y) < abs(Double($1.destY) - y) }!.frame
     }
 
+    /// The video region (pixels, top-left origin) and frame behind `rect` in this item's image. The frame is the
+    /// one that supplied the middle of the selection; the region is clipped to what that frame showed, so it
+    /// never mixes moments. nil when too little of the selection is left.
+    public func sourceRegion(for rect: CGRect, box: PixelRect) -> (frame: FrameRef, rect: CGRect)? {
+        let f = frame(atImageY: Double(rect.midY))
+        // Where that frame's row 0 sits in the image.
+        var viewTop = 0.0
+        if kind == .column,
+           let p = patches.last(where: { $0.frame == f && Double($0.destY) <= Double(rect.midY) && Double(rect.midY) < Double($0.destY + $0.height) }) {
+            viewTop = Double(p.destY - p.sourceY)
+        }
+        let top = max(Double(rect.minY), viewTop), bottom = min(Double(rect.maxY), viewTop + Double(box.height))
+        let left = max(0, Double(rect.minX)), right = min(Double(width), Double(rect.maxX))
+        guard bottom - top >= 2, right - left >= 2 else { return nil }
+        let x = Double(box.x + (sourceX ?? 0)) + left
+        let y = Double(box.y) + (top - viewTop)
+        return (f, CGRect(x: x, y: y, width: right - left, height: bottom - top))
+    }
+
     /// The content-box rectangle (top-left origin) that supplied the image rows `y0..<y1`, with its frame.
     public func source(forImageRows y0: Int, _ y1: Int) -> (frame: FrameRef, sourceY: Int, height: Int)? {
         guard kind == .column else { return (frame, max(0, y0), min(height, y1) - max(0, y0)) }

@@ -66,6 +66,11 @@ struct CanvasStage: View {
 
             Divider().frame(height: 18).padding(.horizontal, 6)
 
+            button("flag", "Add a mark at the moment under the pointer (M)") { Task { await model.markFromCanvas() } }
+            button("camera.viewfinder", "Capture a region of the canvas as a mark (S)") { model.startCanvasShot() }
+
+            Divider().frame(height: 18).padding(.horizontal, 6)
+
             Text(cols == 0 ? "\(doc.items.count) cards" : "\(cols) columns · \(doc.items.count - cols) cards")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
@@ -156,6 +161,14 @@ struct CanvasStrip: View {
                         .allowsHitTesting(false)
                 }
             }
+            .overlay {
+                if model.canvasSelecting {
+                    CanvasSelection { rect in
+                        let r = CGRect(x: rect.minX / scale, y: rect.minY / scale, width: rect.width / scale, height: rect.height / scale)
+                        Task { await model.markFromCanvas(item, imageRect: r) }
+                    }
+                }
+            }
             .clipShape(.rect(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(current ? Color.accentColor : .black.opacity(0.12),
                                                                      lineWidth: current ? 2 : 0.5))
@@ -199,8 +212,32 @@ struct CanvasStrip: View {
 
     @ViewBuilder private func contextMenu(_ item: CanvasItem) -> some View {
         Button("Show in Video", systemImage: "play.rectangle") { model.showSource(item.frame) }
+        Divider()
+        Button("Copy Image", systemImage: "doc.on.doc") {
+            guard let image = images[item.image] else { return }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects([image])
+        }
+        Button("Export PNG…", systemImage: "square.and.arrow.down") { export(item) }
+        Button("Capture Region as Mark…", systemImage: "camera.viewfinder") { model.startCanvasShot() }
+        Divider()
         Button("Reveal Image in Finder", systemImage: "folder") {
             NSWorkspace.shared.activateFileViewerSelecting([model.folder.appendingPathComponent(item.image)])
+        }
+    }
+
+    /// Saves a copy of the item's image. A column combines several moments; its name gives the time span.
+    private func export(_ item: CanvasItem) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.nameFieldStringValue = model.exportName(item)
+        panel.message = item.kind == .column ? "A column joins frames from \(Format.time(item.start)) to \(Format.time(item.end))." : ""
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try? FileManager.default.removeItem(at: url)
+            try FileManager.default.copyItem(at: model.folder.appendingPathComponent(item.image), to: url)
+        } catch {
+            model.canvasError = "Couldn't export: \(error.localizedDescription)"
         }
     }
 
@@ -215,6 +252,43 @@ struct CanvasStrip: View {
         }
     }
 
+}
+
+/// Drag out a rectangle on a canvas item while capturing a region as a mark.
+struct CanvasSelection: View {
+    var done: (CGRect) -> Void
+    @State private var start: CGPoint?
+    @State private var end: CGPoint?
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                Rectangle().fill(Color.shot.opacity(0.06))
+                if let r = rect {
+                    Rectangle()
+                        .strokeBorder(Color.shot, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+                        .background(Color.shot.opacity(0.12))
+                        .frame(width: r.width, height: r.height)
+                        .offset(x: r.minX, y: r.minY)
+                }
+            }
+            .contentShape(.rect)
+            .gesture(DragGesture(minimumDistance: 2)
+                .onChanged { g in start = start ?? g.startLocation; end = g.location }
+                .onEnded { _ in
+                    if let r = rect { done(r.intersection(CGRect(origin: .zero, size: geo.size))) }
+                    start = nil; end = nil
+                })
+            .onContinuousHover { phase in
+                if case .active = phase { NSCursor.crosshair.set() } else { NSCursor.arrow.set() }
+            }
+        }
+    }
+
+    private var rect: CGRect? {
+        guard let start, let end else { return nil }
+        return CGRect(x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x - start.x), height: abs(end.y - start.y))
+    }
 }
 
 /// Canvas images, decoded once per build.

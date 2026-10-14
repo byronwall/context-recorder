@@ -51,6 +51,8 @@ final class SessionModel {
     var canvasError: String?
     /// The moment under the pointer on the canvas; the now strip and transcript follow it.
     var previewTime: Double?
+    /// Dragging out a region on the canvas to capture as a mark.
+    var canvasSelecting = false
     @ObservationIgnored var canvasTask: Task<Void, Never>?
     @ObservationIgnored var canvasStamp: Date?
 

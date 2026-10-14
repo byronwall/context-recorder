@@ -188,11 +188,16 @@ struct StatusPill: View {
     var model: SessionModel
 
     var body: some View {
-        if model.reviewStatus != nil || model.regionMode || model.reviewError != nil || model.canvasBuilding
+        if model.reviewStatus != nil || model.regionMode || model.canvasSelecting || model.reviewError != nil || model.canvasBuilding
             || model.canvasError != nil || (model.stage == .canvas && model.canvasStale) {
             Group {
                 if let status = model.reviewStatus {
                     HStack(spacing: 7) { ProgressView().controlSize(.small); Text(status) }
+                } else if model.canvasSelecting {
+                    HStack(spacing: 7) {
+                        Image(systemName: "camera.viewfinder").foregroundStyle(Color.shot)
+                        Text("Drag over the canvas to capture a region as a mark · Esc to cancel")
+                    }
                 } else if model.regionMode && model.regionPurpose == .canvasBox {
                     HStack(spacing: 7) {
                         Image(systemName: "rectangle.split.3x1").foregroundStyle(Color.accentColor)

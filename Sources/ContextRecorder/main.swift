@@ -158,6 +158,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         if let image = renderer.cgImage { try? CanvasAnalyzer.writePNG(image, to: URL(fileURLWithPath: path)) }
                         print("canvas render:", path)
                     }
+                    // `--canvas-mark <item>,x,y,w,h` (item image pixels): capture that region as a review shot.
+                    if let m = value("--canvas-mark")?.split(separator: ",").compactMap({ Double($0) }), m.count == 5,
+                       let doc = model.canvas, doc.items.indices.contains(Int(m[0])) {
+                        await model.markFromCanvas(doc.items[Int(m[0])], imageRect: CGRect(x: m[1], y: m[2], width: m[3], height: m[4]))
+                        print("canvas mark:", model.marks.last.map { "\($0.index) at \($0.offsetSeconds)" } ?? "none", model.reviewError ?? "")
+                    }
                     if args.contains("--quit") { NSApp.terminate(nil) }
                 }
             }

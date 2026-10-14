@@ -140,13 +140,19 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
             }
             guard let model = self.state.model else { return event }
             if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty { return event }
+            if model.canvasSelecting {
+                if event.keyCode == 53 { model.canvasSelecting = false; NSCursor.arrow.set(); return nil }   // esc
+                return event
+            }
             if model.regionMode {
                 if event.keyCode == 53 { model.regionMode = false; model.regionPurpose = .shot; NSCursor.arrow.set(); return nil }   // esc
                 return event
             }
             switch event.keyCode {
-            case 46: Task { await model.addReviewMark() }    // m
-            case 1: model.startShot()                         // s
+            case 46:                                          // m
+                if model.stage == .canvas { Task { await model.markFromCanvas() } } else { Task { await model.addReviewMark() } }
+            case 1:                                           // s
+                if model.stage == .canvas { model.startCanvasShot() } else { model.startShot() }
             case 8:                                           // c
                 guard model.canvas != nil else { return event }
                 model.stage = model.stage == .canvas ? .video : .canvas

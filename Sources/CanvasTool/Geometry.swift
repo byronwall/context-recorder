@@ -54,6 +54,32 @@ enum Geometry {
             }
         }
         notes.append("row → frame mapping: \(mapped - misses)/\(mapped) rows land on a frame that shows them")
+
+        // Marks from the canvas: a selection maps to a video region of one frame that shows the same page rows.
+        var regions = 0, regionMisses = 0
+        for col in columns {
+            let offsets = col.patches.map { truth.scrollY[$0.frame.index] + $0.sourceY - $0.destY }
+            guard let top = median(offsets) else { continue }
+            for i in 0..<10 {
+                let y = Double(max(0, col.height - 200)) * Double(i) / 9
+                let sel = CGRect(x: 50, y: y, width: 300, height: 180)
+                guard let (f, r) = col.sourceRegion(for: sel, box: truth.box) else { continue }
+                regions += 1
+                // Seen in frame f, the region's top row is page row scrollY[f] + (r.minY - box.y). It must be the
+                // selection's top page row (top + sel.minY), unless the selection was clipped to the frame's top edge.
+                // It must also stay inside the box and never reach past the selection.
+                let shownRow = truth.scrollY[f.index] + Int(r.minY) - truth.box.y
+                let wanted = top + Int(sel.minY)
+                let clippedAtTop = Int(r.minY) == truth.box.y && shownRow > wanted
+                let inBox = r.minY >= Double(truth.box.y) && r.maxY <= Double(truth.box.maxY) && r.minX >= Double(truth.box.x)
+                let withinSelection = shownRow >= wanted && shownRow + Int(r.height) <= top + Int(sel.maxY)
+                if !(shownRow == wanted || clippedAtTop) || !inBox || !withinSelection {
+                    regionMisses += 1
+                    if regionMisses <= 2 { failures.append("\(col.id): selection at \(Int(y)) maps to \(r) in frame \(f.index)") }
+                }
+            }
+        }
+        notes.append("canvas → video regions: \(regions - regionMisses)/\(regions) correct")
         let sorted = errors.sorted()
         let p95 = sorted.isEmpty ? 0 : sorted[min(sorted.count - 1, Int(Double(sorted.count) * 0.95))]
         notes.append("patches \(errors.count), p95 error \(p95) px, max \(sorted.last ?? 0) px")

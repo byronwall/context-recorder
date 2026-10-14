@@ -38,8 +38,8 @@ A native library of every recording (menu bar → **Sessions…**, or the play b
 | Space | Play / pause |
 | J / K | Next / previous mark |
 | → / ← | Skip 5 s |
-| M | Add a mark at the playhead |
-| S | Capture a region of the current frame (drag; click for the whole frame; Esc cancels) |
+| M | Add a mark at the playhead (on the canvas: at the moment under the pointer) |
+| S | Capture a region of the current frame (drag; click for the whole frame; Esc cancels); on the canvas, drag over an item |
 | C | Switch between the video and the canvas (once a canvas is built) |
 
 ### Marking up a recording afterwards
@@ -60,6 +60,8 @@ The window updates on its own when a session is re-processed.
 
 - Hover: the now strip and the transcript show what was said when that part was on screen (in a column, the frame that supplied the row under the pointer).
 - Click: the stage goes back to the video at that exact frame.
+- **M** on the canvas adds a mark at the moment under the pointer. **S** (or the viewfinder in the canvas controls) lets you drag over an item to capture that region as a shot mark. The shot comes from the one frame that supplied the middle of the selection, clipped to what that frame showed, so a mark never mixes moments. These are ordinary review marks, with notes, Markdown and export.
+- Right-click an item for **Copy Image** and **Export PNG…**. Exported files are named with the session and the time span; a column joins frames from across that span.
 - **Session** menu: **Rebuild Canvas** (same content box), **Choose Content Area and Rebuild…**, **Delete Canvas**.
 
 Building runs only when you ask, takes a few seconds for a few minutes of video, and never runs during recording or re-processing. It writes `canvas.json` and `canvas/` into the session folder; delete them (or use **Delete Canvas**) and the session is exactly as before. If the recording changes, the canvas says so and offers **Rebuild**.

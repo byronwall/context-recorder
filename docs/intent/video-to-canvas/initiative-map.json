@@ -8,7 +8,7 @@
     "last_updated": "2026-10-14",
     "summary": "Turn a narrated screen recording into a spatial, source-linked canvas reviewed in the portable HTML viewer; storyboard first, verified scroll joining second.",
     "status": "active",
-    "next_action": "M4: copy/export column PNG and mark from canvas"
+    "next_action": "M5: Byron uses Canvas mode on his own sessions and records go/narrow/stop"
   },
   "artifacts": {
     "intent_brief": {
@@ -502,7 +502,10 @@
         "proof": "Mark time and crop match selection and survive reprocess.",
         "valid_intermediate_state": "Extras on existing paths.",
         "rollback": "Hide menu items.",
-        "status": "planned"
+        "status": "completed",
+        "evidence": [
+          "canvas-tool check: canvas->video region mapping correct on all fixture columns (mutation-tested); real column selection produced review mark 8 whose shot matches the column crop (mean abs diff 0.16)"
+        ]
       },
       {
         "id": "M5",
@@ -564,6 +567,11 @@
       "date": "2026-10-14",
       "phase": "execution",
       "change": "M3: columns in Canvas mode with a hover time badge; row-to-frame mapping check added to canvas-tool. Purpose-made scripted recordings not yet recorded; existing real sessions stood in."
+    },
+    {
+      "date": "2026-10-14",
+      "phase": "execution",
+      "change": "M4: Copy Image / Export PNG on canvas items; M and S marks from the canvas through the existing review-mark path; region math in CanvasItem.sourceRegion, checked against fixture truth."
     }
   ],
   "closure": null,

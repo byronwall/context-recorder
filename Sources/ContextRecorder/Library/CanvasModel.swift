@@ -99,8 +99,45 @@ extension SessionModel {
     func showSource(_ frame: FrameRef) {
         if isPlaying { togglePlay() }
         previewTime = nil
+        canvasSelecting = false
         seek(frame.seekTime)
         stage = .video
+    }
+
+    // MARK: Marks from the canvas
+
+    /// S on the canvas: drag over an item to capture that region of its source frame as a review shot.
+    func startCanvasShot() {
+        if isPlaying { togglePlay() }
+        canvasSelecting = true
+    }
+
+    /// M on the canvas: a mark at the moment under the pointer, or at the playhead.
+    func markFromCanvas() async {
+        if let t = previewTime { seek(t + 0.002) }
+        await addReviewMark()
+    }
+
+    /// `rect` is in the item's image pixels. The shot comes from the one frame that supplied the middle of the
+    /// selection, clipped to what that frame showed, so a mark never mixes moments.
+    func markFromCanvas(_ item: CanvasItem, imageRect rect: CGRect) async {
+        canvasSelecting = false
+        guard let doc = canvas, rect.width > 4, rect.height > 4,
+              let (frame, source) = item.sourceRegion(for: rect, box: doc.box) else { return }
+        let W = Double(doc.video.width), H = Double(doc.video.height)
+        let region = CGRect(x: source.minX / W, y: source.minY / H, width: source.width / W, height: source.height / H)
+        previewTime = nil
+        seek(frame.seekTime)
+        await addReviewShot(region: region)
+    }
+
+    // MARK: Export
+
+    /// File name for an exported item: session, kind and time span (no colons; Finder shows them as slashes).
+    func exportName(_ item: CanvasItem) -> String {
+        func t(_ s: Double) -> String { String(format: "%02d-%02d", Int(s) / 60, Int(s) % 60) }
+        let kind = item.kind == .column ? "column" : "card"
+        return "\(folder.lastPathComponent) \(kind) \(t(item.start)) to \(t(item.end)).png"
     }
 
     /// The canvas item on screen at the playhead.
