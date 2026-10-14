@@ -43,6 +43,13 @@ struct EditMap: Equatable {
         }
     }
 
+    /// Same kept ranges, ignoring how editedStart was rounded (Swift vs process_session.py).
+    static func == (a: EditMap, b: EditMap) -> Bool {
+        a.segments.count == b.segments.count && zip(a.segments, b.segments).allSatisfy {
+            $0.source == $1.source && abs($0.start - $1.start) < 1e-6 && abs($0.end - $1.end) < 1e-6
+        }
+    }
+
     var duration: Double { segments.reduce(0) { $0 + $1.length } }
     var sources: [String] { segments.reduce(into: []) { if !$0.contains($1.source) { $0.append($1.source) } } }
 
@@ -306,9 +313,11 @@ extension SessionModel {
 
     /// Writes the cut list (nil, or the whole recording, deletes edits.json) and updates everything.
     private func apply(_ segments: [Segment]?, recordUndo: Bool = true) {
-        let unedited = segments.map { EditMap.isUnedited($0, sourceDurations: sourceDurations) } ?? true
-        let next = unedited ? nil : segments
-        guard next != edits?.segments else { return }
+        // Millisecond times, exactly as edits.json stores them, so the reload after processing matches.
+        let rounded = segments?.map { Segment(source: $0.source, start: ($0.start * 1000).rounded() / 1000, end: ($0.end * 1000).rounded() / 1000) }
+        let unedited = rounded.map { EditMap.isUnedited($0, sourceDurations: sourceDurations) } ?? true
+        let next = unedited ? nil : rounded
+        guard next.map(EditMap.init) != edits else { return }
         if recordUndo {
             undoStack.append(edits?.segments)
             redoStack = []
