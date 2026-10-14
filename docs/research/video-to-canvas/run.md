@@ -23,7 +23,7 @@ Completion requires readable collected artifacts, reconciled findings, recorded 
 - Prompt: [pro-prompt.md](pro-prompt.md)
 - User intent: [intent-brief.md](intent-brief.md)
 - Mode: research and artifact production; Codex owns local integration.
-- Phase: collected, assessed, and integrated; review PR pending.
+- Phase: complete; open review PR verified and attached.
 - Round: initial request complete; no follow-ups needed or used. Limit: two follow-ups.
 - Pro conversation: https://chatgpt.com/c/6acedea9-bee8-83ea-a73e-6f127f7a1891
 - Model: GPT-6 selected; Pro power observed at level 5 of 5.
@@ -35,8 +35,8 @@ Completion requires readable collected artifacts, reconciled findings, recorded 
 - Submission screenshot: `tmp/video-to-canvas/pro-submitted.jpg` (local evidence, not committed).
 - First continuation: October 13, 2026, 10:48 p.m. America/Indiana/Indianapolis; 02:48 UTC on October 14.
 - Pro had completed after 36 minutes and 30 seconds. Collection began in the existing conversation.
-- Heartbeat: `continue-video-to-canvas-pro-research`, active, hourly at minute 45, attached to this chat.
-- Schedule verified from the saved automation file. Disable after the verified PR endpoint or an essential user blocker.
+- Heartbeat: `continue-video-to-canvas-pro-research`, disabled (`PAUSED`) after the verified PR endpoint.
+- The saved automation file confirms the paused state. No further check is scheduled for this run.
 - Initial scheduler approval was rejected for missing authorization. A retry cited the user's full-process request and the skill's explicit heartbeat instruction. The retry succeeded.
 - Goal: none created; no explicit goal request.
 - Blockers: none.
@@ -80,4 +80,8 @@ Completion requires readable collected artifacts, reconciled findings, recorded 
 - Independently checked repository integration claims and decisive OpenCV, scrollsnap, and FFmpeg capabilities.
 - Dependency compatibility, reconstruction accuracy, resource use, and user value remain untested.
 - No product experiment has run. No implementation, merge, or deployment occurred.
-- PR: pending.
+- PR: [#13 — Research a spatial canvas for recorded walkthroughs](https://github.com/byronwall/context-recorder/pull/13).
+- Verified open, non-draft, base `main`, head `codex/video-to-canvas-research`, with 15 scoped files.
+- The saved body matches the prepared body. All five document links resolve in the remote branch tree.
+- Attached the PR to this chat. No screenshot is needed because this PR changes no interface.
+- Completion includes research, collection, reconciliation, validation, and the open review PR. The heartbeat is off.
