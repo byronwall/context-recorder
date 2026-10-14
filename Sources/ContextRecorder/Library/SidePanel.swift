@@ -33,7 +33,7 @@ struct InspectorTabs: View {
                     withAnimation(.snappy(duration: 0.2)) { model.tab = tab }
                 }
             }
-            Spacer(minLength: 4)
+            Spacer(minLength: 0)
             if model.tab == .marks, hasBothKinds { filterMenu }
         }
         .padding(.horizontal, 10)
@@ -96,8 +96,9 @@ private struct TabButton: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(count == 0 ? .tertiary : .secondary))
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 5)
                 .padding(.vertical, 3)
                 .background(hovering && !selected ? AnyShapeStyle(.quaternary.opacity(0.6)) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 5))
                 ZStack {
