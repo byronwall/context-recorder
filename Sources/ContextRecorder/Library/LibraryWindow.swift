@@ -132,8 +132,13 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
     private func installKeyMonitor() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, event.window === self.window, let model = self.state.model else { return event }
+            guard let self, event.window === self.window else { return event }
             if self.window?.firstResponder is NSText { return event }
+            if event.keyCode == 51, event.modifierFlags.intersection([.command, .control, .option, .shift]) == .command {
+                self.state.requestTrash(self.state.selection)
+                return nil
+            }
+            guard let model = self.state.model else { return event }
             if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty { return event }
             if model.regionMode {
                 if event.keyCode == 53 { model.regionMode = false; NSCursor.arrow.set(); return nil }   // esc

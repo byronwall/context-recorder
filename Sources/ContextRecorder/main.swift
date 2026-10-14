@@ -61,6 +61,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.appearance = NSAppearance(named: look == "dark" ? .darkAqua : .aqua)
             }
             library.show(session: devLibraryFolder)
+            if let name = value("--recording-fixture") {
+                library.state.library.recordingFolder = library.state.library.entries.first { $0.url.lastPathComponent == name }?.url
+            }
             if let name = value("--session"), let entry = library.state.library.entries.first(where: { $0.url.lastPathComponent == name }) {
                 library.show(session: entry.url)
             }

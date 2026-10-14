@@ -209,7 +209,7 @@ struct SessionRow: View {
         }
         .padding(.vertical, 4)
         .help(entry.url.path)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: state.renaming == entry.url ? .contain : .combine)
     }
 
     private var time: String? { entry.date?.formatted(date: .omitted, time: .shortened) }
@@ -240,6 +240,7 @@ struct RenameField: View {
 
     var body: some View {
         TextField("Name", text: $text, prompt: Text(entry.date?.formatted(date: .omitted, time: .shortened) ?? "Name"))
+            .accessibilityLabel("Session name")
             .textFieldStyle(.plain)
             .font(.system(size: 13, weight: .semibold))
             .focused($focused)
