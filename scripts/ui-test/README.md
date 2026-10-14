@@ -81,7 +81,7 @@ await crUiTest.runPR11({
 });
 ```
 
-To test ruler clicks and drags, pass `seekPoint: [x, y]` and `drag: { from: [x, y], to: [x, y] }`. Read each point from a fresh screenshot. The driver does not guess coordinates.
+To test ruler clicks and drags, pass `seekPoint: [x, y]` and `drag: { from: [x, y], to: [x, y] }`. Read each point from a fresh screenshot. The driver refreshes the screenshot immediately before each gesture to restore coordinate mapping after AX reads. Playback must stay paused throughout the check.
 
 ## PR #8–11 review checklist
 

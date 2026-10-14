@@ -36,14 +36,14 @@ globalThis.crUiTest = (() => {
     if (!timeAndSentence) throw new Error(`Transcript row has no playhead time: ${rowLabel}`);
     const [, expectedTime, expectedSentence] = timeAndSentence;
     const said = value.match(/^\s*\d+ text .*?\bSaid:\s*(.+)$/m)?.[1]?.trim();
-    const playhead = value.match(/^\s*\d+ unknown Description: Playhead, Details: (\d+:\d{2})\b/m)?.[1];
+    const playhead = playheadTime(value);
     const normalize = text => text.replace(/\s+/g, " ").trim().toLocaleLowerCase();
     return { expectedTime, expectedSentence, said, playhead,
       matches: Boolean(said) && normalize(said) === normalize(expectedSentence) && playhead === expectedTime };
   }
 
   function playheadTime(value = axText) {
-    return value.match(/^\s*\d+ unknown Description: Playhead, Details: (\d+:\d{2})\b/m)?.[1] ?? null;
+    return value.match(/^\s*\d+ unknown (?:Description: Playhead, )?Details: (\d+:\d{2})\b/m)?.[1] ?? null;
   }
 
   function isBoundApp(value) {
@@ -66,6 +66,7 @@ globalThis.crUiTest = (() => {
     if (!position.matches) {
       throw new Error("Transcript seek state self-check failed.");
     }
+    if (playheadTime("104 unknown Details: 1:00") !== "1:00") throw new Error("Playhead AX detail check failed.");
     return true;
   }
 
@@ -337,20 +338,26 @@ globalThis.crUiTest = (() => {
   async function timelineGesture(point, drag, screenshotName) {
     if (point) {
       await fresh();
+      if (!find(/^Play$/, /^button$/)) throw new Error("Pause playback before checking a ruler click.");
       const before = playheadTime();
       if (!before) throw new Error("Playhead time is unavailable before the timeline click.");
+      await app.getScreenshot({ emit: false });
       await app.click(point);
       await fresh();
+      if (!find(/^Play$/, /^button$/)) throw new Error("The click started playback; check the ruler coordinates.");
       const after = playheadTime();
       if (!after || after === before) throw new Error(`Timeline click did not change the playhead (${before} → ${after ?? "missing"}).`);
       await screenshot(screenshotName);
     }
     if (drag) {
       await fresh();
+      if (!find(/^Play$/, /^button$/)) throw new Error("Pause playback before checking a ruler drag.");
       const before = playheadTime();
       if (!before) throw new Error("Playhead time is unavailable before the timeline drag.");
+      await app.getScreenshot({ emit: false });
       await app.drag(drag.from, drag.to);
       await fresh();
+      if (!find(/^Play$/, /^button$/)) throw new Error("The drag started playback; check the ruler coordinates.");
       const after = playheadTime();
       if (!after || after === before) throw new Error(`Timeline drag did not change the playhead (${before} → ${after ?? "missing"}).`);
       await screenshot(screenshotName);
