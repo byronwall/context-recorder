@@ -7,6 +7,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "ContextRecorder",
+            dependencies: ["Annotation"],
             path: "Sources/ContextRecorder",
             linkerSettings: [
                 .linkedFramework("ScreenCaptureKit"),
@@ -14,6 +15,10 @@ let package = Package(
                 .linkedFramework("Carbon"),
                 .linkedFramework("AVKit"),
             ]
-        )
+        ),
+        // Image annotation shapes, hit-testing, rendering and undo. No AppKit, so it's unit-testable and
+        // can be reused for annotations on video.
+        .target(name: "Annotation", path: "Sources/Annotation"),
+        .testTarget(name: "AnnotationTests", dependencies: ["Annotation"], path: "Tests/AnnotationTests"),
     ]
 )

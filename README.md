@@ -53,6 +53,18 @@ Click a mark's picture (or its **Full screen** inset, or **View Image** in a mar
 | ← / → | Previous / next image in the session |
 | Esc | Close |
 
+**Annotating.** The toolbar has RegionShot's tools, one key each, drawn straight onto the image:
+
+| Key | Tool |
+| --- | --- |
+| V | Select: click a shape to select it, drag to move, drag a handle to resize, Delete removes it, arrow keys nudge it (⇧ for 10 px). Double-click text to edit it. |
+| R / A / H | Rectangle, arrow, translucent highlight. Drag to draw (⇧ for squares and 45° arrows). Each tool also grabs and edits shapes of its own kind. |
+| T | Text: click to type, Return to finish, ⇧Return for a new line, Esc to cancel. Drag a selected note's side handles to change where it wraps. |
+| P | Freehand, lightly smoothed. |
+| C | Crop: drag the area to keep, Return to apply. **Reset** keeps the whole image. |
+
+One color applies to strokes and text backgrounds, and highlight remembers its own (yellow by default). Picking a color while a shape is selected recolors it. ⌘Z and ⇧⌘Z undo and redo everything, crop included. Space-drag pans with any tool.
+
 ### Marking up a recording afterwards
 
 You can mark things you notice while reviewing, not just while recording. **M** (or the flag in the playback controls) adds a mark at the playhead. **S** (or the viewfinder) pauses and lets you drag a box on the video; the region is cut from the frame at full resolution. Every mark has a **Note** field, and a note becomes the mark's title.

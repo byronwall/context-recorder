@@ -8,7 +8,7 @@
     "last_updated": "2026-10-13",
     "summary": "Replace Quick Look with a native in-app image viewer that has RegionShot-grade pan/zoom and RegionShot's basic annotation tools, sharing an annotation model with the session-editing video layer.",
     "status": "active",
-    "next_action": "m2: Annotation target + tools"
+    "next_action": "m3: persistence, process_session.py preference, exports"
   },
   "artifacts": {
     "intent_brief": {
@@ -316,14 +316,17 @@
       {
         "id": "m2",
         "title": "RegionShot annotation tools work on the canvas (in memory)",
-        "status": "planned",
+        "status": "completed",
         "proof": "All tools draw/edit/undo; swift test passes for Annotation target",
         "outcome": "RegionShot tools draw/edit/undo in memory",
         "dependencies_introduced": [
           "Annotation library + test target"
         ],
         "valid_intermediate_state": "Annotation works but discards on close (stated in UI)",
-        "rollback": "Hide tool bar; viewer unaffected"
+        "rollback": "Hide tool bar; viewer unaffected",
+        "evidence": [
+          "Annotation target (23 Swift Testing tests via scripts/test.sh); AnnotationEditor + canvas tools verified by in-app script: rect, arrow, highlight, text, freehand, select/resize, undo, crop"
+        ]
       },
       {
         "id": "m3",

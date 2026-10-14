@@ -15,12 +15,15 @@ import AppKit
 ///   type <text…>
 ///   flag <name>                    writes tmp/ui-test/flags/<name> (a screenshot cue) and waits up to 5 s
 ///                                  for the harness to delete it
+///
+/// `CR_SCRIPT_LOG=1` prints each step to stderr as it starts.
 @MainActor
 enum DevScript {
     static func run(_ script: String, in window: NSWindow, flags: URL) async {
         for raw in script.split(separator: ";") {
             let parts = raw.split(separator: " ").map(String.init)
             guard let cmd = parts.first else { continue }
+            if ProcessInfo.processInfo.environment["CR_SCRIPT_LOG"] != nil { fputs("script: \(raw)\n", stderr) }
             let a = Array(parts.dropFirst())
             func n(_ i: Int) -> CGFloat { CGFloat(Double(a[i]) ?? 0) }
             switch cmd {
@@ -49,7 +52,14 @@ enum DevScript {
                 guard let name = a.first else { continue }
                 key(name, up: cmd == "keyup", mods: modifiers(a.dropFirst()), in: window)
             case "type":
-                for ch in a.joined(separator: " ") { key(String(ch), up: false, mods: [], in: window); key(String(ch), up: true, mods: [], in: window) }
+                // Into the focused text view the way the input system delivers committed text. Synthetic
+                // key-downs into an NSTextView go through the input method and stall this task.
+                let text = a.joined(separator: " ")
+                if let view = window.firstResponder as? NSTextView {
+                    view.insertText(text, replacementRange: view.selectedRange())
+                } else {
+                    for ch in text { key(String(ch), up: false, mods: [], in: window); key(String(ch), up: true, mods: [], in: window) }
+                }
             case "flag":
                 try? FileManager.default.createDirectory(at: flags, withIntermediateDirectories: true)
                 let file = flags.appendingPathComponent(a.first ?? "flag")

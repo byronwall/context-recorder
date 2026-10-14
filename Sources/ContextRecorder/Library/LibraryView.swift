@@ -309,6 +309,8 @@ struct ShortcutsSheet: View {
         ("M", "Add a mark at the playhead"),
         ("S", "Capture a region of the current frame"),
         ("→  ←", "Skip 5 seconds forward or back"),
+        ("V R A T H P C", "Image viewer: select, rectangle, arrow, text, highlight, freehand, crop"),
+        ("⌘Z  ⇧⌘Z", "Image viewer: undo, redo"),
         ("Esc", "Close the image viewer"),
         ("Return", "Rename the selected session"),
         ("⌘⌫", "Move the selected sessions to the Trash"),
