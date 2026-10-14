@@ -1,0 +1,650 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Session editing: trim, combine, annotate",
+    "slug": "session-editing",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-13",
+    "summary": "Cut arbitrary ranges from a session, join sessions, and add a RegionShot-style annotation layer over the video, keeping marks, narration, transcript, activity and page events aligned with the edited video.",
+    "status": "planned",
+    "next_action": "Start M1 when implementation is requested: segment conversion in process_session.py with shared fixture, composition playback, review marks in original time."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-13"
+    }
+  },
+  "sources": [
+    {
+      "id": "SRC-001",
+      "type": "direct-user-input",
+      "location": "chat request 2026-10-13",
+      "anchor": "trim/clip start, middle, end or anywhere; select regions to remove; combine traces; quick annotations layer on top of video; look at RegionShot; brainstorm + consider-contrast",
+      "authority": "direct current intent",
+      "supports": [
+        "INT-001",
+        "INT-002",
+        "INT-003",
+        "INT-004",
+        "INT-005"
+      ]
+    },
+    {
+      "id": "SRC-002",
+      "type": "repository",
+      "location": "~/Projects/whiteboard (RegionShot) README.md, intent.md, Sources/RegionShot/AnnotationEditor.m",
+      "anchor": "tools: selection, rectangle, text, freehand, arrow, highlight, crop; single-key shortcuts; move/resize/delete; undo/redo",
+      "authority": "reference product for annotation feel",
+      "supports": [
+        "INT-005",
+        "INT-006"
+      ]
+    },
+    {
+      "id": "SRC-003",
+      "type": "repository",
+      "location": "README.md (Session output), Library/SessionModel.swift, Library/SessionData.swift, Library/Review.swift, Library/SessionTimeline.swift, scripts/process_session.py",
+      "anchor": "single recording.mp4; offsetSeconds on marks/activity/browser/transcript; review marks append to marks.jsonl then reprocess; AVPlayer on recording.mp4; timeline lanes without range selection",
+      "authority": "current implementation reality",
+      "supports": [
+        "REAL-001",
+        "REAL-002",
+        "REAL-003",
+        "REAL-004"
+      ]
+    },
+    {
+      "id": "SRC-004",
+      "type": "direct-user-input",
+      "location": "question round 1, 2026-10-13",
+      "anchor": "answers to HQ-001..HQ-004",
+      "authority": "direct current intent",
+      "supports": [
+        "DEC-001",
+        "DEC-002",
+        "DEC-003",
+        "DEC-004"
+      ]
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "INT-001",
+        "type": "required-behavior",
+        "statement": "Remove any span of a session (start, middle, end, anywhere), any number of times, by selecting a range and removing it.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-002",
+        "type": "required-behavior",
+        "statement": "Combine multiple sessions (traces) into one.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-003",
+        "type": "required-behavior",
+        "statement": "Add quick annotations in a layer on top of the video.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-004",
+        "type": "anti-goal",
+        "statement": "Annotation set stays simple; RegionShot's basic tools are enough.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001"
+        ]
+      },
+      {
+        "id": "INT-005",
+        "type": "preference",
+        "statement": "Annotation interaction modeled on RegionShot: single-key tools, direct manipulation, undo/redo.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-001",
+          "SRC-002"
+        ]
+      },
+      {
+        "id": "INT-006",
+        "type": "derived-implication",
+        "statement": "Cuts and joins must remap every time-based lane (marks, narration windows, transcript, activity, page events) so context stays true to the edited video.",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "INT-007",
+        "type": "anti-goal",
+        "statement": "Irreversible loss of the original capture through editing.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-003"
+        ],
+        "notes": "Confirmed by HQ-003."
+      },
+      {
+        "id": "INT-008",
+        "type": "implementation-hypothesis",
+        "statement": "Non-destructive edit list beside recording.mp4, played via AVMutableComposition and rendered only on export.",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "REAL-001",
+        "type": "current-repository-reality",
+        "statement": "Each session has one recording.mp4 (15 fps, <=1920 px, optional mic); all context is offsetSeconds from its start.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "REAL-002",
+        "type": "current-repository-reality",
+        "statement": "process_session.py derives session.json, frames, narration and Markdown from raw jsonl; review marks already use append-then-reprocess.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "REAL-003",
+        "type": "current-repository-reality",
+        "statement": "Playback is a single AVPlayer on recording.mp4.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "REAL-004",
+        "type": "current-repository-reality",
+        "statement": "SessionTimeline has lanes, playhead, hover and drag-to-seek but no range selection.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "SRC-003"
+        ]
+      },
+      {
+        "id": "DEC-001",
+        "type": "decision",
+        "statement": "Edited result is for the user and exports (window, Markdown, Product Grid); annotations remain an in-app layer, burn-in not required.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-004"
+        ]
+      },
+      {
+        "id": "DEC-002",
+        "type": "decision",
+        "statement": "Combine = join whole sessions end to end, then trim with normal cuts.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-004"
+        ]
+      },
+      {
+        "id": "DEC-003",
+        "type": "decision",
+        "statement": "Original capture always kept; edits non-destructive and reversible.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-004"
+        ]
+      },
+      {
+        "id": "DEC-004",
+        "type": "decision",
+        "statement": "Annotations default to a ~3 s span from the draw point, adjustable by dragging a timeline bar.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first-release",
+        "sources": [
+          "SRC-004"
+        ]
+      }
+    ],
+    "themes": [
+      "cut list",
+      "join",
+      "annotation layer",
+      "context alignment"
+    ],
+    "conflicts": [],
+    "human_questions": [
+      {
+        "id": "HQ-001",
+        "question": "Is the edited result mainly a shareable video file or a cleaner session for you and your exports?",
+        "status": "resolved",
+        "affects": [
+          "annotation burn-in",
+          "export scope"
+        ],
+        "answer": "Me and my exports: annotations stay an in-app layer; no burn-in required."
+      },
+      {
+        "id": "HQ-002",
+        "question": "Does combining traces mean whole sessions end to end, or picking ranges from several sessions?",
+        "status": "resolved",
+        "affects": [
+          "join model"
+        ],
+        "answer": "Whole sessions end to end, then trim."
+      },
+      {
+        "id": "HQ-003",
+        "question": "May an edit ever change the original recording, or must the raw capture always be kept?",
+        "status": "resolved",
+        "affects": [
+          "storage model"
+        ],
+        "answer": "Always keep the original; edits non-destructive."
+      },
+      {
+        "id": "HQ-004",
+        "question": "Default annotation duration?",
+        "status": "resolved",
+        "answer": "Fixed span (~3 s), shown as a draggable bar on the timeline."
+      }
+    ]
+  },
+  "brainstorm": {
+    "status": "draft",
+    "requested_count": 7,
+    "options": [
+      {
+        "id": "B1",
+        "name": "Just the core",
+        "premise": "Minimal: only the requested editing tools until use shows a need."
+      },
+      {
+        "id": "B2",
+        "name": "Cuts suggested from the context",
+        "premise": "The recording's own context finds dead time; the user approves suggestions."
+      },
+      {
+        "id": "B3",
+        "name": "Edit by transcript",
+        "premise": "Inversion: the transcript, not the timeline, is the editing surface."
+      },
+      {
+        "id": "B4",
+        "name": "Marks become chapters",
+        "premise": "Marks are the outline; the output is a step-by-step narrative for a recipient."
+      },
+      {
+        "id": "B5",
+        "name": "Polish for viewers",
+        "premise": "Automatic presentation polish; idle time is compressed rather than cut."
+      },
+      {
+        "id": "B6",
+        "name": "Redact before sharing",
+        "premise": "Privacy before sharing: hide sensitive content before anything leaves the machine."
+      },
+      {
+        "id": "B7",
+        "name": "Many outputs from one edit",
+        "premise": "One edit feeds many outputs: video, GIF, per-mark clips, captions, grid."
+      }
+    ],
+    "comparison": {
+      "dimensions": [
+        "dead time found without scrubbing",
+        "recipient follows it unaided",
+        "marks and narration stay lined up",
+        "stays simple stuff"
+      ],
+      "scores": {
+        "B1": [
+          2,
+          4,
+          10,
+          10
+        ],
+        "B2": [
+          9,
+          5,
+          9,
+          7
+        ],
+        "B3": [
+          7,
+          5,
+          8,
+          4
+        ],
+        "B4": [
+          3,
+          9,
+          7,
+          6
+        ],
+        "B5": [
+          5,
+          7,
+          3,
+          2
+        ],
+        "B6": [
+          1,
+          3,
+          10,
+          7
+        ],
+        "B7": [
+          1,
+          7,
+          8,
+          5
+        ]
+      }
+    },
+    "selected_option": "hybrid: core + B2 context-suggested cuts + B4 mark-note captions (no reorder) + B6 blur rectangle; B7 dropped except exports respecting cuts (HQ-001)"
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Focused editing layer for one person's own sessions: one segment model for cuts and joins, one annotation layer, existing export paths. Not a video editor.",
+    "problem": "Raw sessions contain dead time and span several recordings; marks and context must stay true to whatever video remains.",
+    "recommended_shape": "Edited session = ordered list of segments (source session, start, end) in edits.json beside untouched raw files. process_session.py is the single place that converts original times to edited times, producing session.json/Markdown/export in edited time; the Swift player builds an AVMutableComposition from the same segments. Raw jsonl and annotations.json stay in original time. Annotation layer is a SwiftUI overlay with RegionShot's tool set, normalized video coordinates, ~3 s default span.",
+    "success_moves": [
+      {
+        "id": "SM-1",
+        "move": "Unify cut and join as one segment-list model so joins add no new time-mapping logic.",
+        "reduces": "two divergent remapping paths"
+      },
+      {
+        "id": "SM-2",
+        "move": "Keep all raw data and annotations in original time; derive edited time only in process_session.py (and composition time in the player).",
+        "reduces": "irreversible drift when cuts are restored or reordered"
+      },
+      {
+        "id": "SM-3",
+        "move": "Prove the time conversion with a hand-written edits.json before building any range-selection interface.",
+        "reduces": "interface built on an unproven data model"
+      },
+      {
+        "id": "SM-4",
+        "move": "Reuse the existing append-then-reprocess path (Review.swift) for edits, so the window reloads via the existing session.json watch.",
+        "reduces": "new state-sync machinery"
+      },
+      {
+        "id": "SM-5",
+        "move": "Deleting edits.json is the full rollback; nothing writes recording.mp4 or the raw jsonl files.",
+        "reduces": "data loss, risky migration"
+      },
+      {
+        "id": "SM-6",
+        "move": "Keep Markdown/export video references in source recording plus original time.",
+        "reduces": "exports pointing at footage that doesn't exist at that time"
+      }
+    ],
+    "first_proof": {
+      "question": "Can one segment list drive both edited-time context (via process_session.py) and edited-time playback (via AVMutableComposition), with frames, narration and new review marks all aligned?",
+      "artifact": "Hand-written edits.json with cuts at start, middle, end on a real session; reprocessed session opened in the Sessions window.",
+      "observation": "Playback skips ranges; mark frames match video at new times; narration quotes only kept speech; a review mark after the middle cut writes the correct original offset.",
+      "decision_rule": "All three hold \u2192 build range-selection interface and join on this model. Composition seeking or frame alignment fails \u2192 move frame extraction and time conversion into Swift before the interface."
+    },
+    "rabbit_holes": [
+      "AVMutableComposition seek precision and per-segment decode for 15 fps H.264",
+      "Joined sessions whose sources have different resolutions or no audio",
+      "Transcript sentence partially inside a cut",
+      "Review marks and annotations created in edited time must convert to source time",
+      "viewer.html cannot easily play a multi-source join",
+      "Draw-mode key conflicts (S = shot vs select)"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "not-started",
+    "repository_snapshot": {
+      "root": ".",
+      "revision": "0166848",
+      "worktree_status": "clean (docs/ untracked)",
+      "subsystems": [
+        "scripts/process_session.py",
+        "Library/SessionModel.swift",
+        "Library/SessionData.swift",
+        "Library/Review.swift",
+        "Library/SessionTimeline.swift",
+        "Library/SessionView.swift",
+        "Library/LibraryView.swift",
+        "Library/SessionLibrary.swift",
+        "Library/MarkText.swift",
+        "Export/PgmExport.swift",
+        "scripts/viewer.html",
+        "scripts/build-app.sh"
+      ],
+      "test_commands": [
+        "python3 -m unittest scripts/test_process_session.py",
+        "swift run ContextRecorder --self-test edits (new)",
+        "swift run ContextRecorder --library tmp/"
+      ],
+      "deployment_surfaces": []
+    },
+    "dependencies": [
+      {
+        "id": "DEP-001",
+        "name": "AVFoundation composition playback",
+        "material": true,
+        "application_seam": "Resolved segment table in session.json.segments; Swift EditMap builds AVMutableComposition and converts edited->source time.",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Local platform framework; the first proof needs real playback to judge seek precision."
+        },
+        "failure_modes": [
+          "imprecise seek across segment boundaries",
+          "scrub stutter with many segments",
+          "mismatched sizes/audio across joined sources",
+          "missing source asset"
+        ],
+        "proof_rungs": [
+          "pure conversion unit tests + shared fixture",
+          "single-source three-cut composition in debug app (M1)",
+          "two-source mixed size/audio join (M3 spike)",
+          "installed app on a fresh recording"
+        ],
+        "local_proof": "tmp/ copies of real sessions in swift run ContextRecorder --library tmp/",
+        "live_proof": "No remote service; installed-app pass on a fresh recording confirms.",
+        "rollout": "Composition used only when edits.json is non-trivial; otherwise AVPlayer(url:) as today. Delete edits.json to revert."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "python3 -m unittest scripts/test_process_session.py && python3 scripts/process_session.py tmp/<copy> && swift run ContextRecorder --library tmp/",
+      "starts": "nothing external",
+      "network": false,
+      "failure_injection": "fixture cases in scripts/fixtures/edit-cases.json; hand-edited edits.json; moved source folder for missing-source"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "A hand-written cut list plays and lines up",
+        "outcome": "Copied session with edits.json plays without removed ranges; marks, frames, narration, lanes in edited time; review marks write original time.",
+        "dependencies_introduced": [
+          "DEP-001"
+        ],
+        "proof": "pure conversion unit tests + --self-test edits + debug-app inspection of three cuts and a post-cut review mark",
+        "valid_intermediate_state": "No interface yet; sessions without edits.json unchanged.",
+        "rollback": "Delete edits.json; code paths with one trivial segment match today's.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Cut ranges from the timeline",
+        "outcome": "Select a range by ruler drag or I/O, Delete to cut, undo/redo/restore, Show Cuts, viewer.html skips cuts.",
+        "dependencies_introduced": [],
+        "proof": "Debug app: trim start/middle/end via UI, undo, restore one, Restore Original; Markdown and PGM export show edited times and source refs.",
+        "valid_intermediate_state": "Cutting usable on single sessions; joins absent.",
+        "rollback": "Restore Original deletes edits.json; feature can be hidden by removing the menu items.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Join sessions end to end",
+        "outcome": "Join Sessions\u2026 creates a joined session referencing sources; plays through with one timeline; cut like any session.",
+        "dependencies_introduced": [],
+        "proof": "Join two or three tmp/ sessions incl. mixed size/audio; cut the joined session; move a source to see the banner.",
+        "valid_intermediate_state": "Joined sessions coexist with normal ones; viewer.html shows a notice.",
+        "rollback": "Delete the joined folder; sources untouched.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "Annotation layer with rectangles and timing",
+        "outcome": "Rectangles drawn in draw mode show for ~3 s, adjustable via a timeline lane bar, surviving cuts and resizes.",
+        "dependencies_introduced": [],
+        "proof": "Debug app: draw, play, drag span, cut across it, restore, resize window.",
+        "valid_intermediate_state": "Annotation model proven with one tool.",
+        "rollback": "Delete annotations.json.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m5",
+        "title": "The rest of RegionShot's tools",
+        "outcome": "Arrow, text, highlight, freehand with RegionShot keys and direct manipulation.",
+        "dependencies_introduced": [],
+        "proof": "Debug app pass of each tool's create/move/resize/recolor/delete/undo; survives join and relaunch.",
+        "valid_intermediate_state": "Full tool set.",
+        "rollback": "Delete annotations.json; tools are additive.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "suggested cuts (first after M5)",
+      "annotations drawn into export images",
+      "blur tool, mark-note captions",
+      "MP4 burn-in export, viewer.html joins",
+      "cross-source ranges, reordering, speed ramps, auto-zoom, transcript editing",
+      "pasted images, frame crop, opacity"
+    ],
+    "open_decisions": [
+      {
+        "id": "SPK-1",
+        "milestone": "m1",
+        "decision": "Composition good enough for exact seeking and scrubbing across many segments?",
+        "evidence": "drag across a dozen cuts; compare against frames/NNN.jpg",
+        "fallback": "skip ranges on the source player for single-source cuts"
+      },
+      {
+        "id": "SPK-2",
+        "milestone": "m2",
+        "decision": "Full reprocess fast enough per cut?",
+        "evidence": "time process_session.py on a 30-min, 20-mark session after a cut",
+        "fallback": "--edits-only mode writing only session.json"
+      },
+      {
+        "id": "SPK-3",
+        "milestone": "m3",
+        "decision": "How to play mixed-size / silent sources in one composition?",
+        "evidence": "join 1920-wide with smaller, silent with narrated",
+        "fallback": "per-segment fit transform + empty audio; else refuse mixed-size joins"
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-13",
+      "event": "Initiative created; intent brief and brainstorm drafted from chat request, RegionShot reference and repo survey.",
+      "status": "planned"
+    },
+    {
+      "date": "2026-10-13",
+      "event": "Question round 1 answered; intent brief and brainstorm lean updated.",
+      "status": "planned"
+    },
+    {
+      "date": "2026-10-13",
+      "event": "Shape brief written: segment-list model, annotation overlay, first proof via hand-written edits.json.",
+      "status": "planned"
+    },
+    {
+      "date": "2026-10-13",
+      "event": "Implementation plan written: five milestones, three spikes, AVFoundation composition as the one material dependency.",
+      "status": "planned"
+    }
+  ],
+  "closure": null
+}
