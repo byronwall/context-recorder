@@ -61,8 +61,15 @@ struct MultipleSelection: View {
         } description: {
             Text("\(Format.time(duration)) of recording · \(marks == 1 ? "1 mark" : "\(marks) marks")")
         } actions: {
+            Button("Join into One Session", systemImage: "rectangle.stack.badge.plus") { state.join(state.selection) }
+                .buttonStyle(.borderedProminent)
+                .disabled(state.joinStatus?.hasSuffix("…") == true)
+                .help("Play these sessions end to end, oldest first, as a new session. The originals are kept as they are.")
             Button("Move to Trash", systemImage: "trash", role: .destructive) { state.requestTrash(state.selection) }
                 .keyboardShortcut(.delete, modifiers: .command)
+            if let status = state.joinStatus {
+                Text(status).font(.callout).foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -111,6 +118,7 @@ struct SessionSidebar: View {
                 Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(entry.url.appendingPathComponent("viewer.html")) }
             }
         } else if !entries.isEmpty {
+            Button("Join into One Session", systemImage: "rectangle.stack.badge.plus") { state.join(entries.map(\.url)) }
             Button("Reveal in Finder", systemImage: "folder") { NSWorkspace.shared.activateFileViewerSelecting(entries.map(\.url)) }
         }
         let external = entries.filter { state.library.isExternal($0) }
@@ -309,6 +317,12 @@ struct ShortcutsSheet: View {
         ("M", "Add a mark at the playhead"),
         ("S", "Capture a region of the current frame"),
         ("→  ←", "Skip 5 seconds forward or back"),
+        ("I  O", "Start or end a selection at the playhead"),
+        ("⇧ drag", "Select a range on the timeline"),
+        ("⌫", "Cut the selected range"),
+        ("⌘Z  ⇧⌘Z", "Undo or redo a cut or drawing"),
+        ("E", "Draw on the video (E or Esc to finish)"),
+        ("S R A T H D", "In draw mode: select, rectangle, arrow, text, highlight, draw"),
         ("Esc", "Close Quick Look"),
         ("Return", "Rename the selected session"),
         ("⌘⌫", "Move the selected sessions to the Trash"),

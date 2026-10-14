@@ -291,6 +291,26 @@ function pageHtml(b) {
 }
 let duration = DATA.duration || Math.max(1, ...marks.map((m) => m.offsetSeconds + 5));
 
+// Edited sessions: the <video> is the original recording, so play only the kept segments and show
+// everything in edited time (the times in DATA). Joined sessions span several videos; open those in the app.
+const segments = (DATA.segments || []).filter((s) => s.source === ".");
+const edited = (DATA.segments || []).length > 1 || (segments[0] && (segments[0].start > 0.05 ||
+  Math.abs(segments[0].end - (DATA.sourceDurations?.["."] ?? segments[0].end)) > 0.05));
+const joined = (DATA.segments || []).some((s) => s.source !== ".");
+const toEdited = (t) => {
+  if (!edited) return t;
+  for (const s of segments) if (t <= s.end) return s.editedStart + Math.max(0, t - s.start);
+  return duration;
+};
+const toSource = (e) => {
+  if (!edited) return e;
+  for (const s of segments) if (e < s.editedStart + (s.end - s.start)) return s.start + Math.max(0, e - s.editedStart);
+  const last = segments[segments.length - 1];
+  return last ? last.end : e;
+};
+const now = () => toEdited(video.currentTime);
+const seekTo = (e) => { video.currentTime = toSource(Math.min(duration, Math.max(0, e))); };
+
 const pct = (t) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%`;
 const titleOf = (m) => {
   const said = (m.narration || "").split("⚑")[0].trim();
@@ -341,23 +361,23 @@ function renderHeader() {
 
 function renderTimeline() {
   $("#laneMarks").innerHTML = marks.map((m) =>
-    `<div class="pin ${m.kind} ${selected === m.index ? "sel" : ""}" data-mark="${m.index}" style="left:${pct(m.offsetSeconds)}" title="${esc(fmt(m.offsetSeconds) + " · " + titleOf(m))}"></div>`).join("") + `<div class="playhead" style="left:${pct(video.currentTime)}"></div>`;
+    `<div class="pin ${m.kind} ${selected === m.index ? "sel" : ""}" data-mark="${m.index}" style="left:${pct(m.offsetSeconds)}" title="${esc(fmt(m.offsetSeconds) + " · " + titleOf(m))}"></div>`).join("") + `<div class="playhead" style="left:${pct(now())}"></div>`;
   $("#laneApps").innerHTML = activity.map((a, i) => {
     const end = activity[i + 1]?.offsetSeconds ?? duration;
     const c = a.context || {};
     const tip = [c.appName, c.windowTitle, c.browserURL].filter(Boolean).join("\n");
     return `<div class="seg" style="left:${pct(a.offsetSeconds)};width:calc(${pct(end - a.offsetSeconds)});background:${appColor(c.appName)}" title="${esc(tip)}">${esc(c.appName)}</div>`;
-  }).join("") + `<div class="playhead" style="left:${pct(video.currentTime)}"></div>`;
+  }).join("") + `<div class="playhead" style="left:${pct(now())}"></div>`;
   const page = $("#lanePage");
   $("#pageLabel").style.display = page.style.display = browserEvents.length ? "" : "none";
   page.innerHTML = browserEvents.map((b) => {
     const e = b.event || {};
     const kind = e.kind === "request" ? "request" : e.kind;
     return `<div class="dot k-${kind}" data-seek="${b.offsetSeconds}" style="left:${pct(b.offsetSeconds)}" title="${esc(fmt(b.offsetSeconds) + " · " + pageEventText(e))}"></div>`;
-  }).join("") + `<div class="playhead" style="left:${pct(video.currentTime)}"></div>`;
+  }).join("") + `<div class="playhead" style="left:${pct(now())}"></div>`;
   const speech = $("#laneSpeech");
   $("#speechLabel").style.display = speech.style.display = transcript.length ? "" : "none";
-  speech.innerHTML = transcript.map((s) => `<div class="seg" style="left:${pct(s.start)};width:${pct(s.end - s.start)};background:var(--accent);opacity:.6" title="${esc(s.text)}"></div>`).join("") + `<div class="playhead" style="left:${pct(video.currentTime)}"></div>`;
+  speech.innerHTML = transcript.map((s) => `<div class="seg" style="left:${pct(s.start)};width:${pct(s.end - s.start)};background:var(--accent);opacity:.6" title="${esc(s.text)}"></div>`).join("") + `<div class="playhead" style="left:${pct(now())}"></div>`;
   const n = 6;
   $("#ruler").innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${fmt((duration * i) / n)}</span>`).join("");
 }
@@ -405,7 +425,7 @@ function renderList() {
 }
 
 function renderNow() {
-  const t = video.currentTime;
+  const t = now();
   $("#nowCtx").innerHTML = kv(contextAt(t));
   const s = sentenceAt(t);
   $("#nowSaid").innerHTML = transcript.length ? (s ? esc(s.text) : `<span class="empty">…</span>`) : `<span class="empty">Silent recording</span>`;
@@ -421,7 +441,7 @@ function renderNow() {
 function select(index, { seek = true, scroll = true } = {}) {
   selected = index;
   const m = marks.find((x) => x.index === index);
-  if (m && seek) { video.pause(); video.currentTime = m.offsetSeconds; }
+  if (m && seek) { video.pause(); seekTo(m.offsetSeconds); }
   renderTimeline(); renderNow();
   // Toggle classes rather than re-rendering so images don't reload and flicker.
   document.querySelectorAll(".item[data-mark]").forEach((el) => el.classList.toggle("sel", +el.dataset.mark === index));
@@ -429,7 +449,7 @@ function select(index, { seek = true, scroll = true } = {}) {
 }
 
 function step(dir) {
-  const t = video.currentTime;
+  const t = now();
   const sorted = [...marks].sort((a, b) => a.offsetSeconds - b.offsetSeconds);
   const next = dir > 0 ? sorted.find((m) => m.offsetSeconds > t + 0.3) : [...sorted].reverse().find((m) => m.offsetSeconds < t - 0.3);
   if (next) { if (tab !== "marks") setTab("marks"); select(next.index); }
@@ -459,14 +479,14 @@ document.addEventListener("click", (e) => {
   if (el.matches("[data-zoom]")) return lightbox.open(el.src);
   if (el.closest("#lightbox")) return;
   if (btn?.matches("[data-copy]")) return copy(markdownFor(marks.find((m) => m.index === +btn.dataset.copy)), btn);
-  if (btn?.matches("[data-play]")) { const m = marks.find((x) => x.index === +btn.dataset.play); video.currentTime = Math.max(0, m.offsetSeconds - 5); return video.play(); }
+  if (btn?.matches("[data-play]")) { const m = marks.find((x) => x.index === +btn.dataset.play); seekTo(m.offsetSeconds - 5); return video.play(); }
   if (btn?.id === "copyAll") return copy(`# Session ${DATA.name}\n\n` + marks.map(markdownFor).join("\n\n"), btn);
   const pin = el.closest("[data-mark]");
   if (pin && !el.closest(".detail")) return select(+pin.dataset.mark, { scroll: !!pin.classList.contains("pin") });
   const row = el.closest("[data-seek]");
-  if (row) { video.currentTime = +row.dataset.seek; return renderNow(); }
+  if (row) { seekTo(+row.dataset.seek); return renderNow(); }
   const lane = el.closest(".lane");
-  if (lane) { const r = lane.getBoundingClientRect(); video.currentTime = ((e.clientX - r.left) / r.width) * duration; renderNow(); }
+  if (lane) { const r = lane.getBoundingClientRect(); seekTo(((e.clientX - r.left) / r.width) * duration); renderNow(); }
 });
 
 document.addEventListener("keydown", (e) => {
@@ -475,8 +495,8 @@ document.addEventListener("keydown", (e) => {
   if (e.key === " " && e.target !== video) { e.preventDefault(); video.paused ? video.play() : video.pause(); }
   else if (e.key === "j") step(1);
   else if (e.key === "k") step(-1);
-  else if (e.key === "ArrowRight" && e.target !== video) video.currentTime += 5;
-  else if (e.key === "ArrowLeft" && e.target !== video) video.currentTime -= 5;
+  else if (e.key === "ArrowRight" && e.target !== video) seekTo(now() + 5);
+  else if (e.key === "ArrowLeft" && e.target !== video) seekTo(now() - 5);
 });
 
 // Image lightbox: wheel/pinch zooms toward the pointer, drag pans, double-click toggles fit ↔ 1:1,
@@ -587,9 +607,24 @@ const lightbox = (() => {
   };
 })();
 
-video.addEventListener("timeupdate", renderNow);
+// Jump over removed ranges while playing; stop at the end of the last kept one.
+video.addEventListener("timeupdate", () => {
+  if (edited && !video.paused) {
+    const t = video.currentTime;
+    if (!segments.some((s) => t >= s.start - 0.05 && t < s.end)) {
+      const next = segments.find((s) => s.start > t);
+      if (next) video.currentTime = next.start; else video.pause();
+    }
+  }
+  renderNow();
+});
 video.addEventListener("seeked", renderNow);
-video.addEventListener("loadedmetadata", () => { if (isFinite(video.duration)) { duration = video.duration; renderTimeline(); } });
+video.addEventListener("loadedmetadata", () => {
+  if (!edited && isFinite(video.duration)) { duration = video.duration; renderTimeline(); }
+  if (edited && video.currentTime < segments[0].start) video.currentTime = segments[0].start;
+});
+if (joined) document.querySelector(".player").insertAdjacentHTML("beforeend",
+  `<div class="sub" style="padding:8px">This is a joined session. Open it in Context Recorder to play it; times below are in the joined session.</div>`);
 
 renderHeader(); renderTimeline(); setTab("marks");
 </script>

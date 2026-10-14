@@ -12,7 +12,14 @@ final class SessionModel {
     private(set) var loadError: String?
     let player: AVPlayer
 
-    /// Seconds into recording.mp4. Updated ~30×/s while playing; views that read it redraw then.
+    /// The cut list when the session has an edits.json; nil plays recording.mp4 as recorded.
+    private(set) var edits: EditMap?
+    /// What the player shows: recording.mp4, or the composition of the kept ranges. Previews read it too.
+    private(set) var playbackAsset: AVAsset
+    /// Set when a joined session's sources differ in size, so they share one frame.
+    private(set) var playbackVideoComposition: AVVideoComposition?
+
+    /// Seconds into the edited video (recording.mp4 when unedited). Updated ~30×/s while playing.
     private(set) var currentTime: Double = 0
     private(set) var isPlaying = false
     private(set) var videoDuration: Double?
@@ -76,9 +83,11 @@ final class SessionModel {
 
     init(folder: URL) {
         self.folder = folder
-        let video = folder.appendingPathComponent("recording.mp4")
-        player = AVPlayer(url: video)
+        let asset = AVURLAsset(url: folder.appendingPathComponent("recording.mp4"))
+        playbackAsset = asset
+        player = AVPlayer(playerItem: AVPlayerItem(asset: asset))
         player.actionAtItemEnd = .pause
+        annotations = AnnotationsFile.load(folder)
         reload()
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] t in
             MainActor.assumeIsolated {
@@ -115,11 +124,87 @@ final class SessionModel {
         do {
             data = try JSONDecoder().decode(SessionData.self, from: Data(contentsOf: url))
             loadError = nil
+            if let errors = data?.errors, !errors.isEmpty { reviewError = errors.joined(separator: "\n") }
+            applyEdits()
             assignAppColors()
             reloadCanvas()
         } catch {
             loadError = "session.json could not be read: \(error.localizedDescription)"
         }
+    }
+
+    // MARK: Edits
+
+    /// After a reload: play the cut list from edits.json, or the plain recording when there is none.
+    private func applyEdits() {
+        let edited = FileManager.default.fileExists(atPath: folder.appendingPathComponent("edits.json").path)
+        let map = edited ? data.map { EditMap($0.segments) } : nil
+        if map != edits { setEdits(map) }
+    }
+
+    /// The range picked on the timeline (Shift-drag, or I and O), in edited time.
+    var selection: ClosedRange<Double>?
+    /// Earlier and undone cut lists and annotation sets, for ⌘Z / ⇧⌘Z.
+    var undoStack: [EditStep] = []
+    var redoStack: [EditStep] = []
+
+    // Annotations (drawing over the video)
+    var annotations: [Annotation] = []
+    /// Draw mode: the video pauses and RegionShot's tool keys apply.
+    var drawMode = false
+    var tool: AnnotationTool = .select
+    var selectedAnnotation: UUID?
+    /// The text annotation whose inline editor is open.
+    var editingText: UUID?
+    var annotationColor = AnnotationPalette.defaultStroke
+    var highlightColor = AnnotationPalette.defaultHighlight
+
+    @ObservationIgnored private var editGeneration = 0
+    @ObservationIgnored private var seekCount = 0
+
+    /// Swaps the player to a new cut list, keeping the playhead on the same moment of the recording (or
+    /// the next kept moment, when that one was just cut).
+    func setEdits(_ map: EditMap?) {
+        let moment: (source: String, time: Double) = edits?.toSource(currentTime) ?? (".", currentTime)
+        edits = map
+        editGeneration += 1
+        let generation = editGeneration
+        let wasPlaying = isPlaying
+        let seeksBefore = seekCount
+        player.pause()
+        Task {
+            let asset: AVAsset
+            var videoComposition: AVVideoComposition?
+            if let map {
+                do {
+                    let playback = try await map.composition(in: folder)
+                    asset = playback.asset
+                    videoComposition = playback.videoComposition
+                } catch {
+                    reviewError = "The edited video couldn't be built: \(error.localizedDescription)"
+                    return
+                }
+            } else {
+                asset = AVURLAsset(url: folder.appendingPathComponent("recording.mp4"))
+            }
+            guard generation == editGeneration else { return }
+            playbackAsset = asset
+            playbackVideoComposition = videoComposition
+            videoDuration = nil
+            let item = AVPlayerItem(asset: asset)
+            item.videoComposition = videoComposition
+            player.replaceCurrentItem(with: item)
+            // A seek made while the video was being built (selecting a mark) is already in edited time.
+            let target = seekCount != seeksBefore ? currentTime
+                : map.map { $0.nearestEdited(source: moment.source, moment.time) } ?? moment.time
+            seek(target, play: wasPlaying)
+        }
+    }
+
+    /// Where an edited time is in the raw recording: its folder, source name and time there.
+    func sourcePoint(_ edited: Double) -> (folder: URL, source: String, time: Double) {
+        let (source, time): (String, Double) = edits?.toSource(edited) ?? (".", edited)
+        return (EditMap.folder(of: source, in: folder), source, time)
     }
 
     // MARK: Derived
@@ -201,6 +286,7 @@ final class SessionModel {
 
     func seek(_ t: Double, play: Bool = false) {
         let clamped = min(max(0, t), duration)
+        seekCount += 1
         currentTime = clamped
         player.seek(to: CMTime(seconds: clamped, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
         if play { player.rate = rate; isPlaying = true }

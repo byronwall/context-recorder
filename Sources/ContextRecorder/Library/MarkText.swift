@@ -88,7 +88,8 @@ enum MarkText {
         if let w = c?.windowTitle.nonEmpty { lines.append("- **Window:** \(w)") }
         if let u = c?.browserURL.nonEmpty { lines.append("- **URL:** \(u)") }
         if let t = c?.browserTitle.nonEmpty { lines.append("- **Page title:** \(t)") }
-        lines.append("- **Video:** `\(folder)/recording.mp4` @ \(String(format: "%.1f", m.offsetSeconds))s")
+        let source = EditMap.folder(of: m.sourceSession ?? ".", in: URL(fileURLWithPath: folder)).path
+        lines.append("- **Video:** `\(source)/recording.mp4` @ \(String(format: "%.1f", m.originalOffset))s")
         if m.isReview { lines.append("- **Added:** while reviewing the recording (no live page snapshot)") }
         if let h = b?.hovered {
             var line = "- **Under mouse:** `\(h.selector ?? "")`"

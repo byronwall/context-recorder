@@ -32,6 +32,8 @@ extension SessionModel {
     private func addReview(region: CGRect?, shot: Bool) async {
         player.pause()
         let t = currentTime
+        // marks.jsonl is in source time, so a later cut or restore keeps the mark on its moment.
+        let at = sourcePoint(t)
         reviewStatus = shot ? "Saving shot…" : "Adding mark…"
         defer { reviewStatus = nil }
         do {
@@ -40,16 +42,17 @@ extension SessionModel {
             var mark: [String: JSONValue] = [
                 "index": .number(Double(index)),
                 "kind": .string(shot ? "screenshot" : "mark"),
-                "offsetSeconds": .number((t * 1000).rounded() / 1000),
-                "wallTime": .string(wallTime(at: t)),
+                "offsetSeconds": .number((at.time * 1000).rounded() / 1000),
+                "wallTime": .string(wallTime(at: at.time, in: at.folder)),
                 "source": .string("review"),
                 "context": contextJSON(at: t),
             ]
-            let recent = recentPageEvents(before: t)
+            if at.source != "." { mark["sourceSession"] = .string(at.source) }
+            let recent = recentPageEvents(before: at.time, in: at.folder)
             if !recent.isEmpty { mark["browser"] = .object(["recent": .array(recent)]) }
             if shot {
                 let name = String(format: "screenshots/%03d.png", index)
-                let size = try await saveFrame(at: t, crop: region, to: folder.appendingPathComponent(name))
+                let size = try await saveFrame(at: at.time, of: at.folder, crop: region, to: folder.appendingPathComponent(name))
                 mark["screenshot"] = .string(name)
                 if let region {
                     mark["region"] = .object([
@@ -71,14 +74,17 @@ extension SessionModel {
 
     func setNote(_ note: String, for index: Int) async {
         let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (mark(index)?.note ?? "") != trimmed else { return }
+        guard let m = mark(index), (m.note ?? "") != trimmed else { return }
         reviewStatus = "Saving note…"
         defer { reviewStatus = nil }
         do {
-            var lines = try MarksFile.load(folder)
-            guard let i = lines.firstIndex(where: { $0["index"]?.numberValue == Double(index) }) else { return }
+            // In a joined session the note goes to the session the mark belongs to, so it shows there too.
+            let owner = owner(of: m)
+            var lines = try MarksFile.load(owner)
+            guard let i = lines.firstIndex(where: { $0["index"]?.numberValue == Double(m.storedIndex) }) else { return }
             lines[i] = lines[i].setting("note", trimmed.isEmpty ? .null : .string(trimmed))
-            try MarksFile.save(lines, to: folder)
+            try MarksFile.save(lines, to: owner)
+            if owner != folder { try await reprocess(owner) }
             try await reprocess()
         } catch {
             reviewError = error.localizedDescription
@@ -87,17 +93,19 @@ extension SessionModel {
 
     /// Only review marks can be deleted; marks made while recording are the source data.
     func deleteReviewMark(_ index: Int) async {
-        guard mark(index)?.isReview == true else { return }
+        guard let m = mark(index), m.isReview else { return }
         reviewStatus = "Deleting mark…"
         defer { reviewStatus = nil }
         do {
-            let lines = try MarksFile.load(folder).filter { $0["index"]?.numberValue != Double(index) }
-            try MarksFile.save(lines, to: folder)
+            let owner = owner(of: m), stored = m.storedIndex
+            let lines = try MarksFile.load(owner).filter { $0["index"]?.numberValue != Double(stored) }
+            try MarksFile.save(lines, to: owner)
             // Frames are cached by index; remove them so a later mark can't pick up this one's image.
-            for file in [String(format: "screenshots/%03d.png", index), String(format: "frames/%03d.jpg", index)] {
-                try? FileManager.default.removeItem(at: folder.appendingPathComponent(file))
+            for file in [String(format: "screenshots/%03d.png", stored), String(format: "frames/%03d.jpg", stored)] {
+                try? FileManager.default.removeItem(at: owner.appendingPathComponent(file))
             }
             if selectedMark == index { selectedMark = nil }
+            if owner != folder { try await reprocess(owner) }
             try await reprocess()
         } catch {
             reviewError = error.localizedDescription
@@ -106,6 +114,9 @@ extension SessionModel {
 
     // MARK: Pieces
 
+    /// The session folder whose marks.jsonl holds this mark.
+    private func owner(of m: SessionMark) -> URL { EditMap.folder(of: m.rawSession ?? ".", in: folder) }
+
     private func contextJSON(at t: Double) -> JSONValue {
         guard let ctx = contextAt(t), let data = try? JSONEncoder().encode(ctx),
               let value = try? JSONDecoder().decode(JSONValue.self, from: data) else { return .object([:]) }
@@ -113,8 +124,8 @@ extension SessionModel {
     }
 
     /// Page events from the 30 s before the mark, as recorded (so problems show up like on live marks).
-    private func recentPageEvents(before t: Double) -> [JSONValue] {
-        guard let raw = try? String(contentsOf: folder.appendingPathComponent("browser.jsonl"), encoding: .utf8) else { return [] }
+    private func recentPageEvents(before t: Double, in source: URL) -> [JSONValue] {
+        guard let raw = try? String(contentsOf: source.appendingPathComponent("browser.jsonl"), encoding: .utf8) else { return [] }
         return raw.split(separator: "\n").compactMap { line -> JSONValue? in
             guard let v = try? JSONDecoder().decode(JSONValue.self, from: Data(line.utf8)),
                   let offset = v["offsetSeconds"]?.numberValue, offset <= t, offset >= t - 30 else { return nil }
@@ -122,17 +133,17 @@ extension SessionModel {
         }.suffix(40)
     }
 
-    private func wallTime(at t: Double) -> String {
+    private func wallTime(at t: Double, in source: URL) -> String {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         f.locale = Locale(identifier: "en_US_POSIX")
-        let start = f.date(from: folder.lastPathComponent) ?? .now
+        let start = f.date(from: source.lastPathComponent) ?? .now
         return ISO8601DateFormatter().string(from: start.addingTimeInterval(t))
     }
 
     /// Writes the video frame at `t` (cropped to the normalized region) as PNG; returns the frame's pixel size.
-    private func saveFrame(at t: Double, crop: CGRect?, to url: URL) async throws -> CGSize {
-        let asset = AVURLAsset(url: folder.appendingPathComponent("recording.mp4"))
+    private func saveFrame(at t: Double, of source: URL, crop: CGRect?, to url: URL) async throws -> CGSize {
+        let asset = AVURLAsset(url: source.appendingPathComponent("recording.mp4"))
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.requestedTimeToleranceBefore = .zero
@@ -155,9 +166,27 @@ extension SessionModel {
     }
 
     /// Re-runs scripts/process_session.py (frames, narration, Markdown, session.json), then reloads.
-    func reprocess() async throws {
+    func reprocess(_ other: URL? = nil) async throws {
+        try await SessionProcessing.run(other ?? folder)
+        if other != nil { return }
+        reload()
+        // A new review mark is known by its index in marks.jsonl; a joined session shows it under another.
+        if let stored = pendingSelect,
+           let index = marks.first(where: { $0.storedIndex == stored && ($0.rawSession ?? ".") == "." })?.index {
+            if focusNoteFor == stored { focusNoteFor = index }
+            pendingSelect = nil
+            tab = .marks
+            markFilter = .all
+            select(index, seek: false)
+        }
+    }
+}
+
+/// Runs scripts/process_session.py on a session folder (frames, narration, Markdown, session.json).
+@MainActor
+enum SessionProcessing {
+    static func run(_ folder: URL) async throws {
         guard let script = AppDelegate.processScriptURL() else { throw ReviewError("process_session.py wasn't found") }
-        let folder = self.folder
         let status: Int32 = try await withCheckedThrowingContinuation { cont in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
@@ -167,13 +196,6 @@ extension SessionModel {
             do { try process.run() } catch { cont.resume(throwing: error) }
         }
         guard status == 0 else { throw ReviewError("Processing failed; see process.log in the session folder") }
-        reload()
-        if let index = pendingSelect, mark(index) != nil {
-            pendingSelect = nil
-            tab = .marks
-            markFilter = .all
-            select(index, seek: false)
-        }
     }
 }
 

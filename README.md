@@ -41,6 +41,24 @@ A native library of every recording (menu bar → **Sessions…**, or the play b
 | M | Add a mark at the playhead (on the canvas: at the moment under the pointer) |
 | S | Capture a region of the current frame (drag; click for the whole frame; Esc cancels); on the canvas, drag over an item |
 | C | Switch between the video and the canvas (once a canvas is built) |
+| I / O | Start or end a selection at the playhead |
+| ⇧ drag | Select a range on the timeline |
+| ⌫ | Cut the selected range |
+| ⌘Z / ⇧⌘Z | Undo / redo a cut |
+
+### Cutting a recording
+
+Select a range with **Shift-drag** on the timeline (or **I** and **O** at the playhead) and press **⌫** or **Cut**. Cut anywhere, as often as you like. The video, marks, narration and every lane close up around the cut, and a scissors marker shows where it was. Click a marker to see what was removed and restore that cut. **⌘Z**/**⇧⌘Z** undo and redo, and **Session → Restore Original Recording** puts everything back. Cuts never touch `recording.mp4`; they're stored in `edits.json` (see *Edited sessions* below).
+
+### Drawing on the video
+
+Press **E** (or the pencil in the playback controls) to draw on the video. The video pauses and a toolbar shows the tools and colors, with RegionShot's keys: **S** select, **R** rectangle, **A** arrow, **T** text, **H** highlight (translucent, with its own color, yellow by default) and **D** freehand (lightly smoothed). Click with the text tool to type a note; **Return** commits it, **⇧Return** adds a line break and **Esc** cancels. Double-click text to edit it, and drag its side handles to change the wrap width without changing the font size. Arrows have a handle at each end. Drag a drawing to move it, drag its handles to resize it, and press **⌫** to delete it. Changing the color recolors the selected drawing. **⌘Z** undoes drawings and cuts alike. **E** or **Esc** leaves draw mode.
+
+Each drawing shows for 3 seconds from where you drew it. The **Drawn** lane on the timeline has a bar for each one: drag the bar to move it in time, or drag an end to show it for longer. Drawings are stored in `annotations.json` at their time in the original recording, so cuts and joins never move them off their moment. Positions are fractions of the video frame, so they stay put at any window size.
+
+### Joining sessions
+
+Select two or more sessions in the sidebar (⌘-click or ⇧-click) and choose **Join into One Session** (also in the right-click menu). A new session plays them end to end, oldest first, with one timeline: marks are numbered in play order and a purple label shows where each source starts. Cuts already made in a source carry over, and you can cut the joined session like any other. The sources aren't changed or copied: the joined folder's `edits.json` points at them (`"source": "../2026-10-13_00-57-10"`), so keep them next to it. A note on a mark from a source is saved in that source, and marks added while reviewing the joined session are saved in the joined session. If a source is moved or deleted, the joined session says which one is missing. Sources of different sizes are scaled to fit one frame.
 
 ### Marking up a recording afterwards
 
@@ -128,8 +146,21 @@ Input values are never recorded, only which field changed. The app accepts conne
 | `transcript.json` | Parakeet output, with timestamps for every sentence and token |
 | `marks/NNN.md`, `session.md` | Markdown for each mark, with the narration window (20 s before and 10 s after the mark; ⚑ shows where the mark landed) |
 | `session.json` | Everything above in one file, for the viewer and exporters |
+| `edits.json` | Only in edited sessions: the kept ranges of the recording, in play order (see below) |
 | `viewer.html` | Portable web copy of the session. Opens straight from disk, no server needed |
 | `canvas.json`, `canvas/` | The canvas, when built: items left to right, each tied to the video frame it came from |
+
+### Edited sessions
+
+A session with an `edits.json` plays only its kept ranges:
+
+```json
+{"segments": [{"source": ".", "start": 10, "end": 60}, {"source": ".", "start": 100, "end": 200}]}
+```
+
+Processing writes `session.json`, the Markdown and the export data in *edited* time: marks, activity, page events and the transcript move with the video, and anything inside a removed range drops out (cut marks are kept under `hiddenMarks`). Each mark keeps `sourceOffsetSeconds`, and Markdown video references point at the original recording and time. `recording.mp4` and the raw `.jsonl` files are never changed; marks added while reviewing an edited session are stored at their original time. Delete `edits.json` and re-process to get the session back as recorded.
+
+The time mapping is tested by `python3 -m unittest scripts/test_process_session.py` and, in the app, `swift run ContextRecorder --library <session> --self-test edits`; both read the cases in `scripts/fixtures/edit-cases.json`.
 
 To re-run processing, for example with a different narration window:
 

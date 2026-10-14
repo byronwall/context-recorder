@@ -30,6 +30,26 @@ final class LibraryState {
         confirmTrash = urls.filter { $0 != library.recordingFolder }
     }
 
+    /// "Joining…" while a join is being processed, or why it failed.
+    var joinStatus: String?
+
+    /// Joins the selected sessions into a new one and opens it.
+    func join(_ urls: some Collection<URL>) {
+        let urls = Array(urls)
+        joinStatus = "Joining \(urls.count) sessions…"
+        Task {
+            do {
+                let folder = try SessionJoin.join(urls)
+                try await SessionProcessing.run(folder)
+                library.refresh()
+                joinStatus = nil
+                open(folder)
+            } catch {
+                joinStatus = error.localizedDescription
+            }
+        }
+    }
+
     func trashConfirmed() {
         let urls = confirmTrash
         confirmTrash = []
@@ -139,10 +159,31 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
                 return nil
             }
             guard let model = self.state.model else { return event }
+            // ⌘Z / ⇧⌘Z undo and redo cuts (text fields keep their own undo; see the NSText check above).
+            if event.keyCode == 6, event.modifierFlags.intersection([.command, .control, .option]) == .command {
+                if event.modifierFlags.contains(.shift) { model.redoEdit() } else { model.undoEdit() }
+                return nil
+            }
             if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty { return event }
             if model.canvasSelecting {
                 if event.keyCode == 53 { model.canvasSelecting = false; NSCursor.arrow.set(); return nil }   // esc
                 return event
+            }
+            // Draw mode: RegionShot's tool keys; Delete removes the selected drawing; E or Esc leaves.
+            if model.drawMode {
+                let key = event.charactersIgnoringModifiers?.lowercased().first
+                if let tool = AnnotationTool.available.first(where: { $0.key == key }) { model.tool = tool; return nil }
+                switch event.keyCode {
+                case 14: model.enterDrawMode(false); return nil                       // e
+                case 53:                                                              // esc
+                    if model.selectedAnnotation != nil { model.selectedAnnotation = nil }
+                    else if model.tool != .select { model.tool = .select }
+                    else { model.enterDrawMode(false) }
+                    return nil
+                case 51, 117: model.deleteSelectedAnnotation(); return nil            // delete
+                case 49: return nil                                                   // space: stay paused while drawing
+                default: break
+                }
             }
             if model.regionMode {
                 if event.keyCode == 53 { model.regionMode = false; model.regionPurpose = .shot; NSCursor.arrow.set(); return nil }   // esc
@@ -155,12 +196,18 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
                 if model.stage == .canvas { model.startCanvasShot() } else { model.startShot() }
             case 8:                                           // c
                 guard model.canvas != nil else { return event }
+                if model.drawMode { model.enterDrawMode(false) }
                 model.stage = model.stage == .canvas ? .video : .canvas
             case 49: model.togglePlay()                       // space
             case 38: model.step(1)                            // j
             case 40: model.step(-1)                           // k
             case 124: model.skip(5)                           // →
             case 123: model.skip(-5)                          // ←
+            case 14: model.enterDrawMode(true)                // e
+            case 34: model.setSelectionEdge(start: true)      // i
+            case 31: model.setSelectionEdge(start: false)     // o
+            case 51 where model.selection != nil: model.cutSelection()   // delete
+            case 53 where model.selection != nil: model.selection = nil  // esc
             default: return event
             }
             return nil

@@ -10,6 +10,9 @@ struct SessionTimeline: View {
     @State private var hoveredPin: Int?
     @State private var cardSize: CGSize = .zero
     @State private var previews: FramePreviews?
+    /// Decided when a drag starts: Shift selects a range, otherwise the drag seeks.
+    @State private var selectAnchor: Double?
+    @State private var dragging = false
 
     private static let labelWidth: CGFloat = 72
     private static let laneGap: CGFloat = 7
@@ -18,15 +21,15 @@ struct SessionTimeline: View {
     private static let labelStrip: CGFloat = 13
 
     enum Lane: CaseIterable {
-        case ruler, apps, page, speech
+        case ruler, apps, page, speech, drawings
         var height: CGFloat {
-            switch self { case .ruler: 32; case .apps: 26; case .page: 16; case .speech: 16 }
+            switch self { case .ruler: 32; case .apps: 26; case .page: 16; case .speech: 16; case .drawings: 18 }
         }
         var title: String {
-            switch self { case .ruler: ""; case .apps: "Apps"; case .page: "Page"; case .speech: "Voice" }
+            switch self { case .ruler: ""; case .apps: "Apps"; case .page: "Page"; case .speech: "Voice"; case .drawings: "Drawn" }
         }
         var symbol: String {
-            switch self { case .ruler: ""; case .apps: "macwindow"; case .page: "globe"; case .speech: "waveform" }
+            switch self { case .ruler: ""; case .apps: "macwindow"; case .page: "globe"; case .speech: "waveform"; case .drawings: "pencil.tip" }
         }
     }
 
@@ -36,6 +39,7 @@ struct SessionTimeline: View {
             case .page: !model.pageEvents.isEmpty
             case .speech: !model.transcript.isEmpty
             case .apps: !model.activity.isEmpty
+            case .drawings: !model.annotations.isEmpty || model.drawMode
             default: true
             }
         }
@@ -77,6 +81,7 @@ struct SessionTimeline: View {
                             .offset(y: top(of: lane))
                     }
                     playheadHandle(width: w)
+                    TimelineEditOverlay(model: model, width: w, height: totalHeight)
                 }
                 // An overlay, so the card never changes the lanes' layout.
                 .overlay(alignment: .topLeading) {
@@ -90,8 +95,8 @@ struct SessionTimeline: View {
                         hover = nil
                     }
                 }
-                .task(id: w) {
-                    previews = FramePreviews(video: model.folder.appendingPathComponent("recording.mp4"))
+                .task(id: PreviewKey(width: w, asset: ObjectIdentifier(model.playbackAsset))) {
+                    previews = FramePreviews(asset: model.playbackAsset, videoComposition: model.playbackVideoComposition)
                     let args = CommandLine.arguments
                     if args.contains("--library"), let i = args.firstIndex(of: "--timeline-hover"),
                        i + 1 < args.count, let fraction = Double(args[i + 1]) {
@@ -118,6 +123,7 @@ struct SessionTimeline: View {
         case .apps: appSegments(width: w)
         case .page: pageDots(width: w)
         case .speech: speechSegments(width: w)
+        case .drawings: AnnotationLane(model: model, width: w, height: Lane.drawings.height)
         }
     }
 
@@ -137,7 +143,24 @@ struct SessionTimeline: View {
             .fill(.clear)
             .contentShape(.rect)
             .frame(width: w, height: totalHeight)
-            .gesture(DragGesture(minimumDistance: 0).onChanged { g in model.seek(t(g.location.x, w)) })
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { g in
+                    if !dragging {
+                        dragging = true
+                        selectAnchor = NSEvent.modifierFlags.contains(.shift) ? t(g.startLocation.x, w) : nil
+                    }
+                    let time = t(g.location.x, w)
+                    if let anchor = selectAnchor {
+                        model.selection = min(anchor, time)...max(anchor, time)
+                    } else {
+                        model.seek(time)
+                    }
+                }
+                .onEnded { _ in
+                    dragging = false
+                    if let s = model.selection, s.upperBound - s.lowerBound < 0.1, selectAnchor != nil { model.selection = nil }
+                    selectAnchor = nil
+                })
             .accessibilityElement()
             .accessibilityLabel("Playhead")
             .accessibilityValue(Format.time(model.currentTime))
@@ -389,8 +412,9 @@ final class FramePreviews {
     @ObservationIgnored private var pending: Task<Void, Never>?
     @ObservationIgnored private var requestedKey: Int?
 
-    init(video: URL) {
-        generator = AVAssetImageGenerator(asset: AVURLAsset(url: video))
+    init(asset: AVAsset, videoComposition: AVVideoComposition? = nil) {
+        generator = AVAssetImageGenerator(asset: asset)
+        generator.videoComposition = videoComposition
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 480, height: 480)
         // A nearby frame is fine for a preview and much faster than an exact one.
@@ -421,6 +445,9 @@ final class FramePreviews {
         if order.count > 150 { cache[order.removeFirst()] = nil }
     }
 }
+
+/// Rebuild the previews when the width changes or an edit swaps the video.
+private struct PreviewKey: Hashable { var width: CGFloat; var asset: ObjectIdentifier }
 
 struct LaneLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {

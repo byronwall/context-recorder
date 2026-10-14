@@ -163,6 +163,8 @@ def app_command(args: argparse.Namespace, executable: str) -> list[str]:
         command.append("--capture")
     if args.export is not None:
         command += ["--export", str(Path(args.export).expanduser().resolve())]
+    # Anything after `--` goes to the app as is, e.g. `-- --seek 70 --review-mark`.
+    command += [a for a in getattr(args, "app_args", None) or [] if a != "--"]
     return command
 
 
@@ -306,6 +308,7 @@ def main() -> None:
     launch_parser.add_argument("--export", help="open export for this project folder")
     launch_parser.add_argument("--capture", action="store_true", help="enable isolated production capture for fixture-library output")
     launch_parser.add_argument("--appearance", choices=("light", "dark"))
+    launch_parser.add_argument("app_args", nargs=argparse.REMAINDER, help="extra app flags after --")
     run_parser = commands.add_parser("run", help="run the fixture with swift run")
     run_parser.add_argument("--session", choices=SESSIONS)
     run_parser.add_argument("--tab", choices=("marks", "transcript", "page", "activity"))
@@ -316,6 +319,7 @@ def main() -> None:
     run_parser.add_argument("--export", help="open export for this project folder")
     run_parser.add_argument("--capture", action="store_true", help="enable isolated production capture for fixture-library output")
     run_parser.add_argument("--appearance", choices=("light", "dark"))
+    run_parser.add_argument("app_args", nargs=argparse.REMAINDER, help="extra app flags after --")
     commands.add_parser("stop", help="stop only the PID started by this harness")
     commands.add_parser("self-check", help="check fixture path and process identity gates")
     commands.add_parser("check", help="check transcript starts and preview frame changes")
