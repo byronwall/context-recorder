@@ -5,6 +5,7 @@ import SwiftUI
 /// One session: the video on a stage, the shared timeline and the "now" strip, marks in the inspector.
 struct SessionView: View {
     @Bindable var model: SessionModel
+    var title: String
     @State private var showInspector = true
     @State private var quickLook: URL?
     @State private var copiedAll = false
@@ -91,8 +92,6 @@ struct SessionView: View {
         model.marks.flatMap { m in [m.image, m.frame].compactMap { model.url($0) } }
             .reduce(into: [URL]()) { if !$0.contains($1) { $0.append($1) } }
     }
-
-    private var title: String { SessionTitle.title(for: model.folder) }
 
     private var subtitle: String {
         guard model.data != nil else { return "" }

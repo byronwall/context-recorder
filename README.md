@@ -25,7 +25,9 @@ When you stop, the app transcribes your narration (if there is any), writes mark
 
 A native library of every recording (menu bar → **Sessions…**, or the play button on the control panel). While it's open the app gets a Dock icon and menus; close it and the app goes back to living in the menu bar.
 
-- **Sidebar:** sessions by day, with thumbnail, length, mark count and the apps you used. Drop a session folder (or a folder of sessions) on the window, or use **File → Open Session Folder…**, to add one from elsewhere.
+- **Sidebar:** sessions by day, with thumbnail, length, mark count, a waveform when the session has narration, and the apps you used. Drop a session folder (or a folder of sessions) on the window, or use **File → Open Session Folder…**, to add one from elsewhere.
+  - **Rename** (right-click, or Return on the selected session) gives a session a name. It's kept in `session-info.json`, so the folder keeps its timestamp; clear the name to go back to the date.
+  - **Move to Trash** (right-click, or ⌘⌫) works on one session or several: ⌘- or ⇧-click to select more. Trashed sessions can be put back from the Trash. The session being recorded can't be trashed.
 - **Stage:** the recording, with floating playback controls.
 - **Timeline:** marks, active app, page events and narration on one time axis. Click or drag to seek; hover to see what's under the pointer.
 - **Now strip:** the app, window and URL at the playhead, and the sentence being spoken.

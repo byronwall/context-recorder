@@ -7,14 +7,36 @@ final class LibraryState {
     let library: SessionLibrary
     init(includeDefaultRoot: Bool) { library = SessionLibrary(includeDefaultRoot: includeDefaultRoot) }
     var showShortcuts = false
-    var selection: URL? {
+    /// Sidebar selection. One session is open when exactly one is selected; several can be trashed together.
+    var selection: Set<URL> = [] {
         didSet {
             guard selection != oldValue else { return }
+            let open = selection.count == 1 ? selection.first : nil
+            guard open != model?.folder else { return }
             model?.tearDown()
-            model = selection.map { SessionModel(folder: $0) }
+            model = open.map { SessionModel(folder: $0) }
         }
     }
     private(set) var model: SessionModel?
+    /// The session whose name is being edited in the sidebar.
+    var renaming: URL?
+    /// Sessions waiting for the user to confirm Move to Trash.
+    var confirmTrash: [URL] = []
+
+    func open(_ url: URL?) { selection = url.map { [$0] } ?? [] }
+
+    /// Asks before trashing; the session being recorded is never included.
+    func requestTrash(_ urls: some Collection<URL>) {
+        confirmTrash = urls.filter { $0 != library.recordingFolder }
+    }
+
+    func trashConfirmed() {
+        let urls = confirmTrash
+        confirmTrash = []
+        selection.subtract(urls)
+        if urls.contains(where: { $0 == model?.folder }) { model?.tearDown(); model = nil }
+        library.trash(urls)
+    }
 }
 
 /// The session library: a normal window with a Dock icon while it's open; the app goes back to
@@ -60,10 +82,10 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
         if let session {
             // A session folder, or a folder of sessions (then the newest is opened).
             let found = state.library.add(folder: session)
-            state.selection = found.contains(session) ? session
-                : state.library.entries.first { found.contains($0.url) }?.url ?? found.first
-        } else if state.selection == nil {
-            state.selection = state.library.entries.first?.url
+            state.open(found.contains(session) ? session
+                : state.library.entries.first { found.contains($0.url) }?.url ?? found.first)
+        } else if state.selection.isEmpty {
+            state.open(state.library.entries.first?.url)
         }
         NSApp.setActivationPolicy(.regular)
         MainMenu.install()
