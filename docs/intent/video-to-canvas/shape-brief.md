@@ -8,57 +8,61 @@ last_updated: "2026-10-13"
 
 # Video to canvas — what we are adding
 
-**Outcome:** A recorded walkthrough can be reviewed as a spatial canvas in which every visible piece links back to the frame and narration that produced it.
+**Outcome:** In the Sessions window, you can find content you scrolled or navigated past faster than by scrubbing the video. Every piece of it leads back to the moment it came from.
 
-**Primary flow:** Finish a session → run canvas analysis on request → open `viewer.html` → scan the canvas → select content → the shared player jumps to its source moment.
+**Primary flow:** Open a session → **Build canvas** → drag a box around the content once → switch the stage to Canvas → scan left to right → click content → the stage switches to the video at that moment.
 
 ## Feature scope
 
 ```text
-Canvas review (portable HTML viewer)
+Sessions window: Canvas stage mode
 ├── PLANNED ADDITIONS
-│   ├── Source-linked storyboard
-│   │   ├── Change-selected frame cards in time order
-│   │   ├── Click any card → shared player seeks to its source frame
-│   │   └── Transcript rail grouped by card interval
-│   ├── Tall scroll views
-│   │   ├── Overlapping frames joined into one column per scroll run
-│   │   ├── Click any point → the frame that supplied that patch
-│   │   └── Unverifiable joins stay as cards with a short reason
-│   ├── Changed states placed to the right of the earlier state
-│   └── Offline analyzer, run on request, writing canvas data beside the session
+│   ├── Build canvas (on request, per session)
+│   │   ├── Content box chosen once with the existing region picker
+│   │   └── Offline analysis writes canvas data into the session folder
+│   ├── Storyboard
+│   │   ├── Cards for meaningful visual changes, in time order
+│   │   └── Fallback for anything that cannot be joined
+│   ├── Tall columns
+│   │   ├── One column per scrolled page, laid out left to right
+│   │   └── Changes, returns, and motion appear as plain cards between columns
+│   ├── Back to the video
+│   │   ├── Click content → video stage, seeked to the frame that supplied it
+│   │   └── Hover → existing now strip and inspector show that moment's narration
+│   ├── Copy or export a column as PNG
+│   └── Add a review mark from selected canvas content
 ├── EVALUATE BEFORE COMMITTING
-│   ├── Reusing scrollsnap's stitching instead of writing our own
-│   └── Automatic content-area detection instead of one viewport selection
+│   ├── Analysis engine: Python + OpenCV vs in-app Apple Vision
+│   └── Reusing scrollsnap's stitching
 └── LATER POSSIBILITIES
-    ├── Motion posters with in-place playback
-    ├── Verified return arrows between visits
-    ├── Larger-than-frame region capture and export
-    ├── Lecture mode (slides plus code scrolls)
-    └── Native canvas in the Sessions window
+    ├── Changed states placed beside earlier states
+    ├── Return arrows, motion posters, card stacks
+    ├── Automatic content-area detection
+    ├── Long sessions (tiling, memory budgets)
+    └── Lecture mode, Product Grid canvas export
 ```
 
 ## Behavior
 
 | Situation | Expected result |
 | --- | --- |
-| Smooth scroll over static content | One tall column; seams avoid cutting glyphs |
-| Visible edit mid-page | New state to the right; unseen areas stay blank, not borrowed |
-| Jump with too little overlap | Separate card labeled "not joined: no overlap" |
+| Smooth scroll over static content | One tall column; seams avoid cutting text |
+| Edit, navigation, or animation | A plain card between columns |
+| Jump with too little overlap | A card labeled "not joined: no overlap" |
 | Fixed header, cursor, repeated text | No false join; header appears once |
-| Canvas data missing or stale | Viewer shows the existing session review unchanged |
-| Note edited and session reprocessed | Canvas is reused, not recomputed |
+| Mark from canvas | Review mark at the source frame's time, cropped to the selected source area, through the normal review-mark path |
+| Exported column | PNG named with its time range; it may combine several moments |
+| No canvas built, or video changed since | Canvas toggle unavailable or shows **Rebuild**; video review unchanged |
+| Note edited, session reprocessed | Canvas reused, not rebuilt |
 
 ## Decisions and boundaries
 
-**Appetite:** One experiment-sized slice: a storyboard plus scroll joining on short recordings in the HTML viewer. Enough to decide whether spatial geometry earns its cost.
+**Appetite:** One experiment-sized slice for recordings under five minutes. It is enough for you to judge on your own sessions whether spatial review beats scrubbing.
 
-**Key decision:** Build the change-selected storyboard first, then add stitching on top of it. The research treats the storyboard only as a comparison. It is also the refusal fallback (every rejected join becomes a card) and a usable result if stitching disappoints. This gives a working viewer after the first step and makes the value comparison free. Develop stitching against synthetic scroll clips cut from tall screenshots with FFmpeg, where every offset is known, before touching real recordings.
+**Key decision:** Build the storyboard before stitching. It makes Canvas mode usable early. It also handles every rejected join and remains a result if stitching disappoints. Stitching is developed on fake scroll videos made by cropping tall screenshots with FFmpeg. Every true offset is known, so accuracy is checked against exact answers before real footage. Python + OpenCV and Apple Vision are compared on those same clips. The better one is kept and the other is dropped.
 
-**Boundary:** Analysis is a separate, optional script; capture, transcription, marks, and Product Grid export are untouched. Deleting canvas output restores today's behavior. No browser instrumentation, server, or new frontend stack. Lecture and general video are out of scope for this slice.
+**Boundary:** Canvas data lives in a versioned file in the session folder, which the native view reads. Deleting that file restores today's behavior. Capture, transcription, marks, and export are untouched, except that marks from the canvas use the existing review-mark path. No browser instrumentation or HTML viewer work.
 
-**First proof:** **Try:** Synthetic scroll clips plus one 60–90 s real walkthrough (three viewport heights of scrolling, one edit, one jump) through the analyzer and viewer. **Observe:** Join error against known offsets, false joins, readable seams, and whether clicks land on the correct frame. **Decide:** Continue to real-session value testing if synthetic error stays within 2 px, there are zero false joins, and the real clip produces a readable tall view. Otherwise stop at the storyboard.
+**First proof:** **Try:** Fake scroll clips, plus two or three short scripted walkthroughs you record, through Build canvas into Canvas mode. **Observe:** Offset error and false joins on fake clips; readable columns and correct frame-on-click on real clips. **Decide:** Use it on your own sessions if fake-clip error stays within 2 px with zero false joins and real clips produce readable columns. Otherwise keep the storyboard and stop stitching.
 
-**Open choices:** Whether one manual viewport selection is acceptable; whether purpose-made test clips are acceptable.
-
-See the [intent brief](intent-brief.md), the [implementation plan](implementation-plan.md), and the original [research design](sources/design.md).
+See the [intent brief](intent-brief.md), [implementation plan](implementation-plan.md), and original [research design](sources/design.md).

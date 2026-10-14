@@ -10,113 +10,115 @@ last_updated: "2026-10-13"
 
 ## Plan at a glance
 
-Prove the cheapest useful thing first, then add geometry only where it can be checked against known answers.
+Canvas mode becomes usable early, and stitching accuracy is proven against exact answers before it reaches real footage.
 
-Milestone 1 builds the source-mapped storyboard: decoded frame times, change-selected cards, and click-to-seek in the existing `viewer.html`. It needs only FFmpeg, which the project already uses. The result is useful by itself, forms the comparison baseline, and becomes the fallback for every join the stitcher refuses.
+Milestone 1 adds a Canvas mode to the Sessions stage with a source-mapped storyboard. Build canvas asks for a content box through the existing `RegionPicker`. The analysis uses FFmpeg, which the project already depends on, to record exact frame times and pick change cards. Clicking a card switches back to the video at that frame. Nothing new is installed.
 
-Milestone 2 introduces the one new dependency, OpenCV/NumPy, and develops scroll joining against synthetic clips. Those clips are cut from tall screenshots with FFmpeg, so every true offset is known. The primary loop is therefore local, fast, and deterministic. Failure cases such as fixed headers, cursors, repeated text, and fast jumps are generated rather than waited for.
+Milestone 2 is the riskiest step and happens away from the UI. Fake scroll videos are cut from tall screenshots, so every offset is known. Python + OpenCV and Apple Vision are compared on them, the better one is kept, and joining is hardened against fixed headers, cursors, repeated text, and jumps. Milestone 3 places the resulting columns in Canvas mode and tries them on scripted recordings. Milestone 4 adds the two extras, column PNG export and marking from the canvas, both on existing paths. Milestone 5 is your own use and a go/no-go decision.
 
-Milestone 3 runs the same pipeline on a real 60–90 second walkthrough and puts tall columns and changed states in the viewer. Milestone 4 compares the canvas with the storyboard and ordinary video on real tasks, then decides whether to continue.
-
-The material pushback against the research proof plan is ordering. It begins with stitching on a real recording and treats the storyboard only as a comparison. Here the storyboard ships first and synthetic ground truth comes before real footage. That replaces hand-labeled landmarks with exact answers and leaves a working viewer after every milestone.
+Each milestone leaves the app working. Without canvas data, the Sessions window behaves exactly as it does today.
 
 ## Implementation strategy
 
-- **First proof:** A real session's `viewer.html` shows a change-selected storyboard in which each card seeks the shared player to its exact source frame.
-- **Primary seam:** `canvas.json`, a versioned file that `scripts/analyze_canvas.py` writes beside the session and `process_session.py` embeds inline when present and valid. The viewer reads only this file.
-- **Fast local loop:** `python3 scripts/canvas/test_canvas.py` regenerates synthetic clips from fixture images, runs the analyzer, and checks offsets, refusals, and source mapping. It needs no recording, network, or app build.
-- **Local dependencies:** FFmpeg/ffprobe, already required, plus OpenCV-headless and NumPy in an optional, pinned virtualenv used only by the analyzer.
-- **Live confirmation:** One or two real narrated walkthroughs copied into a disposable folder.
-- **Rollout and rollback:** The analyzer is never called automatically. Without `canvas.json`, or with a version or video-hash mismatch, the viewer behaves exactly as it does today. Rollback means deleting `canvas/` and `canvas.json`.
+- **First proof:** On a real session, Canvas mode shows change cards. Clicking one switches the stage to the video at that card's exact frame.
+- **Primary seam:** `canvas.json` plus `canvas/` images in the session folder. The file is versioned and records the video's SHA-256 and the content box. The analyzer writes it; `SessionModel` reads it. The engine choice stays behind this file.
+- **Fast local loop:** `python3 scripts/canvas/test_canvas.py` generates fixtures, runs the analyzer, and checks offsets, refusals, and frame mapping. It needs no app build, recording, or network. Run `swift build` only when UI changes.
+- **Local dependencies:** FFmpeg/ffprobe (existing). Milestone 2 adds either OpenCV-headless + NumPy in a pinned optional virtualenv or no Python dependency at all (Vision).
+- **Live confirmation:** Two or three scripted recordings under five minutes, then your own sessions.
+- **Rollout and rollback:** Build canvas runs only on request. A missing or mismatched `canvas.json` disables the toggle or offers Rebuild. Rollback means deleting `canvas.json` and `canvas/`.
 
 ### Material dependency proof strategy
 
-OpenCV is the only new library. Its phase correlation returns an estimate, not a calibrated correctness probability. Every join therefore passes an independent pixel-difference check at source resolution, and both steps are tested against synthetic ground truth before real footage. FFmpeg frame timing is a quieter risk: requested seek time is not proof of the displayed frame, so Milestone 1 checks it directly.
+The stitching engine is the only new material dependency. Neither candidate's result can be trusted alone: OpenCV's phase-correlation response is not a correctness probability, and Vision's registration confidence is not either. Every join therefore needs an independent pixel check at source resolution. Both engines run the same fixture contract. Frame timing is the quieter risk: asking the player for a time does not prove which frame appeared, so Milestone 1 checks it with a burned-in counter.
 
 ```text
-analyzer core + synthetic clips with known offsets (deterministic)
-    → real disposable recording, human-checked
-    → small task comparison vs storyboard and video
+engine + fake scroll clips with known offsets (deterministic)
+    → scripted real recordings, checked by eye
+    → your own sessions
 ```
 
-## Milestone 1: Source-mapped storyboard in the viewer
+## Milestone 1: Storyboard in Canvas mode
 
-This proves the source-mapping foundation and gives the canvas a fallback before any stitching exists.
-
-- **Change — Frame index in `scripts/analyze_canvas.py`**
-  - Decode with FFmpeg `showinfo`; record frame number, PTS, time base, size, and video SHA-256.
-  - Test: a synthetic clip with a burned-in frame counter decodes to the expected numbers and times, including the first and last frames.
-- **Change — Change-selected cards**
-  - Use a cheap downscaled difference at the recorded cadence. Each card keeps its frame, interval, and reason.
-  - Test: a synthetic clip with three known changes yields three cards. A blinking cursor yields none.
-- **Change — `canvas.json` and viewer embedding**
-  - `process_session.py` inlines valid canvas data next to `DATA`. `viewer.html` renders a card strip and a transcript rail grouped by card interval. Clicking a card seeks the existing video.
-  - Test: after a seek, the displayed frame number, read from the burned-in counter, equals the card's frame.
+- **Change — Frame index and change cards in `scripts/analyze_canvas.py`**
+  - Decode with FFmpeg `showinfo` to get frame number, PTS, time base, size, and SHA-256. Compare downscaled frames inside the content box to find changes, and save one image per card under `canvas/`.
+  - Test: a fake clip with a burned-in frame counter and three known changes yields three cards with correct frame numbers. A blinking cursor yields none.
+- **Change — Build canvas action**
+  - Add a toolbar or menu action. It opens `RegionPicker` on the current frame for the content box, then runs the analyzer the same way `Review.reprocess` runs `process_session.py`. It shows progress and errors.
+  - It never runs during capture or `reprocess`.
+- **Change — Canvas stage mode**
+  - Add a toggle on `Stage` that swaps `PlayerSurface` for a horizontally scrolling card strip. Clicking a card calls `SessionModel.seek` and returns to video. Hovering sets a preview time that drives `NowStrip` and the inspector transcript.
+  - Test: after a click, the visible frame counter on the fake clip matches the card's frame.
 
 ### Desired end state
 
-- Running the analyzer on a session produces a working storyboard in `viewer.html`.
-- A session without canvas data looks unchanged.
-- Editing a note and reprocessing does not rerun analysis.
+- A real session has a usable storyboard in Canvas mode.
+- Sessions without canvas data are unchanged.
+- Editing a note does not rebuild the canvas.
 
-## Milestone 2: Scroll joining proven on synthetic clips
-
-This adds OpenCV in isolation, with exact answers, before real footage.
+## Milestone 2: Engine choice and joining on fake clips
 
 - **Change — Fixture generator `scripts/canvas/make_fixtures.py`**
-  - Crop a moving window over tall PNG fixtures with FFmpeg: smooth scroll, reversal, fast jump, fixed header, cursor overlay, repeated rows, blank gap, and mid-scroll edit.
-  - Write the true offsets beside each clip.
-- **Spike — scrollsnap reuse**
-  - Decision required: adopt a pinned component or write about 200 lines on OpenCV directly.
-  - Evidence to gather: Run its stitcher on the fixtures and compare error, refusals, and license or provenance. Its metadata points to a different source URL.
-  - Fallback: Use our own phase correlation plus a verification pass.
+  - Crop a moving window over tall PNG fixtures with FFmpeg. Cover smooth scroll, reversal, fast jump, fixed header, cursor overlay, repeated rows, blank gap, and a mid-scroll edit. Write the true offsets beside each clip.
+- **Spike — Engine bake-off**
+  - Decision required: Python + OpenCV, possibly with scrollsnap, or a small Swift/Vision analyzer.
+  - Evidence to gather: Run both on the fixtures. Compare p95 offset error, false joins, refusals, runtime, and install cost. Check scrollsnap's license and source-URL mismatch before reuse.
+  - Fallback: OpenCV phase correlation plus our own verification. Keep only one engine either way.
 - **Change — Join, verify, refuse**
-  - Estimate translation within the selected viewport. Verify the overlap at source resolution, require unique support, and refuse with a reason. Choose seams that avoid glyph rows. Every output patch keeps its frame, source rectangle, and translation.
-  - Test: `test_canvas.py` asserts p95 error ≤ 2 px, zero false joins, and a refusal for every jump or edit fixture.
+  - Join within the content box and verify the overlap at source resolution. Require unique support, and refuse with a reason otherwise. Choose seams that avoid text rows. Each patch keeps its frame, source rectangle, and offset in `canvas.json`.
+  - Test: `test_canvas.py` requires p95 ≤ 2 px, zero false joins, and a refusal on every jump or edit fixture.
 
 ### Desired end state
 
+- One engine is chosen and recorded in the initiative map.
 - The fixture suite passes locally in seconds.
-- The analyzer emits tall columns and changed states in `canvas.json`. Refused joins fall back to Milestone 1 cards.
-- Thresholds are frozen before Milestone 3.
+- Thresholds are frozen before real footage.
 
-## Milestone 3: Real walkthrough on the canvas
+## Milestone 3: Tall columns in Canvas mode
 
-- **Change — Record and run the target clip**
-  - Use 60–90 seconds at fixed zoom: three viewport heights of scrolling, one edit, and one jump. Copy it to a disposable folder.
-  - Select one viewport manually. No manual offsets are allowed.
-- **Change — Canvas layout in `viewer.html`**
-  - Place tall columns left to right and changed states to the right of their predecessors. Show refused joins as cards. Clicking any point resolves to its patch's frame.
-  - Test: check five random clicks per column against the burned-in or visible frame. Inspect seams for cut or doubled glyphs.
+- **Change — Column layout**
+  - Lay columns out left to right with cards between them. Rejected joins fall back to Milestone 1 cards. Clicking any point resolves to its patch's frame and seeks there. Recordings are under five minutes, so whole columns may load as images, with a simple size guard.
+- **Change — Scripted recordings**
+  - Record two or three walkthroughs at fixed zoom. Each scrolls several viewport heights, makes one edit, and makes one jump.
+  - Test: check five clicks per column against the visible frame. Inspect seams for cut or doubled glyphs.
 
 ### Desired end state
 
-- The real clip produces one readable tall view, one separate changed state, and one refusal card.
-- Every visible patch seeks to its true source frame.
+- Each scripted clip shows readable columns, a card for the edit, and a refusal card for the jump.
+- Every visible patch returns to its true source frame.
 
-## Milestone 4: Decide whether the canvas earns its cost
+## Milestone 4: Export a column and mark from the canvas
 
-- **Change — Small task comparison**
-  - Use ordinary video, the Milestone 1 storyboard, and the canvas on a second real walkthrough. Rotate order across tasks: find content, compare the edit, find the narration, and return to source.
-  - Record time, errors, selection or correction time, analysis time, and peak memory. Include your own judgment.
+- **Change — Copy or export column PNG**
+  - Add **Copy Image** and **Export PNG…** to the column context menu. Name the file with the session and time range. The image may combine several moments.
+- **Change — Mark from canvas**
+  - Drag a rectangle on a column. Use the patch under it to get the source time and rectangle, seek there, and call the existing `addReviewShot(region:)`. The mark then flows through reprocessing, Markdown, and export like any review mark.
+  - Test: the new mark's time and crop match the selected content. Reprocessing keeps it.
 
 ### Desired end state
 
-- A written go/no-go decision is recorded in the initiative map.
-- If the canvas does not clearly beat the storyboard, keep the storyboard and stop.
+- A column can be copied or exported.
+- A canvas selection produces a normal review mark.
+
+## Milestone 5: Decide from real use
+
+- **Change — Personal use**
+  - Use Canvas mode on several of your own sessions. Note where it beat scrubbing and where it failed.
+
+### Desired end state
+
+- The initiative map records a decision to continue, narrow to the storyboard, or stop.
 
 ## Open decisions and spikes
 
-- **Viewport selection:** Manual selection keeps the proof small. Automatic detection is a later spike only if selection proves annoying.
-- **Test clips:** Purpose-made clips give clean ground truth. If only existing sessions are allowed, Milestone 3 uses the closest existing session and the plan notes the weaker evidence.
+- **Engine:** Python + OpenCV vs Apple Vision, decided by the Milestone 2 bake-off.
 
 ## Below the cut line
 
-- Motion posters, frame stacks, and in-place playback
-- Return detection and arrows
-- Larger-than-frame capture and Product Grid composite export
-- Lecture and slide mode
-- Native SwiftUI canvas
+- Changed states beside earlier states, return arrows, motion posters, and card stacks
+- Automatic content-area detection
+- Tiling and long-session memory work for recordings over five minutes
+- Lecture mode
+- Product Grid canvas export
+- HTML viewer canvas
 - Browser scroll instrumentation
-- Tiling and long-session memory work beyond a basic guard
-- Raw token-level transcript alignment
+- Token-level transcript alignment
