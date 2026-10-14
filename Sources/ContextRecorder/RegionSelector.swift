@@ -5,17 +5,14 @@ import AppKit
 /// Completion gets the selection in global AppKit screen coordinates (bottom-left origin), or nil if cancelled.
 final class RegionSelector {
     private var window: OverlayWindow?
-    private var previousApp: NSRunningApplication?
 
     func begin(completion: @escaping (NSRect?) -> Void) {
         guard window == nil, let screen = NSScreen.main else { completion(nil); return }
-        previousApp = NSWorkspace.shared.frontmostApplication
 
         let window = OverlayWindow(screen: screen) { [weak self] rect in
             self?.finish(rect, completion: completion)
         }
         self.window = window
-        NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         NSCursor.crosshair.push()
     }
@@ -24,20 +21,19 @@ final class RegionSelector {
         NSCursor.pop()
         window?.orderOut(nil)
         window = nil
-        // Hand focus back to whatever the user was working in.
-        previousApp?.activate()
         // Let the overlay leave the screen before anything captures it.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { completion(rect) }
     }
 }
 
-private final class OverlayWindow: NSWindow {
+private final class OverlayWindow: NSPanel {
     init(screen: NSScreen, onDone: @escaping (NSRect?) -> Void) {
-        super.init(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+        super.init(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         level = .screenSaver
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
+        hidesOnDeactivate = false
         ignoresMouseEvents = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         setFrame(screen.frame, display: false)
@@ -48,6 +44,7 @@ private final class OverlayWindow: NSWindow {
     }
 
     override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 }
 
 private final class SelectionView: NSView {

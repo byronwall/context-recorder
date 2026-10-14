@@ -44,6 +44,16 @@ python3 scripts/ui-test/harness.py check
 
 This checks exact transcript sentence starts, including a 0.05-second sentence. It then requests 60 preview frames from the first fixture and requires more than one distinct frame.
 
+For the screenshot selector's focus regression check, run from a logged-in macOS desktop:
+
+```sh
+mkdir -p tmp
+swiftc Sources/ContextRecorder/RegionSelector.swift scripts/ui-test/region-selector-check.swift -o tmp/region-selector-check
+tmp/region-selector-check
+```
+
+This checks Escape, right-click cancellation, a full-screen click, and a region drag against the production selector. It requires the foreground app to stay unchanged throughout, including no workspace activation notifications. Events go directly through the panel's `sendEvent`; nothing is posted system-wide, captured, or saved to the session library.
+
 For GUI automation, use `launch`. It runs the debug executable from a small app bundle with bundle ID `com.byronwall.ContextRecorder.UITest` and display name **Context Recorder UI Test**. The CUA driver binds to this bundle by its full path under the supplied repository root. The harness records the launched PID and start time. `stop` verifies both before signaling, and checks again before force termination. It never searches for or kills processes by app name. If the test app has exited, `stop` removes the stale PID file.
 
 Check that `launch` succeeds before binding CUA. If a sandbox blocks `ps`, rerun with approved process access. The harness stops its child when identity checks fail. The test bundle exits without `--library`, so an argument-free reopen cannot use the real library. Each launch rechecks fixture and bundle paths for symlinks.
