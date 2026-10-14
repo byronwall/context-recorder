@@ -24,7 +24,7 @@ Keep any essential human choice explicit. Do not invent approval for implementat
 
 - Prompt: [pro-prompt.md](pro-prompt.md).
 - Mode: research and artifact production. Codex owns integration and Git work.
-- Phase: submitted; Pro is researching. Await the scheduled collection check.
+- Phase: collected and verified; integrating research through Sleuth.
 - Round: initial request. At most two material follow-ups after submission.
 - Conversation: https://chatgpt.com/c/6acef979-eca8-83e9-96b7-0d6d69f3935c
 - Model: live selector showed Pro, power 5 of 5. Account menu showed Byron Wall Pro.
@@ -94,4 +94,25 @@ Use its canonical templates. A current plan does not mean implementation has beg
 
 ## Collection and PR
 
-Pending Pro completion. No findings or PR yet.
+Pro completed the initial request in 43 minutes 52 seconds. Collection resumed at the 05:36 UTC heartbeat on October 14.
+Chrome remained connected while the Mac was locked. No recovery or duplicate research request was needed.
+
+All eight requested files are preserved in [pro-output](pro-output/recording-tools-report.md).
+The ZIP passed path, symlink, duplicate-entry, and CRC checks before extraction.
+All seven independently downloaded companions equal their archive entries byte for byte.
+The browser download listener timed out once after the ZIP had saved successfully. No ZIP retry was needed.
+Two duplicate manifest downloads remain outside the repo; collection used the verified matching file.
+See [collection-manifest.json](collection-manifest.json) for hashes and retrieval details.
+
+Independent package checks passed: 32 products, 18 deep profiles, six categories, 99 source IDs,
+16 gaps, ten recommendations, 70 repository locators, and all 48 source-packet file hashes.
+All six scoped searches reproduced Pro's counts. See [package-validation.json](package-validation.json).
+No follow-up was needed: the requested breadth, evidence, alternatives, and proof gates were present.
+Originals retain Pro's October 13 research date. Local checks occurred October 14.
+
+Primary-source spot checks cover Loom agent handoff, Screen Studio captions, Wispr Flow,
+Superwhisper, MacWhisper, Marker.io export limits, Shottr layers, Scribe, Jam, and Frame.io.
+A source ID check does not verify every feature cell. Most cells remain unknown.
+An optional primary-outcome question was sent through the structured question tool.
+Until answered, personal review remains a conditional recommendation, not approved intent.
+PR pending. No application implementation or runtime proof has run.

@@ -1,0 +1,76 @@
+{
+  "conversation": "https://chatgpt.com/c/6acef979-eca8-83e9-96b7-0d6d69f3935c",
+  "retrieved_at": "2026-10-14T05:39:30.819640+00:00",
+  "files": [
+    {
+      "name": "recording-tools-gap-analysis.md",
+      "path": "docs/research/recording-tools/pro-output/recording-tools-gap-analysis.md",
+      "bytes": 99086,
+      "sha256": "e5a528fa4a6b0b26a1b56772042895938f85bf8b834254e18812e2354c9db29e",
+      "standalone_path": "/Users/byronwall/Downloads/recording-tools-gap-analysis.md",
+      "standalone_matches_archive": true
+    },
+    {
+      "name": "recording-tools-manifest.json",
+      "path": "docs/research/recording-tools/pro-output/recording-tools-manifest.json",
+      "bytes": 67748,
+      "sha256": "a315c4887d9e3b772976b162cf6abefc4a7668b24802c2b499ffbf01c2475b0b",
+      "standalone_path": "/Users/byronwall/Downloads/recording-tools-manifest.json",
+      "standalone_matches_archive": true
+    },
+    {
+      "name": "recording-tools-matrix.csv",
+      "path": "docs/research/recording-tools/pro-output/recording-tools-matrix.csv",
+      "bytes": 51128,
+      "sha256": "6fa3341e24299cd2a5e583ece590d6cf95fff248f9c62a3b014f1f7500a6ccc1",
+      "standalone_path": "/Users/byronwall/Downloads/recording-tools-matrix.csv",
+      "standalone_matches_archive": true
+    },
+    {
+      "name": "recording-tools-proof-plan.md",
+      "path": "docs/research/recording-tools/pro-output/recording-tools-proof-plan.md",
+      "bytes": 29609,
+      "sha256": "00f407f50c6db3eee180bf952303b2ec589c42981925fae022fd92f3ffdab09f",
+      "standalone_path": "/Users/byronwall/Downloads/recording-tools-proof-plan.md",
+      "standalone_matches_archive": true
+    },
+    {
+      "name": "recording-tools-recommendations.json",
+      "path": "docs/research/recording-tools/pro-output/recording-tools-recommendations.json",
+      "bytes": 70722,
+      "sha256": "3031420d75662acec1d12949f7e603dcb691b1dd211ff1ab73bc5814c6194619",
+      "standalone_path": "/Users/byronwall/Downloads/recording-tools-recommendations.json",
+      "standalone_matches_archive": true
+    },
+    {
+      "name": "recording-tools-report.md",
+      "path": "docs/research/recording-tools/pro-output/recording-tools-report.md",
+      "bytes": 180064,
+      "sha256": "773dc8a86db2eb3994e3e95a712b1931ba8e30e4cc1b6e50c6c0d6061b2ac52c",
+      "standalone_path": "/Users/byronwall/Downloads/recording-tools-report.md",
+      "standalone_matches_archive": true
+    },
+    {
+      "name": "recording-tools-research.zip",
+      "path": "docs/research/recording-tools/pro-output/recording-tools-research.zip",
+      "bytes": 135497,
+      "sha256": "3907080ed200701a69ed0d4e9990db669565056b7c62cc366df60fbcde595131",
+      "standalone_path": "/Users/byronwall/Downloads/recording-tools-research.zip",
+      "standalone_matches_archive": null
+    },
+    {
+      "name": "recording-tools-sources.md",
+      "path": "docs/research/recording-tools/pro-output/recording-tools-sources.md",
+      "bytes": 90270,
+      "sha256": "027140c597e370cef3975c5fc24008f3b1f48eaf8c97ac9223985e1f89ed9f08",
+      "standalone_path": "/Users/byronwall/Downloads/recording-tools-sources.md",
+      "standalone_matches_archive": true
+    }
+  ],
+  "notes": [
+    "Archive download event timed out, but the normal browser download completed.",
+    "Archive paths and link types checked before extraction; ZIP CRC passed.",
+    "Bulk companion clicks downloaded duplicate manifests; files were not removed from Downloads.",
+    "All repository originals were safely extracted from the verified archive."
+  ]
+}

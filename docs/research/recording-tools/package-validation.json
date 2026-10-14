@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-14",
+  "status": "passed",
+  "baseline": "6c74158ca96abd36819d2a58f75bacdc44107bb0",
+  "archive_entries": 7,
+  "products": 32,
+  "deep_profiles": 18,
+  "categories": 6,
+  "features": 46,
+  "feature_states": {
+    "native": 343,
+    "unknown": 1050,
+    "partial": 72,
+    "integration-only": 6,
+    "absent with evidence": 1
+  },
+  "external_source_ids": 99,
+  "recommendations": 10,
+  "gaps": 16,
+  "verified_repo_locators": 70,
+  "source_packet_files": 48,
+  "search_rechecks": [
+    {
+      "id": "A01_search",
+      "pro_reported_matching_lines": 0,
+      "local_matching_lines": 0
+    },
+    {
+      "id": "A02_capture",
+      "pro_reported_matching_lines": 11,
+      "local_matching_lines": 11
+    },
+    {
+      "id": "A03_speech",
+      "pro_reported_matching_lines": 61,
+      "local_matching_lines": 61
+    },
+    {
+      "id": "A04_drawing_redaction",
+      "pro_reported_matching_lines": 174,
+      "local_matching_lines": 174
+    },
+    {
+      "id": "A05_canvas_replay",
+      "pro_reported_matching_lines": 6,
+      "local_matching_lines": 6
+    },
+    {
+      "id": "A06_export",
+      "pro_reported_matching_lines": 68,
+      "local_matching_lines": 68
+    }
+  ],
+  "limits": [
+    "Reference validity is not proof of every product claim.",
+    "No application build, capture, UI, transcription or task-value proof ran."
+  ]
+}
