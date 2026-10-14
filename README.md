@@ -1,6 +1,6 @@
 # Context Recorder
 
-A macOS menu-bar app that records your screen while you use your apps. You mark the moments that need fixing, and afterwards you get a "control center" page with the video, the marks, a timeline of what was on screen, and your narration.
+A macOS app that records your screen while you use your apps. You mark the moments that need fixing, and afterwards you get a "control center" page with the video, the marks, a timeline of what was on screen, and your narration.
 
 ## Use
 
@@ -9,7 +9,7 @@ A macOS menu-bar app that records your screen while you use your apps. You mark 
 open "/Applications/Context Recorder.app"
 ```
 
-The build script also installs the app to `/Applications`, so you can launch it from Spotlight or Raycast. Set `INSTALL_DIR=` (empty) to skip that step, or point it somewhere else such as `~/Applications`.
+The build script also installs the app to `/Applications`, so you can launch it from Spotlight or Raycast. If the app is running, the script quits it (finishing any recording first) and reopens the new build. Set `INSTALL_DIR=` (empty) to skip installing, or point it somewhere else such as `~/Applications`.
 
 | Hotkey | Action |
 | --- | --- |
@@ -17,15 +17,21 @@ The build script also installs the app to `/Applications`, so you can launch it 
 | ⌃⌥M | Mark this moment (context saved now, a frame is taken from the video later) |
 | ⌃⌥S | Region screenshot: drag a rectangle (click = full screen, Esc = cancel) plus context |
 
-A floating control panel (shown at launch and whenever you open the app again) has the same actions, a live timer and the mark count, because the menu-bar item can be hidden when the bar is crowded. While recording, the menu bar shows a red record dot with `3:42  ⚑5` (elapsed time and number of marks). Use the menu's **Record Microphone** item to turn narration on or off. Turn it off for silent sessions: you still get video, screenshots and context.
+The app has one home, the **Sessions** window, and everything else mirrors it:
 
-When you stop, the app transcribes your narration (if there is any), writes markdown and opens the session in the **Sessions** window.
+- **Sessions window:** opens at launch and whenever you open the app again. Press **Record** at the bottom of the sidebar (or ⌃⌥R anywhere). The window steps aside so you're back in the app you were using.
+- **Recording controls:** a small floating panel that appears only while recording, with the timer, mark count, the latest mark and **Mark / Region / Stop**. It's left out of the video. Close it if it's in the way; **Recording → Show Recording Controls** brings it back.
+- **Menu bar:** a red dot with `3:42  ⚑5` (elapsed time and marks) while recording, plus the same actions and your five most recent sessions.
+
+While a recording runs, it sits at the top of the sidebar and shows live in the window: the clock and each mark as you make it. **Stop** always brings the Sessions window forward on the new session. It shows processing progress (transcribing, pulling frames) and turns into the full session when it's done. If processing fails, the window shows the end of the log and a **Try Again** button.
+
+Use the **Mic** switch on the sidebar's record card (or **Recording → Record Microphone**) to turn narration on or off. Turn it off for silent sessions: you still get video, screenshots and context.
+
+The app has a Dock icon and menus while the Sessions window is open or a recording is running; otherwise it lives in the menu bar. Quitting mid-recording finishes the video first.
 
 ## Sessions window
 
-A native library of every recording (menu bar → **Sessions…**, or the play button on the control panel). While it's open the app gets a Dock icon and menus; close it and the app goes back to living in the menu bar.
-
-- **Sidebar:** sessions by day, with thumbnail, length, mark count, a waveform when the session has narration, and the apps you used. Drop a session folder (or a folder of sessions) on the window, or use **File → Open Session Folder…**, to add one from elsewhere.
+- **Sidebar:** sessions by day, with thumbnail, length, mark count, a waveform when the session has narration, and the apps you used. Right-click a session to process it again. Drop a session folder (or a folder of sessions) on the window, or use **File → Open Session Folder…**, to add one from elsewhere.
   - **Rename** (right-click, or Return on the selected session) gives a session a name. It's kept in `session-info.json`, so the folder keeps its timestamp; clear the name to go back to the date.
   - **Move to Trash** (right-click, or ⌘⌫) works on one session or several: ⌘- or ⇧-click to select more. Trashed sessions can be put back from the Trash. The session being recorded can't be trashed.
 - **Stage:** the recording, with floating playback controls.
@@ -121,7 +127,7 @@ Building runs only when you ask, takes a few seconds for a few minutes of video,
 
 Requires the `pgm` CLI (`npm install -g @byronwallrus/product-grid-cli`). `viewer.html` is still written to every session folder as a portable copy (**Session → Open in Browser**).
 
-To work on the window without touching an installed copy of the app, run the debug build on a folder of sessions: `swift run ContextRecorder --library tmp/` (add `--mark 2` to open a mark, or `--export <project-folder>` to open the export sheet; `--export-run` also starts the export). This skips recording, hotkeys and permission prompts. Set `CR_APPEARANCE=dark` to check dark mode.
+To work on the window without touching an installed copy of the app, run the debug build on a folder of sessions: `swift run ContextRecorder --library tmp/` (add `--mark 2` to open a mark, `--demo recording|processing|failed` to fake those states on the newest session, or `--export <project-folder>` to open the export sheet; `--export-run` also starts the export). This skips recording, hotkeys and permission prompts. Set `CR_APPEARANCE=dark` to check dark mode.
 
 First run asks for **Screen Recording**, **Microphone** and (the first time you mark in Chrome) **Automation → Chrome** permissions. The build is signed with a stable local identity, so macOS keeps these permissions across rebuilds.
 

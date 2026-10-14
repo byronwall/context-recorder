@@ -52,7 +52,6 @@ final class SessionLibrary {
     private(set) var entries: [SessionEntry] = []
     /// Bumped when a session's session.json changes, so an open session can reload itself.
     private(set) var changeToken = 0
-    var recordingFolder: URL?      // the session being recorded right now, if any
 
     private var timer: Timer?
     private static let extraFoldersKey = "libraryFolders"
@@ -109,7 +108,7 @@ final class SessionLibrary {
     @discardableResult
     func trash(_ urls: [URL]) -> [URL] {
         var failed: [URL] = []
-        for url in urls where url != recordingFolder {
+        for url in urls {   // LibraryState.requestTrash leaves out the recording and anything processing
             do {
                 try FileManager.default.trashItem(at: url, resultingItemURL: nil)
                 extraFolders.removeAll { $0 == url }

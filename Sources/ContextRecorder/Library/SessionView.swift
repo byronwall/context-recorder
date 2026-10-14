@@ -5,10 +5,21 @@ import SwiftUI
 struct SessionView: View {
     @Bindable var model: SessionModel
     var title: String
+    @Environment(RecorderController.self) private var recorder
     @State private var showInspector = true
     @State private var copiedAll = false
 
     var body: some View {
+        if model.data == nil && model.loadError == nil {
+            SessionPendingView(folder: model.folder)
+                .navigationTitle(title)
+                .toolbar { sessionMenu }
+        } else {
+            loaded
+        }
+    }
+
+    private var loaded: some View {
         content
             .frame(minWidth: 0, minHeight: 0)
             .navigationTitle(title)
@@ -31,13 +42,6 @@ struct SessionView: View {
     @ViewBuilder private var content: some View {
         if let error = model.loadError {
             ContentUnavailableView("Can't Open Session", systemImage: "exclamationmark.triangle", description: Text(error))
-        } else if model.data == nil {
-            ContentUnavailableView {
-                Label("Processing", systemImage: "waveform.badge.magnifyingglass")
-                    .symbolEffect(.pulse)
-            } description: {
-                Text("Transcribing narration and pulling frames. The session opens here when it's done.")
-            }
         } else {
             VStack(spacing: 0) {
                 Group {
@@ -76,6 +80,15 @@ struct SessionView: View {
                     .disabled(model.canvasBuilding || model.data == nil)
             }
         }
+        if recorder.processing.contains(model.folder) {
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Processing…").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                .help("Re-processing this session; it refreshes when done")
+            }
+        }
         ToolbarItemGroup(placement: .primaryAction) {
             Button { model.export = ExportSheetModel(session: model) } label: {
                 Label("Export to Product Grid", systemImage: "square.and.arrow.up")
@@ -93,13 +106,24 @@ struct SessionView: View {
             }
             .help("Copy every mark as Markdown, for an agent or an issue")
             .disabled(model.marks.isEmpty)
+        }
+        sessionMenu
+        ToolbarItem(placement: .primaryAction) {
+            Button { withAnimation { showInspector.toggle() } } label: { Label("Marks", systemImage: "sidebar.trailing") }
+                .help(showInspector ? "Hide marks" : "Show marks")
+        }
+    }
 
+    @ToolbarContentBuilder private var sessionMenu: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
             Menu {
                 Button("Reveal in Finder", systemImage: "folder") { NSWorkspace.shared.activateFileViewerSelecting([model.folder]) }
                 if FileManager.default.fileExists(atPath: model.folder.appendingPathComponent("viewer.html").path) {
                     Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(model.folder.appendingPathComponent("viewer.html")) }
                 }
-                Button("Open session.md", systemImage: "doc.text") { NSWorkspace.shared.open(model.folder.appendingPathComponent("session.md")) }
+                if FileManager.default.fileExists(atPath: model.folder.appendingPathComponent("session.md").path) {
+                    Button("Open session.md", systemImage: "doc.text") { NSWorkspace.shared.open(model.folder.appendingPathComponent("session.md")) }
+                }
                 Divider()
                 if model.canvas != nil {
                     Button("Rebuild Canvas", systemImage: "arrow.clockwise") { model.rebuildCanvas() }
@@ -117,14 +141,15 @@ struct SessionView: View {
                     .disabled(!model.canRedoEdit)
                 Button("Restore Original Recording", systemImage: "film") { model.restoreOriginal() }
                     .disabled(model.edits == nil)
+                Divider()
+                Button(model.data == nil ? "Process Now" : "Process Again", systemImage: "arrow.clockwise") {
+                    recorder.process(model.folder)
+                }
+                .disabled(!recorder.canRecord || recorder.processing.contains(model.folder))
             } label: {
                 Label("Session", systemImage: "ellipsis.circle")
             }
             .help(model.folder.path)
-        }
-        ToolbarItem(placement: .primaryAction) {
-            Button { withAnimation { showInspector.toggle() } } label: { Label("Marks", systemImage: "sidebar.trailing") }
-                .help(showInspector ? "Hide marks" : "Show marks")
         }
     }
 
@@ -439,12 +464,16 @@ struct NowStrip: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(ctx?.appName ?? "No activity recorded")
                         .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
                     HStack(spacing: 6) {
-                        if let w = ctx?.browserTitle ?? ctx?.windowTitle, !w.isEmpty { Text(w) }
+                        if let w = ctx?.browserTitle ?? ctx?.windowTitle, !w.isEmpty { Text(w).lineLimit(1) }
                         if let u = ctx?.browserURL, let url = URL(string: u) {
+                            // A Link's label doesn't inherit lineLimit on macOS; without it a long URL wraps
+                            // onto many lines and pushes the timeline down.
                             Link(destination: url) {
                                 Text(u.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: ""))
                                     .lineLimit(1)
+                                    .truncationMode(.middle)
                             }
                             .layoutPriority(-1)
                             .help(u)
@@ -484,6 +513,7 @@ struct NowStrip: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(said.map { "Said: \($0.text)" } ?? "Nothing said")
         }
-        .frame(minHeight: 34)
+        // Fixed height (two lines of narration) so the timeline below never shifts as the playhead moves.
+        .frame(height: 38)
     }
 }

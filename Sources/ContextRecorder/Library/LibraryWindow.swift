@@ -1,11 +1,15 @@
 import AppKit
 import SwiftUI
 
-/// What the library window shows: the sessions and the one that's open.
+/// What the library window shows: the sessions, the one that's open, and the shared recorder.
 @MainActor @Observable
 final class LibraryState {
     let library: SessionLibrary
-    init(includeDefaultRoot: Bool) { library = SessionLibrary(includeDefaultRoot: includeDefaultRoot) }
+    let recorder: RecorderController
+    init(includeDefaultRoot: Bool, recorder: RecorderController) {
+        library = SessionLibrary(includeDefaultRoot: includeDefaultRoot)
+        self.recorder = recorder
+    }
     var showShortcuts = false
     /// Sidebar selection. One session is open when exactly one is selected; several can be trashed together.
     var selection: Set<URL> = [] {
@@ -25,9 +29,9 @@ final class LibraryState {
 
     func open(_ url: URL?) { selection = url.map { [$0] } ?? [] }
 
-    /// Asks before trashing; the session being recorded is never included.
+    /// Asks before trashing; the session being recorded or processed is never included.
     func requestTrash(_ urls: some Collection<URL>) {
-        confirmTrash = urls.filter { $0 != library.recordingFolder }
+        confirmTrash = urls.filter { !isLive($0) && !recorder.processing.contains($0) }
     }
 
     /// "Joining…" while a join is being processed, or why it failed.
@@ -57,26 +61,41 @@ final class LibraryState {
         if urls.contains(where: { $0 == model?.folder }) { model?.tearDown(); model = nil }
         library.trash(urls)
     }
+
+    /// The Record button in the window: start, and get the window out of the way.
+    @ObservationIgnored var startFromWindow: () -> Void = {}
+
+    /// Rebuild the open session from disk, e.g. once a recording's .mp4 is finished.
+    func reopen() {
+        model?.tearDown()
+        model = (selection.count == 1 ? selection.first : nil).map { SessionModel(folder: $0) }
+    }
+
+    /// Whether `folder` is the recording in progress (shown live rather than as a saved session).
+    func isLive(_ folder: URL) -> Bool {
+        folder == recorder.recordingFolder && recorder.phase != .idle
+    }
 }
 
-/// The session library: a normal window with a Dock icon while it's open; the app goes back to
-/// menu-bar only when it closes.
+/// The session library and the app's home window. While it's open (or a recording is running) the app
+/// has a Dock icon and menus; otherwise it lives in the menu bar.
 @MainActor
 final class LibraryWindowController: NSWindowController, NSWindowDelegate {
     let state: LibraryState
+    /// Called when the window shows or closes, so the app can update its Dock presence.
+    var onVisibilityChange: (() -> Void)?
     private var keyMonitor: Any?
     private var changeWatch: Task<Void, Never>?
-    /// Called when the window is shown, so a running recording can start including it.
-    var onShow: (() -> Void)?
-
-    /// This window belongs in recordings (reviewing the app with the app); the control panel doesn't.
+    /// This window belongs in recordings (reviewing the app with the app); the recording controls don't.
     var recordedWindows: Set<CGWindowID> {
         guard let window, window.windowNumber > 0 else { return [] }
         return [CGWindowID(window.windowNumber)]
     }
+    /// The last app the user was in other than us, to hand focus back to when recording starts from here.
+    private var previousApp: NSRunningApplication?
 
-    init(includeDefaultRoot: Bool = true) {
-        state = LibraryState(includeDefaultRoot: includeDefaultRoot)
+    init(recorder: RecorderController, includeDefaultRoot: Bool = true) {
+        state = LibraryState(includeDefaultRoot: includeDefaultRoot, recorder: recorder)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1320, height: 820),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                               backing: .buffered, defer: false)
@@ -86,34 +105,64 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
         window.minSize = NSSize(width: 980, height: 560)
         window.isReleasedWhenClosed = false
         super.init(window: window)
-        let host = NSHostingController(rootView: LibraryView(state: state).frame(minWidth: 0, minHeight: 0))
+        let host = NSHostingController(rootView: LibraryView(state: state).frame(minWidth: 0, minHeight: 0).environment(recorder))
         host.sizingOptions = []   // keep the window's own size instead of shrinking to the content's ideal size
         window.contentViewController = host
         window.setContentSize(NSSize(width: 1320, height: 820))
         window.center()
         window.setFrameAutosaveName("SessionLibrary")
         window.delegate = self
+        state.startFromWindow = { [weak self] in self?.startRecordingFromWindow() }
         observeLibraryChanges()
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            MainActor.assumeIsolated {
+                if let app, app != .current { self?.previousApp = app }
+            }
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    func show(session: URL? = nil) {
+    var isVisible: Bool { window?.isVisible == true }
+
+    /// Shows the window in front of everything. `session` selects a session folder (or the newest in a
+    /// folder of sessions); `reload` rebuilds it even if it's already open.
+    func show(session: URL? = nil, reload: Bool = false) {
         if let session {
             // A session folder, or a folder of sessions (then the newest is opened).
             let found = state.library.add(folder: session)
-            state.open(found.contains(session) ? session
-                : state.library.entries.first { found.contains($0.url) }?.url ?? found.first)
+            let target = found.contains(session) ? session
+                : state.library.entries.first { found.contains($0.url) }?.url ?? found.first
+            if reload, let target, state.selection == [target] { state.reopen() } else { state.open(target) }
         } else if state.selection.isEmpty {
             state.open(state.library.entries.first?.url)
         }
         NSApp.setActivationPolicy(.regular)
         MainMenu.install()
         showWindow(nil)
-        window?.makeKeyAndOrderFront(nil)
+        if window?.isMiniaturized == true { window?.deminiaturize(nil) }
+        // Activation is a request macOS can turn down when another app is in front; ordering the window
+        // front regardless means it's at least on top and one click away, never hidden behind.
+        window?.orderFrontRegardless()
+        window?.makeKey()
         NSApp.activate()
         installKeyMonitor()
-        onShow?()
+        onVisibilityChange?()
+    }
+
+    /// Record button in the window: the window steps aside so you're back in the app you were using.
+    private func startRecordingFromWindow() {
+        guard state.recorder.phase == .idle else { return }
+        state.recorder.start()
+        if let previousApp, !previousApp.isTerminated {
+            window?.orderOut(nil)
+            previousApp.activate()
+        } else {
+            window?.miniaturize(nil)
+        }
     }
 
     func openFolder() {
@@ -133,7 +182,7 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
         state.model?.player.pause()
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil
-        NSApp.setActivationPolicy(.accessory)
+        DispatchQueue.main.async { [weak self] in self?.onVisibilityChange?() }
     }
 
     /// Reload the open session when re-processing rewrites its session.json.
@@ -161,7 +210,8 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
                 self.state.requestTrash(self.state.selection)
                 return nil
             }
-            guard let model = self.state.model else { return event }
+            // A recording in progress shows live; review keys apply to saved sessions only.
+            guard let model = self.state.model, !self.state.isLive(model.folder) else { return event }
             // ⌘Z / ⇧⌘Z undo and redo cuts (text fields keep their own undo; see the NSText check above).
             if event.keyCode == 6, event.modifierFlags.intersection([.command, .control, .option]) == .command {
                 if event.modifierFlags.contains(.shift) { model.redoEdit() } else { model.undoEdit() }
@@ -230,12 +280,29 @@ enum MainMenu {
         app.addItem(.separator())
         app.addItem(withTitle: "Hide Context Recorder", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         app.addItem(.separator())
-        app.addItem(withTitle: "Quit Context Recorder", action: #selector(AppDelegate.quitFromMenu), keyEquivalent: "q")
+        app.addItem(withTitle: "Quit Context Recorder", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let file = submenu(main, "File")
         file.addItem(withTitle: "Open Session Folder…", action: #selector(AppDelegate.openSessionFolder), keyEquivalent: "o")
         file.addItem(.separator())
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+
+        let recording = submenu(main, "Recording")
+        recording.autoenablesItems = true
+        for (title, action, key, symbol) in [
+            ("Start Recording", #selector(AppDelegate.toggleRecording), "r", "record.circle"),
+            ("Mark Moment", #selector(AppDelegate.markMoment), "m", "flag"),
+            ("Screenshot Region", #selector(AppDelegate.screenshotRegion), "s", "viewfinder"),
+        ] {
+            let item = recording.addItem(withTitle: title, action: action, keyEquivalent: key)
+            item.keyEquivalentModifierMask = [.control, .option]
+            item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        }
+        recording.addItem(.separator())
+        recording.addItem(withTitle: "Record Microphone", action: #selector(AppDelegate.toggleMicrophone), keyEquivalent: "")
+            .image = NSImage(systemSymbolName: "mic", accessibilityDescription: nil)
+        recording.addItem(withTitle: "Show Recording Controls", action: #selector(AppDelegate.showRecordingControls), keyEquivalent: "")
+            .image = NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil)
 
         let edit = submenu(main, "Edit")
         edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
@@ -248,6 +315,8 @@ enum MainMenu {
             .keyEquivalentModifierMask = [.command, .control]
 
         let window = submenu(main, "Window")
+        window.addItem(withTitle: "Sessions", action: #selector(AppDelegate.openLibrary), keyEquivalent: "0")
+        window.addItem(.separator())
         window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         window.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         NSApp.windowsMenu = window

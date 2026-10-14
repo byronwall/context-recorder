@@ -203,7 +203,7 @@ extension SessionModel {
 @MainActor
 enum SessionProcessing {
     static func run(_ folder: URL) async throws {
-        guard let script = AppDelegate.processScriptURL() else { throw ReviewError("process_session.py wasn't found") }
+        guard let script = RecorderController.processScriptURL() else { throw ReviewError("process_session.py wasn't found") }
         let status: Int32 = try await withCheckedThrowingContinuation { cont in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
