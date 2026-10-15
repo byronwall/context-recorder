@@ -71,6 +71,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         HotKeys.shared.register(keyCode: kVK_ANSI_M, modifiers: mods) { [weak self] in self?.recorder.mark() }
         HotKeys.shared.register(keyCode: kVK_ANSI_S, modifiers: mods) { [weak self] in self?.recorder.screenshot() }
 
+        // Refresh the folder Chrome loads the extension from, so a rebuilt app ships its extension too.
+        ChromeExtension.install()
+
         // Ask for screen-recording permission up front so the first recording doesn't fail.
         if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
         library.show()
@@ -285,6 +288,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
                 if args.contains("--quit") { NSApp.terminate(nil) }
             }
         }
+        // `--chrome-setup` opens the Chrome extension setup sheet.
+        if args.contains("--chrome-setup") { library.state.showChromeSetup = true }
         // `--export <folder>` opens the export sheet with that project folder chosen; add
         // `--export-run` to start the export too.
         if let i = args.firstIndex(of: "--export"), i + 1 < args.count, let model = library.state.model {
@@ -375,6 +380,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         }
         menu.addItem(.separator())
         menu.addItem(item("Open Sessions Folder", #selector(openSessionsFolder), symbol: "folder"))
+        if !recorder.chromeConnected {
+            menu.addItem(item("Set Up Chrome Extension…", #selector(showChromeSetup), symbol: "puzzlepiece.extension"))
+        }
         menu.addItem(item("Quit Context Recorder", #selector(NSApplication.terminate(_:)), key: "q", modifiers: .command, target: NSApp))
     }
 
@@ -479,6 +487,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     @objc func showShortcuts() {
         library.show()
         library.state.showShortcuts = true
+    }
+    @objc func showChromeSetup() {
+        library.show()
+        library.state.showChromeSetup = true
     }
     @objc private func openRecent(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
