@@ -3,11 +3,13 @@ import Network
 
 /// Local WebSocket server the Chrome extension connects to (ws://127.0.0.1:47823).
 ///
-/// Extension → app:  {"type":"event", "event":{...}}            streamed page events (clicks, nav, errors, failed requests)
+/// Extension → app:  {"type":"hello", "version"}                 on connect: the extension's manifest version
+///                   {"type":"event", "event":{...}}            streamed page events (clicks, nav, errors, failed requests)
 ///                   {"type":"result", "id", "data"}            reply to a request
 ///                   {"type":"page-capture", "id", "data"}      base64 MHTML of the page, after a snapshot with capturePage
 /// App → extension:  {"type":"snapshot", "id", "capturePage"}   "what's under the mouse right now?" (+ save the page)
 ///                   {"type":"region", "id", "payload"}         "which elements are inside this screen rectangle?"
+///                   {"type":"reload"}                          reload from disk (the app installed newer files)
 ///
 /// Only connections whose Origin is a chrome-extension:// URL are accepted, so web pages can't connect.
 final class BrowserBridge {
@@ -15,6 +17,7 @@ final class BrowserBridge {
 
     var onEvent: ((JSONValue) -> Void)?          // main queue
     var onConnectionsChanged: ((Int) -> Void)?   // main queue
+    var onHello: ((String) -> Void)?             // main queue; the extension's version
     enum PageCapture { case success(Data), failure(String) }
     var onPageCapture: ((String, PageCapture) -> Void)? // bridge queue; (request id, MHTML bytes or error)
 
@@ -70,6 +73,13 @@ final class BrowserBridge {
         }
     }
 
+    /// Ask every connected extension to reload itself from disk.
+    func reloadExtensions() {
+        queue.async {
+            for conn in self.connections.values { self.send(["type": "reload"], on: conn) }
+        }
+    }
+
     // MARK: Connections
 
     private func accept(_ conn: NWConnection) {
@@ -116,8 +126,10 @@ final class BrowserBridge {
                 NSLog("ContextRecorder: page capture \(id) failed: \(error)")
                 onPageCapture?(id, .failure(error))
             }
+        case "hello":
+            if let version = message["version"]?.stringValue { DispatchQueue.main.async { self.onHello?(version) } }
         default:
-            break // hello / ping
+            break // ping
         }
     }
 

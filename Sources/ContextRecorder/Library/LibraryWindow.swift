@@ -11,6 +11,7 @@ final class LibraryState {
         self.recorder = recorder
     }
     var showShortcuts = false
+    var showChromeSetup = false
     /// Sidebar selection. One session is open when exactly one is selected; several can be trashed together.
     var selection: Set<URL> = [] {
         didSet {
@@ -323,6 +324,7 @@ enum MainMenu {
 
         let help = submenu(main, "Help")
         help.addItem(withTitle: "Keyboard Shortcuts", action: #selector(AppDelegate.showShortcuts), keyEquivalent: "/")
+        help.addItem(withTitle: "Set Up Chrome Extension…", action: #selector(AppDelegate.showChromeSetup), keyEquivalent: "")
         NSApp.helpMenu = help
 
         NSApp.mainMenu = main

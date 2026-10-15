@@ -41,6 +41,7 @@ cp .build/release/ContextRecorder "$APP/Contents/MacOS/ContextRecorder"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 cp scripts/process_session.py scripts/viewer.html "$APP/Contents/Resources/"
+cp -R extension "$APP/Contents/Resources/ChromeExtension"
 
 codesign --force --sign "$IDENTITY" --identifier com.byronwall.ContextRecorder "$APP"
 codesign --verify --verbose=1 "$APP"

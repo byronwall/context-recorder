@@ -25,6 +25,8 @@ final class RecorderController {
     private(set) var processing: Set<URL> = []
     private(set) var failed: Set<URL> = []
     private(set) var chromeConnected = false
+    /// The connected extension's version, from its hello.
+    private(set) var chromeExtensionVersion: String?
     var recordMicrophone: Bool = UserDefaults.standard.object(forKey: "recordMicrophone") as? Bool ?? true {
         didSet { UserDefaults.standard.set(recordMicrophone, forKey: "recordMicrophone") }
     }
@@ -47,6 +49,7 @@ final class RecorderController {
 
     @ObservationIgnored private let recorder = Recorder()
     @ObservationIgnored private let bridge = BrowserBridge()
+    @ObservationIgnored private var reloadRequested: Set<String> = []
     @ObservationIgnored private let regionSelector = RegionSelector()
     @ObservationIgnored private var session: Session?
     @ObservationIgnored private var activity: ActivityLog?
@@ -64,7 +67,17 @@ final class RecorderController {
             guard let self, let session = self.session, let offset = self.recorder.currentOffset() else { return }
             session.addBrowserEvent(event, offset: offset)
         }
-        bridge.onConnectionsChanged = { [weak self] count in self?.chromeConnected = count > 0 }
+        bridge.onConnectionsChanged = { [weak self] count in
+            self?.chromeConnected = count > 0
+            if count == 0 { self?.chromeExtensionVersion = nil }
+        }
+        bridge.onHello = { [weak self] version in
+            guard let self else { return }
+            chromeExtensionVersion = version
+            // The installed folder already holds this build's files; an older extension only needs a reload.
+            // Once per version, so a copy loaded from somewhere else can't reload in a loop.
+            if ChromeExtension.isOlder(version), reloadRequested.insert(version).inserted { bridge.reloadExtensions() }
+        }
         bridge.onPageCapture = { [weak self] id, capture in
             DispatchQueue.main.async {
                 guard let folder = self?.pageCaptureFolder?.appendingPathComponent("pages") else { return }
