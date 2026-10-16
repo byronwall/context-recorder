@@ -1,0 +1,299 @@
+[
+  {
+    "id": "VCI-01",
+    "rank": 1,
+    "title": "Discover the moving region before letting the background vote “no scroll”",
+    "problem": "`Joiner.join` first estimates over `known ?? full`. It calls `scrollingColumns` only when `est.shift != 0`. A detailed stationary sidebar can make zero the best full-width hypothesis; the code then never attempts to find the scrolling content. The discovery pass also requires the candidate to occupy at least one third of the width. [R3, lines 45–73]",
+    "proposal": "Evaluate a small set of region hypotheses independently: current tracked region, central pane, left/right content candidates, and the user's selected crop. Keep stationary and moving hypotheses simultaneously. Select a moving region only when its own image evidence is good; do not require scrolling to win over the whole frame. Start with one moving pane rather than an unrestricted multi-layer scene model.\n\nThe fastest practical relief is an explicit “exclude sidebar/header” correction and a short preview before rebuilding the whole session. The existing crop mechanism can seed the initial region. Do not count an oracle crop as automatic detection.",
+    "repositoryEvidence": [
+      {
+        "id": "R3",
+        "path": "Sources/CanvasKit/Join.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Join.swift"
+      },
+      {
+        "id": "R8",
+        "path": "Sources/ContextRecorder/Library/CanvasModel.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/ContextRecorder/Library/CanvasModel.swift"
+      }
+    ],
+    "externalSources": [],
+    "alternatives": "Known user crop only; whole-frame matching.",
+    "benefit": "Preserve ordinary scrolling beside static chrome.",
+    "cost": "small-to-medium",
+    "confidence": "high for reproduced defect; medium for automatic region discovery",
+    "validation": "Region oracle plus local candidate probes executed; integrated automatic discovery unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  },
+  {
+    "id": "VCI-02",
+    "rank": 2,
+    "title": "Replace immediate run termination with bounded recovery",
+    "problem": "One `change`, `noOverlap`, or `ambiguous` result ends the run in `Segmenter.feed`. There is no opportunity for a clean frame immediately afterward to rejoin the existing page. Tentative runs reduce some card noise but cannot reconnect a finished column. [R4, lines 95–152]",
+    "proposal": "Introduce `tracking → uncertain → reacquired/confirmed-break`. Keep a short ring of trusted geometry anchors and suspect observations. After a rejection, try the next few frames against the last reliable anchor. A provisional starting budget is 3–5 frames or roughly 0.2–0.35 seconds at 15 fps; calibrate it rather than hard-code it as truth. Real navigation, persistent incompatible content, or exhausted overlap should still commit a break.\n\nRetain suspect frames as event evidence. A recoverable tooltip must not disappear just because it should not split the background page. Uncertain intervals may be visually grouped without being geometrically stitched.",
+    "repositoryEvidence": [
+      {
+        "id": "R4",
+        "path": "Sources/CanvasKit/Segmenter.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Segmenter.swift"
+      }
+    ],
+    "externalSources": [],
+    "alternatives": "Immediate split; unconstrained joining across every gap.",
+    "benefit": "Prevent one recoverable observation from fragmenting the page.",
+    "cost": "medium",
+    "confidence": "high for reproduced fragmentation; medium for proposed recovery policy",
+    "validation": "Known-transient skip and verified bridge executed; automatic recovery unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  },
+  {
+    "id": "VCI-03",
+    "rank": 3,
+    "title": "Track fractional motion and tolerate small x displacement explicitly",
+    "problem": "`ShiftEstimate.shift` and `Run.y` are integers. Zero-shift verification takes a different path from nonzero-shift verification: `inPlace` does not get the neighbor-row interpolation allowance. Small raster-phase changes can alternate between a tolerated one-row shift and a content change. Horizontal displacement is not represented. [R2–R4]",
+    "proposal": "Separate the frame inspected for events from the geometry anchor. Estimate translation in floating-point `(dx, dy)`, accumulate poses in floating point, and quantize only at a defined rendering boundary. For an initial smaller fix, advance geometry anchors only when enough motion has accumulated for a stable alignment, while continuing to inspect every decoded frame for meaningful changes.\n\nAllow a small bounded x translation as a distinct model; do not silently stretch, rotate, or apply a homography to UI text. Prefer a sharp, near-native raster-phase observation for each owned patch. Reset or recalibrate on zoom/window geometry changes.",
+    "repositoryEvidence": [
+      {
+        "id": "R2",
+        "path": "Sources/CanvasKit/ShiftEstimator.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/ShiftEstimator.swift"
+      },
+      {
+        "id": "R3",
+        "path": "Sources/CanvasKit/Join.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Join.swift"
+      },
+      {
+        "id": "R4",
+        "path": "Sources/CanvasKit/Segmenter.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Segmenter.swift"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E2",
+        "url": "https://docs.opencv.org/4.13.0/d7/df3/group__imgproc__motion.html"
+      },
+      {
+        "id": "E3",
+        "url": "https://docs.opencv.org/4.13.0/dc/d6b/group__video__track.html"
+      }
+    ],
+    "alternatives": "Integer anchors while retaining event inspection; unrestricted image warps rejected.",
+    "benefit": "Handle scaled screen motion without alternating false changes.",
+    "cost": "medium-to-large",
+    "confidence": "high for reproduced issue; medium for full native transform/render fix",
+    "validation": "Half-pixel and x-drift probes executed; 20-frame anchor ablation executed; compositor unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  },
+  {
+    "id": "VCI-04",
+    "rank": 4,
+    "title": "Model fixed and dynamic UI over time, not as exact bands from one pair",
+    "problem": "`fixedBands` scans inward from the image edges until the first row that differs. A badge, pointer, loading indicator, or changed header row can invalidate a mostly fixed header. Blank document margins can also look stationary in one pair. `scrollingColumns` only trims edge strips and cannot express an interior overlay or arbitrary nested rectangle. [R3, lines 83–107 and `scrollingColumns`]",
+    "proposal": "Keep a coarse, time-smoothed map of stationary, scrolling, and independently changing regions. Compare each region under both zero motion and the candidate document motion. Require detail before declaring stationary structure; blank space is not evidence. Allow small dynamic islands inside a fixed header without throwing out the entire mask.\n\nUse masks for matching, but preserve the actual header, tooltip, or sidebar in a context layer and source observations. Excluding something from geometric voting is not permission to erase it from the review.",
+    "repositoryEvidence": [
+      {
+        "id": "R3",
+        "path": "Sources/CanvasKit/Join.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Join.swift"
+      }
+    ],
+    "externalSources": [],
+    "alternatives": "One-pair fixed edge scan; manually excluding header.",
+    "benefit": "Keep dynamic header islands from invalidating document alignment.",
+    "cost": "medium",
+    "confidence": "high for reproduced failure; medium for automatic masks",
+    "validation": "Known-header crop executed; automatic temporal mask unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  },
+  {
+    "id": "VCI-05",
+    "rank": 5,
+    "title": "Return geometry and content differences separately",
+    "problem": "`JoinResult` forces a frame pair into `shift` or `change`. Residual above 0.8% can turn scrolling into a new card; residual below it can cause a real edit to be treated as unchanged. `Run.append` only adds newly exposed rows. An edit inside already-owned overlap can therefore be omitted from the composite. [R3, R4]",
+    "proposal": "Return an alignment observation containing the transform, supported region, residual components, and confidence reasons. Then make separate decisions:\n\n- Newly exposed content extends the surface.\n- Persistent changes inside observed coordinates create a successor state or localized version patch.\n- Transient motion becomes a playable event associated with that region.\n- Unverified geometry keeps an observation without asserting a stitch.\n\nDo not overwrite the old pixels and call the result a single historical screenshot. A composite is an atlas of observations; changed versions and their time spans must remain selectable.",
+    "repositoryEvidence": [
+      {
+        "id": "R3",
+        "path": "Sources/CanvasKit/Join.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Join.swift"
+      },
+      {
+        "id": "R4",
+        "path": "Sources/CanvasKit/Segmenter.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Segmenter.swift"
+      }
+    ],
+    "externalSources": [],
+    "alternatives": "Single residual cutoff deciding both motion and state.",
+    "benefit": "Preserve changed overlap content without needlessly splitting geometry.",
+    "cost": "medium",
+    "confidence": "high for content-loss mechanism; medium for change-layer design",
+    "validation": "Small scrolling edit accepted as shift reproduced; integrated state patches unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  },
+  {
+    "id": "VCI-06",
+    "rank": 6,
+    "title": "Stop using total changed area as a pointer detector",
+    "problem": "`ignorePixels = 600` treats all small in-place changes as unimportant. The half-resolution 60-pixel gate supplies another absolute-area cutoff. These are not equivalent thresholds, and neither knows whether the pixels belong to a cursor, a checkbox, a changed word, or an error badge. [R3, R5]",
+    "proposal": "Detect localized residual components and observe their persistence. A small region that remains changed after the settling interval deserves a state event. A moving pointer-shaped component can be masked when that classification is actually supported. Keep change sensitivity relative to the chosen region and record important small components rather than simply normalizing everything by frame area.\n\nA lower pointer budget is a useful ablation, not the finished fix. Without a persistence/component model it can replace lost edits with a flood of cursor cards.",
+    "repositoryEvidence": [
+      {
+        "id": "R3",
+        "path": "Sources/CanvasKit/Join.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Join.swift"
+      },
+      {
+        "id": "R5",
+        "path": "Sources/CanvasKit/Storyboard.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Storyboard.swift"
+      }
+    ],
+    "externalSources": [],
+    "alternatives": "Lower ignorePixels only; fixed fraction-of-frame thresholds.",
+    "benefit": "Keep small persistent edits while suppressing genuinely transient pointers.",
+    "cost": "small-to-medium",
+    "confidence": "high for reproduced edit loss; medium for component/persistence model",
+    "validation": "20x20 edit and threshold ablation executed; cursor false-positive matrix unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  },
+  {
+    "id": "VCI-07",
+    "rank": 7,
+    "title": "Keep multiple hypotheses and strengthen ambiguity verification",
+    "problem": "Sixteen row-band averages deliberately discard horizontal structure. The winner and runner-up are chosen from a limited refinement shortlist. Repeated text, blank areas, and a large dynamic patch can make the selected displacement wrong or ambiguous. The synthetic profile-collision example has unique 2-D pixels but identical row-bin means. [R2]",
+    "proposal": "Retain the row profile as a cheap proposal mechanism, then verify several candidates using 2-D structure, spatially distributed support, bidirectional agreement, and a temporal motion prior. Preserve alternative peaks instead of turning a correlation response into a probability of correctness. Use an anchor spanning more than one adjacent pair to detect drift and aliases.\n\nApple's translation APIs, phase correlation, and sparse flow are candidate generators. No new production dependency is required to first improve the existing native candidate bank. Apple Vision also needs a correctness fix before a fair comparison: `VisionEstimator.estimate(...cols:)` never uses `cols`; its helper crops rows only. It also discards x translation. That bug is source-verified, not executed on macOS. [R2; E1–E3]",
+    "repositoryEvidence": [
+      {
+        "id": "R2",
+        "path": "Sources/CanvasKit/ShiftEstimator.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/ShiftEstimator.swift"
+      },
+      {
+        "id": "R3",
+        "path": "Sources/CanvasKit/Join.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Join.swift"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E1",
+        "url": "https://developer.apple.com/documentation/vision/vntranslationalimageregistrationrequest"
+      },
+      {
+        "id": "E2",
+        "url": "https://docs.opencv.org/4.13.0/d7/df3/group__imgproc__motion.html"
+      },
+      {
+        "id": "E3",
+        "url": "https://docs.opencv.org/4.13.0/dc/d6b/group__video__track.html"
+      }
+    ],
+    "alternatives": "Row profiles alone; single strongest phase/flow response.",
+    "benefit": "Recover local motion without accepting periodic aliases or cross-cut matches.",
+    "cost": "medium",
+    "confidence": "high for proposal/verification distinction; medium for combined verifier",
+    "validation": "2-D candidate probes and negative controls executed; Vision wrapper execution unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  },
+  {
+    "id": "VCI-08",
+    "rank": 8,
+    "title": "Add optional browser geometry telemetry for future recordings",
+    "problem": "The current extension streams click/nav/console/error/request events, not a continuous scroll track. The analyzer does not consume a continuous browser geometry channel. The old mark snapshots must not be reinterpreted as one. [R1, R13]",
+    "proposal": "While recording, collect throttled document and nested-element scroll positions, viewport rectangles, document epoch, container identity, browser zoom/device scale, resize information, and a sequence number. A 10–15 Hz geometry channel plus end-of-scroll updates is a proposal to evaluate, not a measured requirement. Do not capture form values for this purpose.\n\nCalibrate browser time to recording time and carry timing uncertainty; receipt time alone can be distorted by queued delivery. Map CSS pixels to the selected video viewport using a measured scale and origin. Do not multiply by DPR twice. Geometry should propose bounds and displacement; video pixels should still verify the visible content. Browser standards distinguish viewport, element, and visual-viewport scrolling. [E4]",
+    "repositoryEvidence": [
+      {
+        "id": "R1",
+        "path": "Sources/CanvasKit/CanvasAnalyzer.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/CanvasAnalyzer.swift"
+      },
+      {
+        "id": "R13",
+        "path": "extension/page.js",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/extension/page.js"
+      }
+    ],
+    "externalSources": [
+      {
+        "id": "E4",
+        "url": "https://www.w3.org/TR/cssom-view/"
+      }
+    ],
+    "alternatives": "Video-only inference; sparse mark snapshots; full DOM recording not needed initially.",
+    "benefit": "Constrain future browser recordings with actual geometry measurements.",
+    "cost": "medium",
+    "confidence": "medium; entirely proposed instrumentation",
+    "validation": "Telemetry, clock calibration, nested-scroll capture, and latency tests unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  },
+  {
+    "id": "VCI-09",
+    "rank": 9,
+    "title": "Separate surfaces, states, visits, and pixel ownership",
+    "problem": "A run is both an analysis segment and a display item. Patches record only contributing pixels, not every later time those pixels were visible. During a scroll reversal inside known bounds, `Run.last` advances without necessarily adding any patch. `frame(atImageY:)` then correctly returns the contributor but cannot answer “when was this discussed on the later visit?” [R4, R6]",
+    "proposal": "Keep pixel ownership as it is conceptually, and add a compact observation/pose log. Give related runs a stable surface identity, distinguish changed states, and derive visits from contiguous observations. Layout consumes that model rather than equating every temporary tracking break with a new full-size card.\n\nA small next schema could add `surfaceId`, `stateId`, and observations with `frame`, `viewportTransform`, `visibleRegion`, and registration status. Derived cards, joins, and links remain rebuildable. Do not introduce a database or graph service.",
+    "repositoryEvidence": [
+      {
+        "id": "R4",
+        "path": "Sources/CanvasKit/Segmenter.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/Segmenter.swift"
+      },
+      {
+        "id": "R6",
+        "path": "Sources/CanvasKit/CanvasDocument.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasKit/CanvasDocument.swift"
+      },
+      {
+        "id": "R7",
+        "path": "Sources/ContextRecorder/Library/CanvasStage.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/ContextRecorder/Library/CanvasStage.swift"
+      },
+      {
+        "id": "R8",
+        "path": "Sources/ContextRecorder/Library/CanvasModel.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/ContextRecorder/Library/CanvasModel.swift"
+      }
+    ],
+    "externalSources": [],
+    "alternatives": "Flat run-to-item mapping; deduplicate away later visits.",
+    "benefit": "Make return visits, narration, source preview, and changes navigable.",
+    "cost": "medium",
+    "confidence": "high for missing visit evidence; medium for next schema",
+    "validation": "Five-frame return patch-history test executed; observation/visit model unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  },
+  {
+    "id": "VCI-10",
+    "rank": 10,
+    "title": "Make failures diagnosable and make all-card scrolling fail the proof",
+    "problem": "The native fixture harness has useful source-time and geometry checks, but `Geometry.check` returns early when no columns exist, adding only “storyboard only; joining not checked.” Fixtures such as clean scrolling primarily set an upper bound on the number of columns. A zero-column result can therefore avoid the geometry failure that should matter for that fixture. This is a static source finding; the native harness was not executed here. [R10–R12]",
+    "proposal": "Record a small diagnostic event per attempted join: frame pair, candidate region, best and alternate transforms, detail support, residual components, mask fractions, and the actual rejection reason. Add a reviewer overlay showing the chosen motion, crop, seam, and source frame. Keep “not verified” distinct from a demonstrated absence of overlap.\n\nExtend the existing fixture harness rather than creating a benchmark platform. Require positive joined-content coverage for scroll fixtures, bounded fragmentation, low placement error, preservation of visible edits, and correct return/source mapping. A giant incorrect column must fail even when it reduces card count; an all-card result must fail clean-scroll reconstruction even when every card is truthful.\n\nProvide only a few correction controls: change the tracked region, split here, declare a related but unaligned continuation, and retry the local interval. Never make a manual grouping action silently certify geometry.",
+    "repositoryEvidence": [
+      {
+        "id": "R10",
+        "path": "Sources/CanvasTool/Check.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasTool/Check.swift"
+      },
+      {
+        "id": "R11",
+        "path": "Sources/CanvasTool/Geometry.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasTool/Geometry.swift"
+      },
+      {
+        "id": "R12",
+        "path": "Sources/CanvasTool/Fixtures.swift",
+        "url": "https://github.com/byronwall/context-recorder/blob/76afc4faa24887408c275360132f0dd03384c94b/Sources/CanvasTool/Fixtures.swift"
+      }
+    ],
+    "externalSources": [],
+    "alternatives": "All-card fallback treated as success; large benchmark/editor platform.",
+    "benefit": "Measure useful reconstruction, expose failure causes, and permit limited corrections.",
+    "cost": "small-to-medium",
+    "confidence": "high for source-level test gap; provisional numeric gates",
+    "validation": "Native Geometry guard inspected; 23 Linux reproduction assertions executed; native expanded gates unrun.",
+    "status": "proposed; diagnostic evidence only, not integrated or shipped"
+  }
+]

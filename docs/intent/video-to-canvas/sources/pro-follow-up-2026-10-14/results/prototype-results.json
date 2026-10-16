@@ -1,0 +1,2427 @@
+{
+  "opencv": "4.13.0",
+  "pairs": [
+    {
+      "id": "clean-0",
+      "wholeImagePhase": {
+        "dx": -0.0017790544835634137,
+        "scrollY": 7.995316201349397,
+        "response": 0.98808160132832
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": -0.0008870310472985921,
+          "scrollY": 7.98668572316069,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": -7.62939453125e-06,
+          "scrollY": 8.0,
+          "points": 445,
+          "supportBounds": [
+            9.0,
+            24.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "sidebar-0",
+      "wholeImagePhase": {
+        "dx": 0.0022552086549580963,
+        "scrollY": 8.037677531135444,
+        "response": 0.7692726512418853
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": -0.0010038260144185074,
+          "scrollY": 7.978044729638377,
+          "supportTiles": 6,
+          "tiles": [
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        },
+        {
+          "dx": -8.383835847780574e-10,
+          "scrollY": 6.153300091682468e-12,
+          "supportTiles": 3,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": -3.0517578125e-05,
+          "scrollY": 8.0,
+          "points": 77,
+          "supportBounds": [
+            230.0,
+            57.0,
+            631.0,
+            358.0
+          ]
+        },
+        {
+          "dx": 0.00098419189453125,
+          "scrollY": 6.866455078125e-05,
+          "points": 16,
+          "supportBounds": [
+            221.0,
+            40.0,
+            224.0,
+            354.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict",
+      "oracleRegionPhase": {
+        "dx": 1.5050075347744496e-05,
+        "scrollY": 8.000576928764133,
+        "response": 0.9881362121352933
+      }
+    },
+    {
+      "id": "header-badge-0",
+      "wholeImagePhase": {
+        "dx": -0.0041699477577594735,
+        "scrollY": 7.987821928873672,
+        "response": 0.9514401193790966
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.00946957970474216,
+          "scrollY": 7.974055708185944,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.0,
+          "points": 386,
+          "supportBounds": [
+            9.0,
+            82.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "header-cropped-0",
+      "wholeImagePhase": {
+        "dx": -0.0011466448074770597,
+        "scrollY": 7.9968834133287885,
+        "response": 0.9878311881702393
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0003005328888150416,
+          "scrollY": 7.963721536894639,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.0,
+          "points": 388,
+          "supportBounds": [
+            9.0,
+            26.0,
+            631.0,
+            302.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "nested-0",
+      "wholeImagePhase": {
+        "dx": 0.026872906922108086,
+        "scrollY": -0.05642928707013084,
+        "response": 0.5004552984072103
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 0.0,
+          "supportTiles": 6,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        },
+        {
+          "dx": -0.004959769295140859,
+          "scrollY": 7.978610385974733,
+          "supportTiles": 3,
+          "tiles": [
+            [
+              1,
+              0
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": -0.0,
+          "points": 369,
+          "supportBounds": [
+            9.0,
+            5.0,
+            631.0,
+            356.0
+          ]
+        },
+        {
+          "dx": -3.0517578125e-05,
+          "scrollY": 8.000015258789062,
+          "points": 72,
+          "supportBounds": [
+            223.0,
+            54.0,
+            414.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict",
+      "oracleRegionPhase": {
+        "dx": 0.002596666773428069,
+        "scrollY": 7.999036274179588,
+        "response": 0.9840869885593376
+      }
+    },
+    {
+      "id": "nested-cropped-0",
+      "wholeImagePhase": {
+        "dx": 0.002596666773428069,
+        "scrollY": 7.999036274179588,
+        "response": 0.9840869885593376
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.017102338682223106,
+          "scrollY": 7.956840627464246,
+          "supportTiles": 6,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 1.9073486328125e-06,
+          "scrollY": 8.0,
+          "points": 68,
+          "supportBounds": [
+            1.0,
+            109.0,
+            118.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "dx2-0",
+      "wholeImagePhase": {
+        "dx": 1.9967413071003648,
+        "scrollY": 7.995684476870736,
+        "response": 0.9872913153138425
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 1.9845491314432877,
+          "scrollY": 7.984468953286594,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 1.9999961853027344,
+          "scrollY": 8.0,
+          "points": 445,
+          "supportBounds": [
+            9.0,
+            24.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "fractional-half-0",
+      "wholeImagePhase": {
+        "dx": -2.8677878049165884e-05,
+        "scrollY": 0.8242962796827271,
+        "response": 0.9779578835599952
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 3.6578201545012234e-05,
+          "scrollY": 0.7837806020402596,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": -0.00028228759765625,
+          "scrollY": 0.500152587890625,
+          "points": 467,
+          "supportBounds": [
+            9.0,
+            1.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "jump-0",
+      "wholeImagePhase": {
+        "dx": 50.471471304533566,
+        "scrollY": -37.772047335134175,
+        "response": 0.038627058201366
+      },
+      "tilePhaseCandidates": [],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.8328514099121094,
+          "scrollY": -9.94183349609375,
+          "points": 27,
+          "supportBounds": [
+            19.0,
+            13.0,
+            102.0,
+            343.0
+          ]
+        },
+        {
+          "dx": -1.646315574645996,
+          "scrollY": -10.028419494628906,
+          "points": 22,
+          "supportBounds": [
+            21.0,
+            67.0,
+            60.0,
+            316.0
+          ]
+        },
+        {
+          "dx": 1.8956737518310547,
+          "scrollY": -10.0001220703125,
+          "points": 19,
+          "supportBounds": [
+            16.0,
+            96.0,
+            114.0,
+            316.0
+          ]
+        },
+        {
+          "dx": -3.1110191345214844,
+          "scrollY": -10.035064697265625,
+          "points": 14,
+          "supportBounds": [
+            19.0,
+            202.0,
+            65.0,
+            262.0
+          ]
+        },
+        {
+          "dx": 2.8713607788085938,
+          "scrollY": -10.029769897460938,
+          "points": 12,
+          "supportBounds": [
+            16.0,
+            17.0,
+            59.0,
+            154.0
+          ]
+        },
+        {
+          "dx": -0.0028839111328125,
+          "scrollY": -9.99981689453125,
+          "points": 9,
+          "supportBounds": [
+            9.0,
+            273.0,
+            107.0,
+            339.0
+          ]
+        },
+        {
+          "dx": 5.894191741943359,
+          "scrollY": -10.028905868530273,
+          "points": 8,
+          "supportBounds": [
+            17.0,
+            35.0,
+            49.0,
+            46.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "clean-1",
+      "wholeImagePhase": {
+        "dx": -0.0019383952978273555,
+        "scrollY": 8.002106424638583,
+        "response": 0.983234010959665
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.00044555204694063377,
+          "scrollY": 7.976606873781961,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": -7.62939453125e-06,
+          "scrollY": 8.0,
+          "points": 407,
+          "supportBounds": [
+            9.0,
+            9.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "sidebar-1",
+      "wholeImagePhase": {
+        "dx": 0.011911182225730954,
+        "scrollY": 7.890365574800967,
+        "response": 0.7154805653625065
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0013287471937033501,
+          "scrollY": 7.96100494339634,
+          "supportTiles": 6,
+          "tiles": [
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        },
+        {
+          "dx": -5.4654947234666906e-11,
+          "scrollY": 4.760636329592671e-12,
+          "supportTiles": 3,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 7.999993324279785,
+          "points": 64,
+          "supportBounds": [
+            222.0,
+            24.0,
+            631.0,
+            355.0
+          ]
+        },
+        {
+          "dx": -4.57763671875e-05,
+          "scrollY": 1.52587890625e-05,
+          "points": 15,
+          "supportBounds": [
+            221.0,
+            69.0,
+            222.0,
+            345.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict",
+      "oracleRegionPhase": {
+        "dx": 0.012703591655366608,
+        "scrollY": 7.994433724785324,
+        "response": 0.9760973286481551
+      }
+    },
+    {
+      "id": "header-badge-1",
+      "wholeImagePhase": {
+        "dx": -0.008413137401589665,
+        "scrollY": 7.999540809030037,
+        "response": 0.9464215084579256
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": -0.002431251472266638,
+          "scrollY": 7.976626804484219,
+          "supportTiles": 8,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": -7.62939453125e-06,
+          "scrollY": 8.0,
+          "points": 332,
+          "supportBounds": [
+            9.0,
+            82.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "header-cropped-1",
+      "wholeImagePhase": {
+        "dx": 0.00039310402843284464,
+        "scrollY": 7.992615827935822,
+        "response": 0.9835647261491977
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": -0.0029392857420660334,
+          "scrollY": 7.967316706561363,
+          "supportTiles": 8,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.0,
+          "points": 335,
+          "supportBounds": [
+            9.0,
+            26.0,
+            631.0,
+            302.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "nested-1",
+      "wholeImagePhase": {
+        "dx": -0.010396250369808513,
+        "scrollY": -0.012040753741644039,
+        "response": 0.5954407434331046
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 0.0,
+          "supportTiles": 6,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        },
+        {
+          "dx": 0.0019401165122019393,
+          "scrollY": 7.983104007027961,
+          "supportTiles": 3,
+          "tiles": [
+            [
+              1,
+              0
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": -0.0,
+          "points": 335,
+          "supportBounds": [
+            9.0,
+            10.0,
+            631.0,
+            340.0
+          ]
+        },
+        {
+          "dx": 0.0,
+          "scrollY": 8.0,
+          "points": 55,
+          "supportBounds": [
+            225.0,
+            24.0,
+            414.0,
+            355.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict",
+      "oracleRegionPhase": {
+        "dx": 0.008891186660250128,
+        "scrollY": 7.985458814009206,
+        "response": 0.965474323845572
+      }
+    },
+    {
+      "id": "nested-cropped-1",
+      "wholeImagePhase": {
+        "dx": 0.008891186660250128,
+        "scrollY": 7.985458814009206,
+        "response": 0.965474323845572
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.00012793655290010975,
+          "scrollY": 7.960047871363244,
+          "supportTiles": 7,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": -1.33514404296875e-05,
+          "scrollY": 8.0,
+          "points": 54,
+          "supportBounds": [
+            1.0,
+            24.0,
+            116.0,
+            355.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "dx2-1",
+      "wholeImagePhase": {
+        "dx": 1.9959789813200928,
+        "scrollY": 8.0016510256211,
+        "response": 0.9822273394382662
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 1.9815337986029675,
+          "scrollY": 7.974421990131631,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 1.9999923706054688,
+          "scrollY": 8.0,
+          "points": 408,
+          "supportBounds": [
+            9.0,
+            9.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "fractional-half-1",
+      "wholeImagePhase": {
+        "dx": 0.0006609138478665955,
+        "scrollY": 0.8242916815159731,
+        "response": 0.9778146728293763
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.00047226464027971815,
+          "scrollY": 0.7047014705590513,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": -3.0517578125e-05,
+          "scrollY": 0.4999847412109375,
+          "points": 426,
+          "supportBounds": [
+            9.0,
+            3.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "jump-1",
+      "wholeImagePhase": {
+        "dx": -68.29311843675646,
+        "scrollY": -63.86152704755422,
+        "response": 0.09068194561534458
+      },
+      "tilePhaseCandidates": [],
+      "sparseFlowCandidates": [
+        {
+          "dx": -4.709033966064453,
+          "scrollY": -10.034278869628906,
+          "points": 14,
+          "supportBounds": [
+            22.0,
+            202.0,
+            55.0,
+            289.0
+          ]
+        },
+        {
+          "dx": 2.891448974609375,
+          "scrollY": -10.027984619140625,
+          "points": 13,
+          "supportBounds": [
+            18.0,
+            63.0,
+            52.0,
+            181.0
+          ]
+        },
+        {
+          "dx": -0.00493621826171875,
+          "scrollY": -10.025482177734375,
+          "points": 13,
+          "supportBounds": [
+            20.0,
+            17.0,
+            59.0,
+            343.0
+          ]
+        },
+        {
+          "dx": -1.119741439819336,
+          "scrollY": -10.024436950683594,
+          "points": 13,
+          "supportBounds": [
+            20.0,
+            13.0,
+            100.0,
+            235.0
+          ]
+        },
+        {
+          "dx": 5.90666389465332,
+          "scrollY": -10.032089233398438,
+          "points": 9,
+          "supportBounds": [
+            17.0,
+            121.0,
+            55.0,
+            316.0
+          ]
+        },
+        {
+          "dx": 4.893495559692383,
+          "scrollY": -10.024219512939453,
+          "points": 8,
+          "supportBounds": [
+            18.0,
+            40.0,
+            74.0,
+            46.0
+          ]
+        },
+        {
+          "dx": 3.8380775451660156,
+          "scrollY": -10.034767150878906,
+          "points": 8,
+          "supportBounds": [
+            18.0,
+            67.0,
+            52.0,
+            179.0
+          ]
+        },
+        {
+          "dx": -2.114985466003418,
+          "scrollY": -10.024757385253906,
+          "points": 8,
+          "supportBounds": [
+            24.0,
+            98.0,
+            100.0,
+            235.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "clean-2",
+      "wholeImagePhase": {
+        "dx": -0.0031550443401329176,
+        "scrollY": 8.000591196115465,
+        "response": 0.9877385350606508
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0006664601557417882,
+          "scrollY": 7.972792932368492,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.0,
+          "points": 405,
+          "supportBounds": [
+            9.0,
+            26.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "sidebar-2",
+      "wholeImagePhase": {
+        "dx": -0.04162548284557488,
+        "scrollY": 8.066896965868494,
+        "response": 0.7009859164721436
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0017128766469909351,
+          "scrollY": 7.968782709187678,
+          "supportTiles": 6,
+          "tiles": [
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        },
+        {
+          "dx": -1.0288374596711947e-09,
+          "scrollY": -2.12665440812998e-11,
+          "supportTiles": 3,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 7.9999847412109375,
+          "points": 45,
+          "supportBounds": [
+            226.0,
+            55.0,
+            631.0,
+            332.0
+          ]
+        },
+        {
+          "dx": 1.52587890625e-05,
+          "scrollY": 3.0517578125e-05,
+          "points": 18,
+          "supportBounds": [
+            221.0,
+            10.0,
+            223.0,
+            305.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict",
+      "oracleRegionPhase": {
+        "dx": -0.002222451319624952,
+        "scrollY": 7.995701856253845,
+        "response": 0.9829295503872412
+      }
+    },
+    {
+      "id": "header-badge-2",
+      "wholeImagePhase": {
+        "dx": -0.0058270332382335255,
+        "scrollY": 8.005279503352199,
+        "response": 0.9520727767050267
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": -0.0037021399269434596,
+          "scrollY": 7.972792932368492,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.0,
+          "points": 328,
+          "supportBounds": [
+            9.0,
+            82.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "header-cropped-2",
+      "wholeImagePhase": {
+        "dx": 9.898123425955418e-05,
+        "scrollY": 7.9962840437557645,
+        "response": 0.985400387942791
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0001519426162843729,
+          "scrollY": 7.9778223591400845,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.000007629394531,
+          "points": 342,
+          "supportBounds": [
+            9.0,
+            21.0,
+            631.0,
+            302.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "nested-2",
+      "wholeImagePhase": {
+        "dx": -0.025393335378566917,
+        "scrollY": -0.0038167914925395507,
+        "response": 0.6334151570002238
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 0.0,
+          "supportTiles": 6,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        },
+        {
+          "dx": 0.010402492971550714,
+          "scrollY": 7.979387611859053,
+          "supportTiles": 3,
+          "tiles": [
+            [
+              1,
+              0
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": -0.0,
+          "points": 386,
+          "supportBounds": [
+            9.0,
+            5.0,
+            631.0,
+            358.0
+          ]
+        },
+        {
+          "dx": -3.0517578125e-05,
+          "scrollY": 7.999992370605469,
+          "points": 31,
+          "supportBounds": [
+            227.0,
+            55.0,
+            414.0,
+            331.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict",
+      "oracleRegionPhase": {
+        "dx": 0.003110300845591496,
+        "scrollY": 7.997630830196584,
+        "response": 0.9838100314554241
+      }
+    },
+    {
+      "id": "nested-cropped-2",
+      "wholeImagePhase": {
+        "dx": 0.003110300845591496,
+        "scrollY": 7.997630830196584,
+        "response": 0.9838100314554241
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.01990903264050914,
+          "scrollY": 7.939289751342713,
+          "supportTiles": 6,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 1.9073486328125e-06,
+          "scrollY": 8.000015258789062,
+          "points": 27,
+          "supportBounds": [
+            2.0,
+            86.0,
+            66.0,
+            331.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "dx2-2",
+      "wholeImagePhase": {
+        "dx": 1.995460239281158,
+        "scrollY": 8.000992218091227,
+        "response": 0.986285901185539
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 1.9845469530467739,
+          "scrollY": 7.972490309172457,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 1.9999961853027344,
+          "scrollY": 8.0,
+          "points": 405,
+          "supportBounds": [
+            9.0,
+            26.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "fractional-half-2",
+      "wholeImagePhase": {
+        "dx": -0.001538310918647312,
+        "scrollY": 0.17586572626433394,
+        "response": 0.9755090395278401
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": -0.0002989704986475772,
+          "scrollY": 0.800425437475127,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0001220703125,
+          "scrollY": 0.5001983642578125,
+          "points": 443,
+          "supportBounds": [
+            9.0,
+            1.0,
+            631.0,
+            358.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "jump-2",
+      "wholeImagePhase": {
+        "dx": 61.319151068962526,
+        "scrollY": -63.732001026750794,
+        "response": 0.1135953391260571
+      },
+      "tilePhaseCandidates": [],
+      "sparseFlowCandidates": [
+        {
+          "dx": -0.10921287536621094,
+          "scrollY": -10.024612426757812,
+          "points": 40,
+          "supportBounds": [
+            16.0,
+            13.0,
+            199.0,
+            316.0
+          ]
+        },
+        {
+          "dx": 5.92203426361084,
+          "scrollY": -10.023983001708984,
+          "points": 24,
+          "supportBounds": [
+            16.0,
+            40.0,
+            94.0,
+            343.0
+          ]
+        },
+        {
+          "dx": 1.9960136413574219,
+          "scrollY": -10.014404296875,
+          "points": 18,
+          "supportBounds": [
+            19.0,
+            67.0,
+            191.0,
+            181.0
+          ]
+        },
+        {
+          "dx": 5.303712844848633,
+          "scrollY": -9.930923461914062,
+          "points": 9,
+          "supportBounds": [
+            19.0,
+            152.0,
+            55.0,
+            341.0
+          ]
+        },
+        {
+          "dx": -6.119525909423828,
+          "scrollY": -10.034133911132812,
+          "points": 8,
+          "supportBounds": [
+            22.0,
+            121.0,
+            116.0,
+            127.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "small-persistent-edit",
+      "wholeImagePhase": {
+        "dx": 0.007699549238850523,
+        "scrollY": 0.010560703811819394,
+        "response": 0.6255352958043416
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 0.0,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": -0.0,
+          "points": 439,
+          "supportBounds": [
+            9.0,
+            1.0,
+            631.0,
+            352.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "small-edit-while-scroll",
+      "wholeImagePhase": {
+        "dx": 0.0033039476345493313,
+        "scrollY": 7.9750797110272345,
+        "response": 0.648395278983646
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0011509403488929593,
+          "scrollY": 7.973678782393421,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.0,
+          "points": 459,
+          "supportBounds": [
+            9.0,
+            19.0,
+            631.0,
+            352.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "overlay-while-scroll",
+      "wholeImagePhase": {
+        "dx": -0.01999424011529527,
+        "scrollY": 7.993731863389968,
+        "response": 0.6227448680665758
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": -4.508569674044338e-05,
+          "scrollY": 7.973678782393421,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.0,
+          "points": 370,
+          "supportBounds": [
+            9.0,
+            19.0,
+            631.0,
+            352.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "periodic-rows",
+      "wholeImagePhase": {
+        "dx": -0.001028133100476225,
+        "scrollY": 7.983894623061673,
+        "response": 0.8840328611764643
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.0005518807321891472,
+          "scrollY": 7.990441995163053,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.000025749206543,
+          "points": 261,
+          "supportBounds": [
+            9.0,
+            11.0,
+            631.0,
+            350.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "blank",
+      "wholeImagePhase": {
+        "dx": 5.5780333241273183e-08,
+        "scrollY": -4.6483705773425754e-09,
+        "response": 0.9118382008870443
+      },
+      "tilePhaseCandidates": [],
+      "sparseFlowCandidates": [],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "profile-collision",
+      "wholeImagePhase": {
+        "dx": 0.0019587239608540585,
+        "scrollY": 7.996813343251773,
+        "response": 0.9743183200144105
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": 0.002599270547406718,
+          "scrollY": 7.99094727189572,
+          "supportTiles": 9,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": 0.0,
+          "scrollY": 8.0,
+          "points": 565,
+          "supportBounds": [
+            2.0,
+            15.0,
+            638.0,
+            353.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    },
+    {
+      "id": "overlay-reacquire",
+      "wholeImagePhase": {
+        "dx": 0.0005516862839840542,
+        "scrollY": 15.99954907275145,
+        "response": 0.9757086899917987
+      },
+      "tilePhaseCandidates": [
+        {
+          "dx": -0.004585815491438439,
+          "scrollY": 15.98277313819895,
+          "supportTiles": 7,
+          "tiles": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ],
+      "sparseFlowCandidates": [
+        {
+          "dx": -1.52587890625e-05,
+          "scrollY": 16.0,
+          "points": 113,
+          "supportBounds": [
+            144.0,
+            19.0,
+            631.0,
+            348.0
+          ]
+        },
+        {
+          "dx": 1.0000495910644531,
+          "scrollY": -11.000312805175781,
+          "points": 21,
+          "supportBounds": [
+            23.0,
+            44.0,
+            93.0,
+            212.0
+          ]
+        },
+        {
+          "dx": 2.000455856323242,
+          "scrollY": -10.999893188476562,
+          "points": 21,
+          "supportBounds": [
+            17.0,
+            102.0,
+            128.0,
+            239.0
+          ]
+        },
+        {
+          "dx": 3.0178909301757812,
+          "scrollY": -11.0010986328125,
+          "points": 15,
+          "supportBounds": [
+            20.0,
+            261.0,
+            104.0,
+            320.0
+          ]
+        },
+        {
+          "dx": -0.0011959075927734375,
+          "scrollY": -11.00018310546875,
+          "points": 13,
+          "supportBounds": [
+            20.0,
+            73.0,
+            105.0,
+            293.0
+          ]
+        },
+        {
+          "dx": -0.9990768432617188,
+          "scrollY": -11.0693359375,
+          "points": 11,
+          "supportBounds": [
+            21.0,
+            73.0,
+            79.0,
+            266.0
+          ]
+        }
+      ],
+      "status": "candidate generation only; not a safe-join verdict"
+    }
+  ]
+}

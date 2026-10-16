@@ -1,0 +1,120 @@
+
+[1/6] Verify pinned upstream source and prepare platform-isolated Swift files
+[verified/prepared] ShiftEstimator.swift
+[verified/prepared] Join.swift
+[verified/prepared] Segmenter.swift
+[verified/prepared] Storyboard.swift
+
+[2/6] Compile the actual Swift row matcher, verifier, and segmenter with metadata stubs
+
+[3/6] Generate synthetic cases and FFmpeg H.264 round trips
+[corpus] 34 pairs; 10 sequences; 380 sequence frames
+[corpus] All synthetic. Three seeds are diagnostic repetitions, not independent product evaluations.
+
+[4/6] Run baseline and threshold/known-region ablations
+pair clean-0 shift 8 estimate 8
+pair sidebar-0 change - estimate 0
+pair header-badge-0 no-overlap - estimate 8
+pair header-cropped-0 shift 8 estimate 8
+pair nested-0 change - estimate 0
+pair nested-cropped-0 shift 8 estimate 8
+pair dx2-0 no-overlap - estimate 8
+pair fractional-half-0 shift 1 estimate 1
+pair jump-0 no-overlap - estimate -172
+pair clean-1 shift 8 estimate 8
+pair sidebar-1 change - estimate 0
+pair header-badge-1 change - estimate 8
+pair header-cropped-1 shift 8 estimate 8
+pair nested-1 change - estimate 0
+pair nested-cropped-1 shift 8 estimate 8
+pair dx2-1 no-overlap - estimate 8
+pair fractional-half-1 shift 1 estimate 1
+pair jump-1 no-overlap - estimate -172
+pair clean-2 shift 8 estimate 8
+pair sidebar-2 change - estimate 0
+pair header-badge-2 change - estimate 8
+pair header-cropped-2 shift 8 estimate 8
+pair nested-2 change - estimate 0
+pair nested-cropped-2 shift 8 estimate 8
+pair dx2-2 no-overlap - estimate 8
+pair fractional-half-2 shift 1 estimate 1
+pair jump-2 change - estimate 260
+pair small-persistent-edit same - estimate 0
+pair small-edit-while-scroll shift 8 estimate 8
+pair overlay-while-scroll no-overlap - estimate -208
+pair periodic-rows ambiguous - estimate -272
+pair blank ambiguous - estimate -48
+pair profile-collision no-overlap - estimate -288
+pair overlay-reacquire shift 16 estimate 16
+sequence small-edit-held columns 0 cards 1
+sequence clean-scroll columns 1 cards 0
+sequence one-frame-overlay columns 2 cards 0
+sequence overlay-skip-oracle columns 1 cards 0
+sequence slow-half-pixel columns 12 cards 1
+sequence return-inside-surface columns 1 cards 0
+sequence sidebar-scroll columns 0 cards 2
+sequence sidebar-cropped-scroll columns 1 cards 0
+sequence clean-h264 columns 1 cards 0
+sequence overlay-h264 columns 2 cards 0
+
+[5/6] Test candidate estimators; candidates are NOT accepted stitches
+clean-0 tile [(-0.0, 7.99, 9)] flow [(-0.0, 8.0, 445)]
+sidebar-0 tile [(-0.0, 7.98, 6), (-0.0, 0.0, 3)] flow [(-0.0, 8.0, 77), (0.0, 0.0, 16)]
+header-badge-0 tile [(0.01, 7.97, 9)] flow [(0.0, 8.0, 386)]
+header-cropped-0 tile [(0.0, 7.96, 9)] flow [(0.0, 8.0, 388)]
+nested-0 tile [(0.0, 0.0, 6), (-0.0, 7.98, 3)] flow [(0.0, -0.0, 369), (-0.0, 8.0, 72)]
+nested-cropped-0 tile [(0.02, 7.96, 6)] flow [(0.0, 8.0, 68)]
+dx2-0 tile [(1.98, 7.98, 9)] flow [(2.0, 8.0, 445)]
+fractional-half-0 tile [(0.0, 0.78, 9)] flow [(-0.0, 0.5, 467)]
+jump-0 tile [] flow [(0.83, -9.94, 27), (-1.65, -10.03, 22), (1.9, -10.0, 19)]
+clean-1 tile [(0.0, 7.98, 9)] flow [(-0.0, 8.0, 407)]
+sidebar-1 tile [(0.0, 7.96, 6), (-0.0, 0.0, 3)] flow [(0.0, 8.0, 64), (-0.0, 0.0, 15)]
+header-badge-1 tile [(-0.0, 7.98, 8)] flow [(-0.0, 8.0, 332)]
+header-cropped-1 tile [(-0.0, 7.97, 8)] flow [(0.0, 8.0, 335)]
+nested-1 tile [(0.0, 0.0, 6), (0.0, 7.98, 3)] flow [(0.0, -0.0, 335), (0.0, 8.0, 55)]
+nested-cropped-1 tile [(0.0, 7.96, 7)] flow [(-0.0, 8.0, 54)]
+dx2-1 tile [(1.98, 7.97, 9)] flow [(2.0, 8.0, 408)]
+fractional-half-1 tile [(0.0, 0.7, 9)] flow [(-0.0, 0.5, 426)]
+jump-1 tile [] flow [(-4.71, -10.03, 14), (2.89, -10.03, 13), (-0.0, -10.03, 13)]
+clean-2 tile [(0.0, 7.97, 9)] flow [(0.0, 8.0, 405)]
+sidebar-2 tile [(0.0, 7.97, 6), (-0.0, -0.0, 3)] flow [(0.0, 8.0, 45), (0.0, 0.0, 18)]
+header-badge-2 tile [(-0.0, 7.97, 9)] flow [(0.0, 8.0, 328)]
+header-cropped-2 tile [(0.0, 7.98, 9)] flow [(0.0, 8.0, 342)]
+nested-2 tile [(0.0, 0.0, 6), (0.01, 7.98, 3)] flow [(0.0, -0.0, 386), (-0.0, 8.0, 31)]
+nested-cropped-2 tile [(0.02, 7.94, 6)] flow [(0.0, 8.0, 27)]
+dx2-2 tile [(1.98, 7.97, 9)] flow [(2.0, 8.0, 405)]
+fractional-half-2 tile [(-0.0, 0.8, 9)] flow [(0.0, 0.5, 443)]
+jump-2 tile [] flow [(-0.11, -10.02, 40), (5.92, -10.02, 24), (2.0, -10.01, 18)]
+small-persistent-edit tile [(0.0, 0.0, 9)] flow [(0.0, -0.0, 439)]
+small-edit-while-scroll tile [(0.0, 7.97, 9)] flow [(0.0, 8.0, 459)]
+overlay-while-scroll tile [(-0.0, 7.97, 9)] flow [(0.0, 8.0, 370)]
+periodic-rows tile [(0.0, 7.99, 9)] flow [(0.0, 8.0, 261)]
+blank tile [] flow []
+profile-collision tile [(0.0, 7.99, 9)] flow [(0.0, 8.0, 565)]
+overlay-reacquire tile [(-0.0, 15.98, 7)] flow [(-0.0, 16.0, 113), (1.0, -11.0, 21), (2.0, -11.0, 21)]
+sequence slow-even-frames-anchor-ablation columns 1 cards 0
+
+[6/6] Verify observed regressions and counterfactuals, not product acceptance
+[reproduced] clean integer scroll joins at correct 8 px
+[reproduced] fixed sidebar wins global zero-shift hypothesis
+[reproduced] oracle sidebar region restores original native joiner
+[reproduced] changing header badge prevents pure scroll join
+[reproduced] oracle header exclusion restores joins
+[reproduced] central pane is not discovered by full-width matcher
+[reproduced] oracle central pane restores joins
+[reproduced] 2px horizontal drift fails vertical-only verifier
+[reproduced] 20x20 persistent edit ignored
+[reproduced] lower pointer allowance detects edit pair only
+[reproduced] scroll with small edit classified as pure shift
+[reproduced] one-frame overlay splits a clean run
+[reproduced] known bad frame skip plus valid bridge restores one run
+[reproduced] half-pixel sequence fragments
+[reproduced] integer-spaced anchor ablation forms one run
+[reproduced] return visit is not represented by new provenance patches
+[reproduced] H264 round trip retains clean/overlay contrast
+[reproduced] native ambiguity guard rejects exactly periodic rows
+[reproduced] tile candidates recover moving minority pane alongside static background
+[reproduced] tile candidates recover 2-D displacement
+[reproduced] sparse flow estimates half-pixel displacement on clean pairs
+[reproduced] tile estimator still proposes a shift on fundamentally periodic data
+[reproduced] sparse flow still proposes spurious matches across scene jumps

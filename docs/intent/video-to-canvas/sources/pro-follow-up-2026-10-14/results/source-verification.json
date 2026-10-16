@@ -1,0 +1,33 @@
+{
+  "commit": "76afc4faa24887408c275360132f0dd03384c94b",
+  "files": [
+    {
+      "path": "Sources/CanvasKit/ShiftEstimator.swift",
+      "gitBlobSha": "b799fc666341d8522635fb5087a4188598f5a867",
+      "sha256": "87878aeb3bcececb6a04cdfab54f29bf2526e9a726afb21369fef4afa7d44ebe",
+      "bytes": 5988,
+      "exactCopy": true
+    },
+    {
+      "path": "Sources/CanvasKit/Join.swift",
+      "gitBlobSha": "b229b5c6e2e2586e8e230be2f45ca72d25c00fea",
+      "sha256": "6277552d7b24e178a9d38162ac873fd71c02941d6ba2e0053e420fe399ff3e1c",
+      "bytes": 9714,
+      "exactCopy": true
+    },
+    {
+      "path": "Sources/CanvasKit/Segmenter.swift",
+      "gitBlobSha": "076137a8d25538a84f50521f696cfe1ec26a0fc1",
+      "sha256": "e3cf379e273b0c0b089c7757a18e68b4bfa9878a9302739cefd4e78287dfb588",
+      "bytes": 7581,
+      "exactCopy": true
+    },
+    {
+      "path": "Sources/CanvasKit/Storyboard.swift",
+      "gitBlobSha": "92148f80239793b898f1cde9621c38b816f6f24f",
+      "sha256": "8fb0489d5461f9ad6926dcfeba5648c09aeeccf864b482c92c2dd3e40fd50319",
+      "bytes": 1657,
+      "exactCopy": true
+    }
+  ]
+}

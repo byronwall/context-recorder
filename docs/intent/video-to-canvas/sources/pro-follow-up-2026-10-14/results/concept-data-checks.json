@@ -1,0 +1,9 @@
+{
+  "kind": "Python-rendered concept data checks, not native compositor validation",
+  "scenarios": 2,
+  "sourceViewsChecked": 50,
+  "allViewsMatchSyntheticAtlasCrop": true,
+  "unknownRowsFilled": false,
+  "browserExecution": "unrun; browser executable unavailable",
+  "nativeInteraction": "unrun"
+}
