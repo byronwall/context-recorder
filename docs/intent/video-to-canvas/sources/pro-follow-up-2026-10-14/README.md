@@ -1,7 +1,5 @@
 # Canvas review package
 
-> The original ZIP, `manifest.json`, `results/`, and `experiments/` are not kept in this repository. A copy is in the main checkout’s ignored `tmp/pro-follow-up-2026-10-14/`, and the original commit `4cb1dea` on `codex/video-canvas-plan` still contains them. References to `results/` below point to that copy.
-
 A source-grounded review of `byronwall/context-recorder` at `76afc4faa24887408c275360132f0dd03384c94b`, prepared October 14, 2026 (America/Indiana/Indianapolis).
 
 ## Start here

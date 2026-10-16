@@ -1,0 +1,103 @@
+{
+  "kind": "artifact/source integrity, not product acceptance",
+  "checks": [
+    {
+      "name": "All JSON files parse",
+      "passed": true
+    },
+    {
+      "name": "Exactly ten stable recommendation IDs",
+      "passed": true
+    },
+    {
+      "name": "VCI-01 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "VCI-02 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "VCI-03 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "VCI-04 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "VCI-05 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "VCI-06 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "VCI-07 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "VCI-08 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "VCI-09 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "VCI-10 has substantive fields",
+      "passed": true
+    },
+    {
+      "name": "Git blob verified: ShiftEstimator.swift",
+      "passed": true
+    },
+    {
+      "name": "Git blob verified: Join.swift",
+      "passed": true
+    },
+    {
+      "name": "Git blob verified: Segmenter.swift",
+      "passed": true
+    },
+    {
+      "name": "Git blob verified: Storyboard.swift",
+      "passed": true
+    },
+    {
+      "name": "All Python source parses",
+      "passed": true
+    },
+    {
+      "name": "Run sheet Bash syntax",
+      "passed": true
+    },
+    {
+      "name": "Unique HTML IDs",
+      "passed": true
+    },
+    {
+      "name": "Concept JavaScript syntax",
+      "passed": true
+    },
+    {
+      "name": "Referenced concept elements exist",
+      "passed": true
+    },
+    {
+      "name": "No external concept asset requests",
+      "passed": true
+    },
+    {
+      "name": "Embedded concept PNG integrity (62 images)",
+      "passed": true
+    },
+    {
+      "name": "Reproduction assertions recorded as 23/23",
+      "passed": true
+    }
+  ],
+  "browserInteraction": "unrun",
+  "nativeUI": "unrun"
+}
