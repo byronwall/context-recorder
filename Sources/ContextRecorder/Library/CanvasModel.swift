@@ -98,12 +98,34 @@ extension SessionModel {
         stage = .video
     }
 
+    // MARK: Time
+
+    /// The canvas speaks recording.mp4 time; the playhead speaks the session's timeline, which differs once
+    /// parts are cut. nil when the playhead is in material that isn't from this recording.
+    func recordingTime(_ timeline: Double) -> Double? {
+        guard let edits else { return timeline }
+        let (source, t) = edits.toSource(timeline)
+        return source == "." ? t : nil
+    }
+
+    /// The timeline moment showing recording time `t` (the moment itself, if it was cut).
+    func timelineTime(_ t: Double) -> Double { edits?.toEdited(source: ".", t) ?? t }
+
+    /// The canvas item and the part of it on screen at the playhead (image rows), for following along.
+    var canvasPlayhead: (id: String, rows: ClosedRange<Double>)? {
+        guard let t = recordingTime(currentTime), let item = canvasItem(recording: t) else { return nil }
+        return (item.id, item.viewport(at: t))
+    }
+
+    /// Hovering the canvas: the moment that supplied the pixels under the pointer becomes the preview.
+    func previewCanvas(_ frame: FrameRef?) { previewTime = frame.map { timelineTime($0.time) } }
+
     /// Show the video at the frame that supplied this part of the canvas.
     func showSource(_ frame: FrameRef) {
         if isPlaying { togglePlay() }
         previewTime = nil
         canvasSelecting = false
-        seek(frame.seekTime)
+        seek(timelineTime(frame.seekTime))
         stage = .video
     }
 
@@ -130,7 +152,7 @@ extension SessionModel {
         let W = Double(doc.video.width), H = Double(doc.video.height)
         let region = CGRect(x: source.minX / W, y: source.minY / H, width: source.width / W, height: source.height / H)
         previewTime = nil
-        seek(frame.seekTime)
+        seek(timelineTime(frame.seekTime))
         await addReviewShot(region: region)
     }
 
@@ -143,8 +165,13 @@ extension SessionModel {
         return "\(folder.lastPathComponent) \(kind) \(t(item.start)) to \(t(item.end)).png"
     }
 
-    /// The canvas item on screen at the playhead.
+    /// The canvas item on screen at timeline time `t`.
     func canvasItem(at t: Double) -> CanvasItem? {
+        recordingTime(t).flatMap { canvasItem(recording: $0) }
+    }
+
+    /// The canvas item on screen at recording time `t`.
+    func canvasItem(recording t: Double) -> CanvasItem? {
         canvas?.items.last { $0.start <= t + 0.001 } ?? canvas?.items.first
     }
 }

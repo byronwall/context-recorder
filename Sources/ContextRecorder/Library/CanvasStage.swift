@@ -10,6 +10,7 @@ struct CanvasStage: View {
     @State private var zoom: CGFloat?
     @State private var pinch: CGFloat = 1
     @State private var images = CanvasImages()
+    @State private var position = ScrollPosition()
 
     var body: some View {
         if let doc = model.canvas {
@@ -18,14 +19,16 @@ struct CanvasStage: View {
                 let scale = max(0.05, min(2, (zoom ?? fit) * pinch))
                 ZStack(alignment: .bottom) {
                     Color.stage
-                    ScrollViewReader { proxy in
-                        ScrollView([.horizontal, .vertical]) {
-                            CanvasStrip(model: model, doc: doc, images: images, scale: scale)
-                        }
-                        .onAppear {
-                            if let id = model.canvasItem(at: model.currentTime)?.id { proxy.scrollTo(id, anchor: .center) }
-                        }
+                    ScrollView([.horizontal, .vertical]) {
+                        CanvasStrip(model: model, doc: doc, images: images, scale: scale)
                     }
+                    .scrollPosition($position)
+                    .onAppear { follow(doc, scale: scale, geo: geo, force: true) }
+                    // Scrubbing the timeline or playing travels through the canvas: keep the recorded view in
+                    // sight. Not while the pointer explores the canvas; that drives time the other way.
+                    .onChange(of: model.canvasPlayhead?.rows.lowerBound) { follow(doc, scale: scale, geo: geo) }
+                    .onChange(of: model.canvasPlayhead?.id) { follow(doc, scale: scale, geo: geo) }
+                    .onChange(of: scale) { follow(doc, scale: scale, geo: geo, force: true) }
                     .gesture(MagnifyGesture()
                         .onChanged { pinch = $0.magnification }
                         .onEnded { v in zoom = max(0.05, min(2, (zoom ?? fit) * v.magnification)); pinch = 1 })
@@ -49,6 +52,20 @@ struct CanvasStage: View {
             .background(Color.stage)
         }
     }
+
+    /// Center the recorded view at the playhead. The strip's layout is fixed (one row of items at one scale), so
+    /// its position is computed rather than looked up, which keeps up with a fast scrub.
+    private func follow(_ doc: CanvasDocument, scale: CGFloat, geo: GeometryProxy, force: Bool = false) {
+        guard force || model.previewTime == nil, let at = model.canvasPlayhead,
+              let frame = CanvasStrip.frame(of: at.id, rows: at.rows, in: doc, scale: scale) else { return }
+        // Centered in the part of the stage that's clear: below the toolbar, above the zoom controls.
+        let clear = geo.size.height - geo.safeAreaInsets.top - Self.controlsHeight
+        position.scrollTo(point: CGPoint(x: max(0, frame.midX - geo.size.width / 2),
+                                         y: max(0, frame.midY - geo.safeAreaInsets.top - clear / 2)))
+    }
+
+    /// The zoom bar and its margin at the bottom of the stage.
+    static let controlsHeight: CGFloat = 70
 
     // MARK: Controls
 
@@ -106,11 +123,17 @@ struct CanvasStage: View {
 
 /// The items in a row at one scale. Separate from the scroll view so it can also be rendered offscreen.
 struct CanvasStrip: View {
+    static let spacing: CGFloat = 26, sidePadding: CGFloat = 28, topPadding: CGFloat = 18
+    /// The time label above each item, and the gap below it.
+    static let labelHeight: CGFloat = 14, labelGap: CGFloat = 6
     var model: SessionModel
     var doc: CanvasDocument
     var images: CanvasImages
     var scale: CGFloat
     @State private var hoverY: (id: String, y: CGFloat)?
+    /// The pointer's place on screen at the last hover: the canvas scrolling under a resting pointer to follow the
+    /// playhead reports hovers too, and those must not take time over.
+    @State private var pointer = NSEvent.mouseLocation
 
     init(model: SessionModel, doc: CanvasDocument, images: CanvasImages, scale: CGFloat, hover: (id: String, y: CGFloat)? = nil) {
         self.model = model
@@ -121,22 +144,38 @@ struct CanvasStrip: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 26) {
+        HStack(alignment: .top, spacing: Self.spacing) {
             ForEach(doc.items) { item in
                 itemView(item, scale: scale).id(item.id)
             }
         }
-        .padding(.horizontal, 28)
-        .padding(.top, 18)
+        .padding(.horizontal, Self.sidePadding)
+        .padding(.top, Self.topPadding)
         .padding(.bottom, 78)
+    }
+
+    /// Where image rows `rows` of item `id` sit in the strip, in strip points.
+    static func frame(of id: String, rows: ClosedRange<Double>, in doc: CanvasDocument, scale: CGFloat) -> CGRect? {
+        var x = sidePadding
+        for item in doc.items {
+            let w = CGFloat(item.width) * scale
+            if item.id == id {
+                let top = topPadding + labelHeight + labelGap
+                return CGRect(x: x, y: top + CGFloat(rows.lowerBound) * scale, width: w,
+                              height: CGFloat(rows.upperBound - rows.lowerBound) * scale)
+            }
+            x += w + spacing
+        }
+        return nil
     }
 
     // MARK: Items
 
     private func itemView(_ item: CanvasItem, scale: CGFloat) -> some View {
         let current = model.canvasItem(at: model.focusTime)?.id == item.id
+        let playhead = model.canvasPlayhead.flatMap { $0.id == item.id ? $0.rows : nil }
         let w = CGFloat(item.width) * scale, h = CGFloat(item.height) * scale
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: Self.labelGap) {
             HStack(spacing: 6) {
                 Text(Format.time(item.start)).font(.system(size: 11, weight: .semibold).monospacedDigit())
                 if let label = label(item.reason) {
@@ -146,7 +185,7 @@ struct CanvasStrip: View {
                 }
             }
             .foregroundStyle(current ? .primary : .secondary)
-            .frame(width: w, alignment: .leading)
+            .frame(width: w, height: Self.labelHeight, alignment: .leading)
             .lineLimit(1)
 
             Group {
@@ -171,6 +210,19 @@ struct CanvasStrip: View {
                     }
                 }
             }
+            .overlay(alignment: .topLeading) {
+                // What was on screen at the playhead. A column outlines that part; a card is all of it.
+                if let rows = playhead {
+                    let top = CGFloat(rows.lowerBound) * scale, height = max(4, CGFloat(rows.upperBound - rows.lowerBound) * scale)
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(Color.accentColor.opacity(model.previewTime == nil ? 0.9 : 0.35), lineWidth: 2)
+                        .background(Color.accentColor.opacity(item.kind == .column ? 0.06 : 0))
+                        .frame(width: w, height: height)
+                        .offset(y: top)
+                        .opacity(item.kind == .column ? 1 : 0)
+                        .allowsHitTesting(false)
+                }
+            }
             .clipShape(.rect(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(current ? Color.accentColor : .black.opacity(0.12),
                                                                      lineWidth: current ? 2 : 0.5))
@@ -191,11 +243,18 @@ struct CanvasStrip: View {
             .onContinuousHover(coordinateSpace: .local) { phase in
                 switch phase {
                 case .active(let p):
+                    // The pointer moving, or the person scrolling the canvas, explores it and takes over time. The
+                    // canvas scrolling under a resting pointer to follow the playhead does not.
+                    let screen = NSEvent.mouseLocation
+                    let moved = hypot(screen.x - pointer.x, screen.y - pointer.y) > 0.5
+                    pointer = screen
+                    let exploring = moved || [.scrollWheel, .magnify].contains(NSApp.currentEvent?.type)
+                    guard exploring || model.previewTime != nil else { return }
                     hoverY = (item.id, p.y)
-                    model.previewTime = item.frame(atImageY: Double(p.y / scale)).time
+                    model.previewCanvas(item.frame(atImageY: Double(p.y / scale)))
                     NSCursor.pointingHand.set()
                 case .ended:
-                    if hoverY?.id == item.id { hoverY = nil; model.previewTime = nil }
+                    if hoverY?.id == item.id { hoverY = nil; model.previewCanvas(nil) }
                     NSCursor.arrow.set()
                 }
             }

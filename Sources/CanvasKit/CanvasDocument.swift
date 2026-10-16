@@ -138,9 +138,14 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
     /// Columns only: the content-box rows where the page shows in its frames (below browser chrome and sticky
     /// headers, above the Dock). A mark from the column never reaches outside them.
     public var pageRows: ClosedRange<Int>?
+    /// Columns only: where the recorded view was over time, so the canvas can follow the playhead…
+    public var poses: [Pose]?
+    /// …and the content-box rows a view could show (the widest any frame in the column did).
+    public var viewRows: ClosedRange<Int>?
 
     public init(id: String, kind: Kind, reason: Reason, start: Double, end: Double, frame: FrameRef,
-                image: String, width: Int, height: Int, patches: [Patch] = [], sourceX: Int? = nil, pageRows: ClosedRange<Int>? = nil) {
+                image: String, width: Int, height: Int, patches: [Patch] = [], sourceX: Int? = nil, pageRows: ClosedRange<Int>? = nil,
+                poses: [Pose]? = nil, viewRows: ClosedRange<Int>? = nil) {
         self.id = id
         self.kind = kind
         self.reason = reason
@@ -153,6 +158,18 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
         self.patches = patches
         self.sourceX = sourceX
         self.pageRows = pageRows
+        self.poses = poses
+        self.viewRows = viewRows
+    }
+
+    /// The image rows the recording showed at `time` (seconds in recording.mp4): the whole card, or the part of a
+    /// column that was on screen then. Before the item starts, its first view.
+    public func viewport(at time: Double) -> ClosedRange<Double> {
+        guard kind == .column, let poses, let first = poses.first, let rows = viewRows ?? pageRows else { return 0...Double(height) }
+        let pose = poses.last { $0.time <= time + 0.001 } ?? first
+        // Image row 0 is page row `pose.y` of the frame's view top; page rows within the frame are `rows`.
+        let top = Double(pose.y + rows.lowerBound), bottom = Double(pose.y + rows.upperBound + 1)
+        return max(0, top)...min(Double(height), max(top + 1, bottom))
     }
 
     /// The frame that supplied the pixel at `y` in this item's image.
@@ -191,6 +208,17 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
         guard let p = patches.last(where: { $0.frame == f && $0.destY <= Int(mid) && Int(mid) < $0.destY + $0.height }) else { return nil }
         let top = max(y0, p.destY), bottom = min(y1, p.destY + p.height)
         return (f, p.sourceY + (top - p.destY), bottom - top)
+    }
+}
+
+/// Where a column's view was at `time`: image row `y` held the top row of the content box.
+public struct Pose: Codable, Equatable, Sendable {
+    public var time: Double
+    public var y: Int
+
+    public init(time: Double, y: Int) {
+        self.time = time
+        self.y = y
     }
 }
 

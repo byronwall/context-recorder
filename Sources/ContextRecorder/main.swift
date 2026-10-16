@@ -214,7 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
                        doc.items.indices.contains(Int(h[0])) {
                         let item = doc.items[Int(h[0])]
                         hover = (item.id, CGFloat(Double(item.height) * h[1] * scale))
-                        model.previewTime = item.frame(atImageY: Double(item.height) * h[1]).time
+                        model.previewCanvas(item.frame(atImageY: Double(item.height) * h[1]))
                     }
                     let renderer = ImageRenderer(content: CanvasStrip(model: model, doc: doc, images: images, scale: scale, hover: hover)
                         .background(Color(nsColor: .underPageBackgroundColor)))

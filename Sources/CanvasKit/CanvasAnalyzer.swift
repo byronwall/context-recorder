@@ -40,13 +40,16 @@ public enum CanvasAnalyzer {
         func add(_ run: Run) throws {
             let n = items.count + 1
             let name = String(format: run.isColumn ? "column-%04d.png" : "card-%04d.png", n)
-            let (image, patches, pageRows) = try compose(run)
+            let (image, patches, pageRows, poses) = try compose(run)
+            let h = run.start.gray.height
+            let viewRows = (run.topBands.min() ?? 0)...(h - (run.bottomBands.min() ?? 0) - 1)
             try writePNG(image, to: staging.appendingPathComponent(name))
             items.append(CanvasItem(id: "\(run.isColumn ? "col" : "c")\(n)", kind: run.isColumn ? .column : .card,
                                     reason: run.reason, start: run.start.ref.time, end: run.start.ref.time, frame: run.start.ref,
                                     image: "\(CanvasDocument.imageFolder)/\(name)", width: image.width, height: image.height,
                                     patches: run.isColumn ? patches : [], sourceX: run.isColumn ? run.cols?.lowerBound : nil,
-                                    pageRows: run.isColumn ? pageRows : nil))
+                                    pageRows: run.isColumn ? pageRows : nil, poses: run.isColumn ? poses : nil,
+                                    viewRows: run.isColumn ? viewRows : nil))
         }
 
         while let frame = try source.next() {
@@ -84,8 +87,8 @@ public enum CanvasAnalyzer {
     /// Draws a run's patches in order (later ones win) into one image; returns patches in image coordinates.
     /// A column keeps only page rows (`contentTop..<contentBottom`) and the columns that scrolled: browser chrome,
     /// sticky headers, the Dock and sidebars would otherwise repeat or frame the page.
-    static func compose(_ run: Run) throws -> (CGImage, [Patch], ClosedRange<Int>?) {
-        if !run.isColumn, let only = run.patches.first { return (only.image, [], nil) }
+    static func compose(_ run: Run) throws -> (CGImage, [Patch], ClosedRange<Int>?, [Pose]) {
+        if !run.isColumn, let only = run.patches.first { return (only.image, [], nil, []) }
         // The first frame is whole; trim its sticky bands. Later patches are page rows already.
         func low(_ xs: [Int]) -> Int { xs.isEmpty ? 0 : xs.sorted()[xs.count / 4] }
         let h = run.start.gray.height
@@ -110,7 +113,10 @@ public enum CanvasAnalyzer {
             patches.append(Patch(frame: p.frame, sourceY: p.sourceY + (y0 - p.destY), destY: y0 - top, height: y1 - y0))
         }
         guard let image = ctx.makeImage() else { throw CanvasError("Couldn't draw a column") }
-        return (image, patches, startRows.lowerBound...(startRows.upperBound - 1))
+        // Poses in image rows; consecutive frames at the same position collapse into the first.
+        var poses: [Pose] = []
+        for p in run.poses where poses.last?.y != p.y - top { poses.append(Pose(time: p.time, y: p.y - top)) }
+        return (image, patches, startRows.lowerBound...(startRows.upperBound - 1), poses)
     }
 
     /// Whether `doc` still describes `folder/recording.mp4`. Cheap size check first, then the hash.

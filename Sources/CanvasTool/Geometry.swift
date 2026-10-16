@@ -73,6 +73,21 @@ enum Geometry {
         }
         notes.append("row → frame mapping: \(mapped - misses)/\(mapped) rows land on a frame that shows them")
 
+        // Following the playhead: at each patch's moment, the column's recorded view must be where those rows are.
+        var poses = 0, poseMisses = 0
+        for col in columns {
+            for p in col.patches {
+                let v = col.viewport(at: p.frame.time)
+                poses += 1
+                // Bands vary a few rows from pair to pair; the middle of what a frame supplied must be in its view.
+                if !v.contains(Double(p.destY) + Double(p.height) / 2) {
+                    poseMisses += 1
+                    if poseMisses <= 2 { failures.append("\(col.id): at frame \(p.frame.index) the view is \(v) but rows \(p.destY)..<\(p.destY + p.height) came from it") }
+                }
+            }
+        }
+        notes.append("playhead → view: \(poses - poseMisses)/\(poses) patches inside the view recorded at their moment")
+
         // Marks from the canvas: a selection maps to a video region of one frame that shows the same page rows.
         var regions = 0, regionMisses = 0
         for col in columns {

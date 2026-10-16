@@ -31,6 +31,8 @@ struct Run {
     /// can mistake blank page rows for a band (too much) and noise can hide a band (too little).
     var topBands: [Int] = []
     var bottomBands: [Int] = []
+    /// Where the view was at each joined frame: its time and the page position of its top row (relative to `start`).
+    var poses: [(time: Double, y: Int)] = []
 
     init(start: DecodedFrame, reason: CanvasItem.Reason, confirmed: Bool) throws {
         guard let image = start.colorImage() else { throw CanvasError("Couldn't read frame \(start.ref.index)") }
@@ -42,6 +44,7 @@ struct Run {
         patches = [PendingPatch(frame: start.ref, sourceY: 0, destY: 0, height: h, image: image)]
         contentTop = 0
         contentBottom = h
+        poses = [(start.ref.time, 0)]
     }
 
     var isColumn: Bool { patches.count > 1 }
@@ -73,6 +76,7 @@ struct Run {
         }
         y = newY
         last = frame
+        poses.append((frame.ref.time, newY))
     }
 }
 
