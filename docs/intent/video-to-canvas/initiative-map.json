@@ -8,7 +8,7 @@
     "last_updated": "2026-10-15",
     "summary": "Stage 1: automatic whole-screen reconstruction with local change markers in the existing layout. Stage 2 (after use): stable page positions, visit ribbon, and active-visit source playback.",
     "status": "active",
-    "next_action": "Milestone 7: slow scrolling and interruptions preserve content (fractional scroll, overlay, small edit, local event markers)."
+    "next_action": "Stage 1 gate: Byron uses Stage 1 on real recordings and records a short overlay/edit clip; then decide Stage 2 (stable pages, visit ribbon)."
   },
   "artifacts": {
     "intent_brief": {
@@ -579,8 +579,14 @@
         "proof": "Fractional/overlay fixtures remain continuous; before/after pixels and times match truth; pointer negatives and jump refusals pass. Canary rerun shows no regression; then Stage 1 personal-use review decides whether Stage 2 starts.",
         "valid_intermediate_state": "Existing canvas shows local event/change markers without losing observations.",
         "rollback": "Revert the coherent schema and reader change; rebuild derived canvas; recording remains unchanged.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "canvas-tool check: 15/15 clips pass from the whole screen, plus --supplied-box and --storyboard. New: slow-scroll (0.5 px then 1.5 px a frame; sub-pixel shift estimates keep it one column, coverage 91.4%, p95 0 px), overlay (dropdown open mid-scroll; one overlay event at its first frame, column continuous, coverage 97.6%), small-edit (checkbox ticked and digit changed while a pointer drifts; two edit events with before/after frames of different page states, no pointer edits).",
+          "Old edit clip now keeps one column with an edit event at the changed value (before frame shows A, after shows B); a column may mix page states only when an edit event says so.",
+          "Bounded recovery: a run that stops lining up stays open 1.5 s against its anchor; replayed frames start the next run when the view doesn't come back (jump, repeated and blank still refuse).",
+          "Canary 2026-10-13_00-57-10: 10 items (8 columns, 2 cards) from 48; columns inspected for false joins (none seen). 5 events: 4 overlays (a hovered chip, charts briefly changing on the docs home) and 1 pointer-arrival edit (known limitation).",
+          "App: dashed outline + badge per event; edits open a before/after popover with Show in Video for each; overlays play their moment. Verified by offscreen render (display asleep; live window capture unavailable)."
+        ]
       },
       {
         "id": "M8",

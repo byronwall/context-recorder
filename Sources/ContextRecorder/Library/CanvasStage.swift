@@ -90,7 +90,8 @@ struct CanvasStage: View {
 
             Divider().frame(height: 18).padding(.horizontal, 6)
 
-            Text(cols == 0 ? "\(doc.items.count) cards" : "\(cols) columns · \(doc.items.count - cols) cards")
+            let changes = doc.events.isEmpty ? "" : " · \(doc.events.count) change\(doc.events.count == 1 ? "" : "s")"
+            Text((cols == 0 ? "\(doc.items.count) cards" : "\(cols) columns · \(doc.items.count - cols) cards") + changes)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
                 .fixedSize()
@@ -131,6 +132,8 @@ struct CanvasStrip: View {
     var images: CanvasImages
     var scale: CGFloat
     @State private var hoverY: (id: String, y: CGFloat)?
+    /// The edit whose before and after are showing.
+    @State private var openEvent: String?
     /// The pointer's place on screen at the last hover: the canvas scrolling under a resting pointer to follow the
     /// playhead reports hovers too, and those must not take time over.
     @State private var pointer = NSEvent.mouseLocation
@@ -263,11 +266,59 @@ struct CanvasStrip: View {
                 model.showSource(item.frame(atImageY: Double(p.y / scale)))
             }
             .contextMenu { contextMenu(item) }
+            // Above the item's own click: local changes, each with its marker.
+            .overlay(alignment: .topLeading) {
+                ZStack(alignment: .topLeading) {
+                    Color.clear.allowsHitTesting(false)
+                    ForEach(doc.events.filter { $0.item == item.id }) { event in
+                        eventMarker(event, scale: scale)
+                    }
+                }
+                .frame(width: w, height: h)
+            }
             .accessibilityElement()
             .accessibilityLabel("\(item.kind == .column ? "Column" : "Card") at \(Format.time(item.start))")
             .accessibilityHint("Shows the video at this moment")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { model.showSource(item.frame) }
+        }
+    }
+
+    // MARK: Local changes
+
+    /// A change on the canvas: a dashed outline where it happened and a badge. An edit's badge opens its before
+    /// and after; an overlay's plays the moment it was on screen.
+    private func eventMarker(_ e: CanvasEvent, scale: CGFloat) -> some View {
+        let r = CGRect(x: CGFloat(e.rect.x) * scale, y: CGFloat(e.rect.y) * scale,
+                       width: max(6, CGFloat(e.rect.width) * scale), height: max(6, CGFloat(e.rect.height) * scale))
+        let tint: Color = e.kind == .edit ? .orange : .purple
+        return Group {
+            RoundedRectangle(cornerRadius: 3)
+                .strokeBorder(tint.opacity(0.85), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                .frame(width: r.width, height: r.height)
+                .position(x: r.midX, y: r.midY)
+                .allowsHitTesting(false)
+            Button {
+                if e.kind == .edit { openEvent = e.id } else { model.showSource(e.frame) }
+            } label: {
+                Image(systemName: e.kind == .edit ? "pencil.circle.fill" : "rectangle.on.rectangle.circle.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, tint)
+                    .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .position(x: r.maxX, y: r.minY)
+            .help(e.kind == .edit ? "Changed at \(Format.time(e.start)): show before and after"
+                                  : "On screen briefly at \(Format.time(e.start)) (a menu or overlay): play it")
+            .accessibilityLabel(e.kind == .edit ? "Edit at \(Format.time(e.start))" : "Overlay at \(Format.time(e.start))")
+            .popover(isPresented: Binding(get: { openEvent == e.id }, set: { if !$0 { openEvent = nil } }), arrowEdge: .trailing) {
+                EditComparison(event: e, images: images) { frame in
+                    openEvent = nil
+                    model.showSource(frame)
+                }
+            }
         }
     }
 
@@ -313,6 +364,48 @@ struct CanvasStrip: View {
         }
     }
 
+}
+
+/// An edit's before and after, side by side, each a way back to its moment in the video.
+struct EditComparison: View {
+    var event: CanvasEvent
+    var images: CanvasImages
+    var show: (FrameRef) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Changed at \(Format.time(event.start))")
+                .font(.system(size: 13, weight: .semibold))
+            HStack(alignment: .top, spacing: 14) {
+                if let before = event.before { side("Before", event.beforeImage, frame: before) }
+                Image(systemName: "arrow.right").foregroundStyle(.secondary).padding(.top, 40)
+                side("After", event.afterImage, frame: event.frame)
+            }
+            Text("The canvas keeps what was there first; this is what it became.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+    }
+
+    private func side(_ title: String, _ path: String?, frame: FrameRef) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(title) · \(Format.time(frame.time))").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            Group {
+                if let path, let image = images[path] {
+                    Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+                } else {
+                    Rectangle().fill(.quaternary)
+                }
+            }
+            .frame(maxWidth: 260, maxHeight: 180)
+            .frame(minWidth: 80, minHeight: 40)
+            .clipShape(.rect(cornerRadius: 4))
+            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.black.opacity(0.12), lineWidth: 0.5))
+            Button("Show in Video") { show(frame) }
+                .controlSize(.small)
+        }
+    }
 }
 
 /// Drag out a rectangle on a canvas item while capturing a region as a mark.
@@ -366,6 +459,9 @@ final class CanvasImages {
         images = [:]
         for item in doc.items {
             if let image = NSImage(contentsOf: folder.appendingPathComponent(item.image)) { images[item.image] = image }
+        }
+        for path in doc.events.flatMap({ [$0.beforeImage, $0.afterImage] }).compactMap({ $0 }) {
+            if let image = NSImage(contentsOf: folder.appendingPathComponent(path)) { images[path] = image }
         }
     }
 }

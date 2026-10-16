@@ -37,7 +37,10 @@ enum Geometry {
                 if e > 4 { falseJoins += 1; if falseJoins <= 3 { failures.append("\(col.id): frame \(p.frame.index) placed \(e) px off") } }
             }
             let variants = Set(col.patches.map { truth.pages[$0.frame.index] })
-            if variants.count > 1 { failures.append("\(col.id) mixes page states \(variants.sorted())") }
+            // A column may hold a page before and after an edit only when an edit event says so: never silently.
+            if variants.count > 1, !doc.events.contains(where: { $0.item == col.id && $0.kind == .edit }) {
+                failures.append("\(col.id) mixes page states \(variants.sorted()) without an edit event")
+            }
             let frames = col.patches.map(\.frame.index)
             for pair in truth.expect.neverJoined ?? [] where pair.count == 2 {
                 if let lo = frames.min(), let hi = frames.max(), lo <= pair[0], pair[1] <= hi {
@@ -140,9 +143,11 @@ enum Geometry {
     }
 
     static func coverage(_ doc: CanvasDocument, _ truth: Fixtures.Truth, columns: [CanvasItem], missing: inout [String]) -> Double {
+        // Page variants that differ only by an edit ("A", "B", "S") are one page; "P…" screens are their own.
+        func family(_ v: String) -> String { v.hasPrefix("P") ? v : "A" }
         var observed: [String: Set<Int>] = [:]
         for (i, y) in truth.scrollY.enumerated() {
-            observed[truth.pages[i], default: []].formUnion((y + truth.header)..<(y + truth.box.height))
+            observed[family(truth.pages[i]), default: []].formUnion((y + truth.header)..<(y + truth.box.height))
         }
         var covered: [String: [Int: Double]] = [:]
         for col in columns {
@@ -151,7 +156,7 @@ enum Geometry {
             let offs = col.patches.map { truth.scrollY[$0.frame.index] + doc.box.y + $0.sourceY - truth.box.y - $0.destY }
             guard let reference = median(offs) else { continue }
             for (p, o) in zip(col.patches, offs) where abs(o - reference) <= 4 {
-                let variant = truth.pages[p.frame.index]
+                let variant = family(truth.pages[p.frame.index])
                 let screenTop = doc.box.y + p.sourceY
                 for r in 0..<p.height {
                     let screenY = screenTop + r

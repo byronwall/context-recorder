@@ -24,6 +24,8 @@ enum Fixtures {
     static let pageHeight = 6000
     /// The value that changes between page variants "A" and "B" sits here.
     static let editY = 900
+    /// Variant "S" is "A" with a checkbox ticked and one digit changed on this row: a small edit.
+    static let smallEditY = 1300
 
     /// Where the page sits on screen.
     enum Layout: String, Codable {
@@ -65,6 +67,12 @@ enum Fixtures {
         var layout: Layout = .window
         /// The menu bar clock has ticked over (desktop layouts).
         var minute = 0
+        /// Desktop layouts: how far past `scrollY` the page sits, in fractions of a pixel (slow trackpad scrolling).
+        var fraction = 0.0
+        /// Desktop layouts: a dropdown menu open over the page.
+        var overlay = false
+        /// Desktop layouts: the count on a badge in the sticky site header.
+        var badge = 3
     }
 
     struct Clip {
@@ -89,6 +97,18 @@ enum Fixtures {
         /// Joining: at least this share of the observed document area must appear, correctly placed, in columns.
         /// Cards don't count: a canvas of screenshots hasn't reconstructed anything.
         var minCoverage: Double?
+        /// Changes the canvas must keep as local events.
+        var events: [EventExpectation]?
+        /// The clip has only pointer, caret and chrome noise: no edit events.
+        var noEdits: Bool?
+    }
+
+    /// An edit or overlay the canvas must record: its kind, the page rows it covers, and the frames it may
+    /// start within (its first visible frame, give or take the settle time).
+    struct EventExpectation: Codable {
+        var kind: String
+        var pageRows: [Int]
+        var startFrames: [Int]
     }
 
     struct Truth: Codable {
@@ -103,6 +123,8 @@ enum Fixtures {
         var header: Int
         var pages: [String]
         var scrollY: [Int]
+        /// Sub-pixel part of each frame's scroll position (slow scrolling).
+        var scrollFraction: [Double]?
         var expect: Expectations
     }
 
@@ -134,7 +156,7 @@ enum Fixtures {
             let a = Double(i) / 60 * 2 * .pi
             return FrameSpec(page: "P1", cursor: CGPoint(x: 600 + 220 * cos(a), y: 380 + 160 * sin(a)))
         }
-        clips.append(Clip(name: "cursor", frames: cursor, expect: Expectations(cardCount: 1)))
+        clips.append(Clip(name: "cursor", frames: cursor, expect: Expectations(cardCount: 1, noEdits: true)))
 
         // Scroll, an edit while still, then more scrolling on the edited page.
         var edit = scroll(0, 600, 15)
@@ -144,7 +166,8 @@ enum Fixtures {
         edit += scroll(600, 1500, 22, FrameSpec(page: "B"))
         edit += hold(8, FrameSpec(page: "B", scrollY: 1500))
         clips.append(Clip(name: "edit", frames: edit, expect: Expectations(
-            mustStartAt: [editFrame], neverJoined: [[editFrame - 1, editFrame]], maxColumns: 2)))
+            maxColumns: 2,
+            events: [EventExpectation(kind: "edit", pageRows: [editY - 10, editY + 50], startFrames: [editFrame, editFrame + 10])])))
 
         var plain = hold(8, FrameSpec())
         plain += scroll(0, 2400, 60)
@@ -172,7 +195,7 @@ enum Fixtures {
         for i in cursorScroll.indices {
             cursorScroll[i].cursor = CGPoint(x: 400 + Double(i) * 9, y: 300 + 80 * sin(Double(i) / 6))
         }
-        clips.append(Clip(name: "cursor-scroll", frames: cursorScroll, expect: Expectations(maxColumns: 1, minCoverage: 0.9)))
+        clips.append(Clip(name: "cursor-scroll", frames: cursorScroll, expect: Expectations(maxColumns: 1, minCoverage: 0.9, noEdits: true)))
 
         // 25 px a frame through rows that repeat every 40 px: several distances fit equally well.
         let repStart = repeatedRange.lowerBound - 300
@@ -199,6 +222,37 @@ enum Fixtures {
             clips.append(Clip(name: name, frames: desk, expect: Expectations(maxColumns: 1, minCoverage: 0.9)))
         }
 
+        // A trackpad scroll that creeps half a pixel a frame, then speeds up: no single pair moves a whole pixel.
+        var slow = hold(4, FrameSpec(layout: .desktop))
+        for i in 1...60 { slow.append(FrameSpec(scrollY: i / 2, layout: .desktop, fraction: Double(i % 2) / 2)) }
+        for i in 1...60 { slow.append(FrameSpec(scrollY: 30 + Int((Double(i) * 1.5).rounded(.down)), layout: .desktop, fraction: (Double(i) * 1.5).truncatingRemainder(dividingBy: 1))) }
+        slow += hold(4, FrameSpec(scrollY: 120, layout: .desktop))
+        clips.append(Clip(name: "slow-scroll", frames: slow, expect: Expectations(maxColumns: 1, minCoverage: 0.9, noEdits: true)))
+
+        // A dropdown opens over the page for about half a second, mid-scroll, while the header badge changes.
+        var overlay = hold(4, FrameSpec(layout: .desktop))
+        overlay += scroll(0, 600, 24, FrameSpec(layout: .desktop))
+        let overlayFrame = overlay.count
+        overlay += hold(4, FrameSpec(scrollY: 600, layout: .desktop, overlay: true))
+        overlay += scroll(600, 680, 4, FrameSpec(layout: .desktop, overlay: true))
+        overlay += scroll(680, 1400, 24, FrameSpec(layout: .desktop, badge: 4))
+        overlay += hold(4, FrameSpec(scrollY: 1400, layout: .desktop, badge: 4))
+        clips.append(Clip(name: "overlay", frames: overlay, expect: Expectations(
+            maxColumns: 1, minCoverage: 0.9,
+            events: [EventExpectation(kind: "overlay", pageRows: [], startFrames: [overlayFrame, overlayFrame + 8])])))
+
+        // A checkbox is ticked and a digit changes (20 px each) while the page holds still, then scrolling goes on.
+        var small = hold(4, FrameSpec(layout: .desktop))
+        small += scroll(0, 900, 30, FrameSpec(layout: .desktop))
+        small += hold(6, FrameSpec(scrollY: 900, layout: .desktop))
+        let smallFrame = small.count
+        small += hold(10, FrameSpec(page: "S", scrollY: 900, layout: .desktop))
+        small += scroll(900, 1800, 30, FrameSpec(page: "S", layout: .desktop))
+        for i in small.indices { small[i].cursor = CGPoint(x: 520 + Double(i % 20) * 4, y: 420) }
+        clips.append(Clip(name: "small-edit", frames: small, expect: Expectations(
+            maxColumns: 1, minCoverage: 0.9,
+            events: [EventExpectation(kind: "edit", pageRows: [smallEditY - 12, smallEditY + 24], startFrames: [smallFrame, smallFrame + 10])])))
+
         return clips
     }
 
@@ -216,7 +270,8 @@ enum Fixtures {
             let layout = clip.frames.first?.layout ?? .window
             let truth = Truth(name: clip.name, fps: Int(fps), screen: screen, box: layout.document, fixed: layout.fixed,
                               header: clip.frames.contains(where: \.header) ? headerHeight : 0,
-                              pages: clip.frames.map(\.page), scrollY: clip.frames.map(\.scrollY), expect: clip.expect)
+                              pages: clip.frames.map(\.page), scrollY: clip.frames.map(\.scrollY),
+                              scrollFraction: clip.frames.map(\.fraction), expect: clip.expect)
             let enc = JSONEncoder()
             enc.outputFormatting = [.prettyPrinted, .sortedKeys]
             try enc.encode(truth).write(to: folder.appendingPathComponent("truth.json"))
@@ -339,13 +394,22 @@ enum Fixtures {
         text("exploreda.dev/docs/developers", at: CGPoint(x: 140, y: 73), size: 13, color: ink, in: ctx, height: H)
         text("Research   Slack   Planning   Dashboard   Usage desk", at: CGPoint(x: 20, y: 98), size: 12, color: muted, in: ctx, height: H)
         // The page itself, then the site's sticky header over its top.
-        if let page = pages[spec.page], let part = page.cropping(to: CGRect(x: 0, y: spec.scrollY, width: d.width, height: d.height)) {
-            ctx.draw(part, in: cg(CGRect(x: d.x, y: d.y, width: d.width, height: d.height), H))
+        if let page = pages[spec.page] {
+            // The whole page, offset by a fractional scroll and clipped to the document: resampled like a
+            // browser compositing a sub-pixel scroll position.
+            ctx.saveGState()
+            ctx.clip(to: cg(CGRect(x: d.x, y: d.y, width: d.width, height: d.height), H))
+            ctx.interpolationQuality = .high
+            let y = Double(d.y) - Double(spec.scrollY) - spec.fraction
+            ctx.draw(page, in: CGRect(x: Double(d.x), y: Double(H) - y - Double(page.height), width: Double(page.width), height: Double(page.height)))
+            ctx.restoreGState()
         }
         fill(CGRect(x: 0, y: 104, width: W, height: 44), CGColor(gray: 1, alpha: 1))
         fill(CGRect(x: 0, y: 147, width: W, height: 1), CGColor(gray: 0.8, alpha: 1))
         text("explorEDA   Docs        Search the docs", at: CGPoint(x: 30, y: 132), size: 16, color: ink, in: ctx, height: H, bold: true)
         text("Examples   GitHub", at: CGPoint(x: W - 200, y: 132), size: 14, color: ink, in: ctx, height: H)
+        fill(CGRect(x: W - 60, y: 116, width: 28, height: 20), CGColor(red: 0.85, green: 0.2, blue: 0.2, alpha: 1))
+        text("\(spec.badge)", at: CGPoint(x: W - 50, y: 131), size: 13, color: CGColor(gray: 1, alpha: 1), in: ctx, height: H, bold: true)
         // Left nav.
         fill(CGRect(x: 0, y: d.y, width: d.x, height: d.height), CGColor(gray: 1, alpha: 1))
         let nav = ["The workspace", "Load data", "Fields", "Chart settings", "Developers", "Scatter plot", "Bar chart", "Row chart",
@@ -371,6 +435,17 @@ enum Fixtures {
         text("Inside the order book", at: CGPoint(x: rx + 32, y: d.y + 390), size: 13, color: ink, in: ctx, height: H, bold: true)
         let thumb = d.y + Int(Double(d.height - 80) * Double(spec.scrollY) / Double(pageHeight - d.height))
         fill(CGRect(x: W - 10, y: thumb, width: 6, height: 80), CGColor(gray: 0.55, alpha: 1))
+        if spec.overlay {
+            // A dropdown menu over the page, fixed on screen while the page scrolls under it.
+            let m = CGRect(x: d.x + 260, y: d.y + 60, width: 240, height: 170)
+            fill(m.insetBy(dx: -3, dy: -3), CGColor(gray: 0.7, alpha: 1))
+            fill(m, CGColor(gray: 0.99, alpha: 1))
+            for (i, item) in ["Copy link", "Open in new tab", "Download PNG", "Export CSV", "Settings…"].enumerated() {
+                if i == 1 { fill(CGRect(x: m.minX + 6, y: m.minY + 8 + CGFloat(i) * 32, width: m.width - 12, height: 28), CGColor(red: 0.2, green: 0.45, blue: 0.9, alpha: 1)) }
+                text(item, at: CGPoint(x: Int(m.minX) + 18, y: Int(m.minY) + 28 + i * 32), size: 14,
+                     color: i == 1 ? CGColor(gray: 1, alpha: 1) : ink, in: ctx, height: H)
+            }
+        }
         drawCursor(spec.cursor, ctx: ctx, H: H)
     }
 
@@ -445,12 +520,21 @@ enum Fixtures {
         }
 
         contentBlock(until: editY - 20)
+        func smallEditRow() {
+            // A checkbox and a quantity on one row; "S" ticks the box and changes one digit.
+            fill(CGRect(x: 40, y: smallEditY - 14, width: 920, height: 44), CGColor(gray: 1, alpha: 1))
+            fill(CGRect(x: 60, y: smallEditY - 6, width: 22, height: 22), CGColor(gray: 0.3, alpha: 1))
+            fill(CGRect(x: 62, y: smallEditY - 4, width: 18, height: 18), variant == "S" ? CGColor(red: 0.15, green: 0.5, blue: 0.95, alpha: 1) : CGColor(gray: 1, alpha: 1))
+            text("Include returns", at: CGPoint(x: 96, y: smallEditY + 12), size: 16, color: ink, in: ctx, height: H)
+            text(variant == "S" ? "Qty 4" : "Qty 3", at: CGPoint(x: 320, y: smallEditY + 12), size: 16, color: ink, in: ctx, height: H, bold: true)
+        }
         // The edited value.
         fill(CGRect(x: 40, y: editY - 10, width: 920, height: 60), CGColor(gray: 0.95, alpha: 1))
         text(variant == "B" ? "Total due: $9,870.15  · updated" : "Total due: $1,240.00", at: CGPoint(x: 60, y: editY + 28),
              size: 24, color: variant == "B" ? CGColor(red: 0.7, green: 0.1, blue: 0.1, alpha: 1) : ink, in: ctx, height: H, bold: true)
         y = editY + 70
         contentBlock(until: repeatedRange.lowerBound)
+        smallEditRow()
         var r = repeatedRange.lowerBound
         while r < repeatedRange.upperBound {
             fill(CGRect(x: 40, y: r + repeatedPeriod - 2, width: 920, height: 1), CGColor(gray: 0.8, alpha: 1))

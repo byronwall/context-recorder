@@ -7,7 +7,7 @@ import Foundation
 /// pixel maps back to one decoded frame through `frame` (cards) or `patches` (columns), so a click can
 /// return to the moment that supplied it. Images live under `canvas/` and are cropped to the content box.
 public struct CanvasDocument: Codable, Equatable, Sendable {
-    public static let currentVersion = 2
+    public static let currentVersion = 3
     public static let fileName = "canvas.json"
     public static let imageFolder = "canvas"
 
@@ -17,13 +17,17 @@ public struct CanvasDocument: Codable, Equatable, Sendable {
     public var box: PixelRect
     public var builtAt: String
     public var items: [CanvasItem]
+    /// Local changes on items: edits kept with their before and after, overlays kept as moments to play back.
+    public var events: [CanvasEvent]
 
-    public init(version: Int = CanvasDocument.currentVersion, video: VideoInfo, box: PixelRect, builtAt: String, items: [CanvasItem]) {
+    public init(version: Int = CanvasDocument.currentVersion, video: VideoInfo, box: PixelRect, builtAt: String, items: [CanvasItem],
+                events: [CanvasEvent] = []) {
         self.version = version
         self.video = video
         self.box = box
         self.builtAt = builtAt
         self.items = items
+        self.events = events
     }
 
     public static func url(in folder: URL) -> URL { folder.appendingPathComponent(fileName) }
@@ -81,6 +85,19 @@ public struct PixelRect: Codable, Equatable, Hashable, Sendable {
 
     public var maxX: Int { x + width }
     public var maxY: Int { y + height }
+
+    public func intersects(_ o: PixelRect) -> Bool { x < o.maxX && o.x < maxX && y < o.maxY && o.y < maxY }
+
+    public func union(_ o: PixelRect) -> PixelRect {
+        let x0 = min(x, o.x), y0 = min(y, o.y)
+        return PixelRect(x: x0, y: y0, width: max(maxX, o.maxX) - x0, height: max(maxY, o.maxY) - y0)
+    }
+
+    /// Clipped to a `width`×`height` image.
+    public func clamped(width w: Int, height h: Int) -> PixelRect {
+        let x0 = max(0, min(x, w)), y0 = max(0, min(y, h))
+        return PixelRect(x: x0, y: y0, width: max(0, min(maxX, w) - x0), height: max(0, min(maxY, h) - y0))
+    }
     public var cgRect: CGRect { CGRect(x: x, y: y, width: width, height: height) }
 }
 
@@ -208,6 +225,44 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
         guard let p = patches.last(where: { $0.frame == f && $0.destY <= Int(mid) && Int(mid) < $0.destY + $0.height }) else { return nil }
         let top = max(y0, p.destY), bottom = min(y1, p.destY + p.height)
         return (f, p.sourceY + (top - p.destY), bottom - top)
+    }
+}
+
+/// A local change on a canvas item. An **edit** stayed: the item shows what was there first (its pixels keep
+/// their owner), and the event holds the new state. An **overlay** came and went (a menu, a tooltip, a dialog):
+/// the item shows the page without it, and the event is the moment to play back.
+public struct CanvasEvent: Codable, Equatable, Identifiable, Sendable {
+    public enum Kind: String, Codable, Sendable { case edit, overlay }
+
+    public var id: String
+    public var kind: Kind
+    /// The item it happened on.
+    public var item: String
+    /// Where, in the item's image pixels.
+    public var rect: PixelRect
+    /// When it was first seen and last seen (recording seconds).
+    public var start: Double
+    public var end: Double
+    /// The frame that shows it: an edit's new state, or the overlay.
+    public var frame: FrameRef
+    /// Edits: the frame that still showed the old state.
+    public var before: FrameRef?
+    /// Crops around `rect` (relative to the session folder): before and after for edits, the overlay itself.
+    public var beforeImage: String?
+    public var afterImage: String?
+
+    public init(id: String, kind: Kind, item: String, rect: PixelRect, start: Double, end: Double, frame: FrameRef,
+                before: FrameRef? = nil, beforeImage: String? = nil, afterImage: String? = nil) {
+        self.id = id
+        self.kind = kind
+        self.item = item
+        self.rect = rect
+        self.start = start
+        self.end = end
+        self.frame = frame
+        self.before = before
+        self.beforeImage = beforeImage
+        self.afterImage = afterImage
     }
 }
 

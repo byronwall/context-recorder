@@ -9,6 +9,8 @@ public struct JoinSettings: Sendable {
     public var pixelDelta = 32
     /// Below this share the frames still line up and something on the page changed; above it nothing lines up.
     public var changeResidual = 0.05
+    /// A join whose differences are a few compact spots may differ in up to this share of the overlap.
+    public var maxLocalResidual = 0.3
     /// The overlap must include this many rows with visible detail; blank space proves nothing.
     public var minDetailRows = 12
     /// A fixed header or footer (rows identical in both frames while the rest moves) may be at most this share.
@@ -22,12 +24,15 @@ public struct JoinSettings: Sendable {
 }
 
 enum JoinResult: Equatable {
-    /// Nothing that matters moved: only a pointer or caret.
+    /// Nothing that matters moved.
     case same
+    /// The view held still and a few spots changed (frame pixels): a pointer, a caret, a ticked box, a menu.
+    case local([PixelRect])
     /// The content scrolled by `shift` rows; `fixedTop`/`fixedBottom` rows stayed put (header, footer).
     /// `cols` is the part that scrolls when a sidebar inside the box stays put.
-    /// `held`: strips (16 px each) that clearly stayed put in this pair.
-    case shift(Int, fixedTop: Int, fixedBottom: Int, cols: Range<Int>, held: Set<Int>)
+    /// `held`: strips (16 px each) that clearly stayed put in this pair. `changes`: spots in `cur` (frame pixels)
+    /// that differ although everything else lines up.
+    case shift(Int, fixedTop: Int, fixedBottom: Int, cols: Range<Int>, held: Set<Int>, changes: [PixelRect], fraction: Double)
     /// The frames line up but the content changed (an edit, a new page with the same layout).
     case change
     /// Nothing lines up within the overlap: a jump, a new page.
@@ -89,6 +94,7 @@ struct Joiner {
         var bottom: Int
         var residual = 1.0
         var held: Set<Int> = []
+        var fraction = 0.0
     }
 
     /// The regions worth verifying: the run's own columns when it has them; otherwise a fresh search for what
@@ -117,7 +123,11 @@ struct Joiner {
                     if x < known.lowerBound { lo = max(lo, x + Strips.width) }
                     if x >= known.upperBound { hi = min(hi, x) }
                 }
-                if lo <= known.lowerBound - 48 || hi >= known.upperBound + 48 { regions.append(("grow", lo..<hi)) }
+                // The added strips must have scrolled themselves, not just sit next to strips that did.
+                let st = stripsAt(shift), w = Strips.width
+                let added = Array(lo / w..<known.lowerBound / w) + Array((known.upperBound + w - 1) / w..<min(st.kinds.count, (hi + w - 1) / w))
+                let moved = added.filter { st.kinds.indices.contains($0) && st.kinds[$0] == -1 }.count
+                if moved >= 2, lo <= known.lowerBound - 48 || hi >= known.upperBound + 48 { regions.append(("grow", lo..<hi)) }
             }
         } else {
             if let found = movingColumns(stripsAt(shift), width: full.count) { regions.append(("found", found)) }
@@ -147,6 +157,7 @@ struct Joiner {
             guard let est, est.shift != 0 else { continue }
             let r = (top > 0 ? top + 4 : 0)..<(prev.gray.height - (bottom > 0 ? bottom + 4 : 0))
             var c = Candidate(label: label, shift: est.shift, cost: est.cost, runnerUp: est.runnerUp, cols: cols, top: top, bottom: bottom)
+            c.fraction = est.fraction
             c.residual = residualShare(prev.gray, cur.gray, shift: est.shift, rows: r, cols: cols)
             // A region that holds a strip which clearly stayed put isn't one scrolling page: a sparse sidebar
             // can't spoil the residual enough to fail, but it would repeat down the column.
@@ -179,13 +190,16 @@ struct Joiner {
             let list = candidates.map { "\($0.label) \($0.cols) rows \($0.top)/\($0.bottom) shift \($0.shift) residual \(String(format: "%.4f", $0.residual))" }
             print("join \(prev.ref.index)->\(cur.ref.index) cost \(String(format: "%.3f", best.cost)) runner \(best.runnerUp.map { String(format: "%.3f", $0) } ?? "-") detail \(detail) · " + list.joined(separator: " | "))
         }
-        if best.residual > settings.maxResidual {
-            // Lined up, but the content differs: the page changed while scrolling. Otherwise nothing lines up.
+        // What differs after aligning: a few compact spots (an edit, a menu, the pointer) don't stop the join; the
+        // rest of the overlap has to line up. Differences everywhere mean the page changed, or nothing lines up.
+        let changes = Changes.blobs(prev.gray, cur.gray, shift: best.shift, rows: rows, cols: best.cols, delta: settings.pixelDelta)
+        if best.residual > settings.maxResidual && (best.residual > settings.maxLocalResidual || changes?.isEmpty ?? true) {
             return best.residual < settings.changeResidual ? .change : .noOverlap
         }
         if let r = best.runnerUp, r - best.cost < settings.ambiguityMargin { return .ambiguous }
         if detail < settings.minDetailRows { return .ambiguous }
-        return .shift(best.shift, fixedTop: best.top, fixedBottom: best.bottom, cols: best.cols, held: best.held)
+        return .shift(best.shift, fixedTop: best.top, fixedBottom: best.bottom, cols: best.cols, held: best.held, changes: changes ?? [],
+                      fraction: best.fraction)
     }
 
     /// The view didn't scroll: is it the same apart from a pointer?
@@ -194,7 +208,17 @@ struct Joiner {
         let rows = (region?.top ?? 0)..<max((region?.top ?? 0) + 1, h - (region?.bottom ?? 0))
         let cols = region?.cols ?? 0..<prev.gray.width
         let changed = residualShare(prev.gray, cur.gray, shift: 0, rows: rows, cols: cols) * Double(rows.count * cols.count)
-        return changed <= Double(settings.ignorePixels) ? .same : .change
+        // Compact spots are local changes, however large.
+        // In place nothing has to be aligned, so a menu may cover more of the page than a join would allow; only a
+        // view where nearly everything changed is a new one.
+        let spots = Changes.blobs(prev.gray, cur.gray, shift: 0, rows: rows, cols: cols, delta: settings.pixelDelta,
+                                  maxShare: 0.35, maxDetailShare: 0.6)
+        if let spots, !spots.isEmpty { return .local(spots) }
+        if changed <= Double(settings.ignorePixels) { return .same }
+        // Spread-out change. Moved less than a pixel (a slow scroll, resampled)? Every glyph differs a little, but
+        // each pixel lies between its neighbors above and below: not a change, the next whole pixel joins.
+        if residualShare(prev.gray, cur.gray, shift: 0, rows: rows, cols: cols, subpixel: true) <= settings.maxResidual { return .same }
+        return .change
     }
 
     /// Rows at the top and bottom that are the same in both frames while rows between them changed.
@@ -228,7 +252,7 @@ struct Joiner {
     /// Share of overlap pixels that differ after shifting `prev` by `shift`. Recordings are scaled down from
     /// Retina, so a scroll can land between rows: a pixel matches when it lies between its two neighboring
     /// source rows (on the better of the two sides) within `pixelDelta`.
-    func residualShare(_ a: GrayImage, _ b: GrayImage, shift s: Int, rows: Range<Int>, cols: Range<Int>? = nil) -> Double {
+    func residualShare(_ a: GrayImage, _ b: GrayImage, shift s: Int, rows: Range<Int>, cols: Range<Int>? = nil, subpixel: Bool = false) -> Double {
         let w = a.width
         let cols = cols ?? 0..<w
         // Leave a row of margin so both neighbors exist.
@@ -251,7 +275,7 @@ struct Joiner {
             }
             return diff
         }
-        let diff = s == 0 ? count(side: 0) : min(count(side: 1), count(side: -1))
+        let diff = s == 0 && !subpixel ? count(side: 0) : min(count(side: 1), count(side: -1))
         return Double(diff) / Double((y1 - y0) * cols.count)
     }
 
@@ -335,21 +359,35 @@ struct Joiner {
         // Vote tile by tile: a pointer resting over the page is a few still tiles, a sidebar is dozens.
         var kinds: [Int] = [], quiet: [Bool] = []
         for cx in 0..<t.cols {
-            var still = 0, moving = 0, changed = 0
+            var still = 0, moving = 0, changed = 0, lo = Int.max, hi = Int.min
             for cy in r0..<r1 where t.movedValid[cy * t.cols + cx] {
                 let i = cy * t.cols + cx
                 changed += t.still[i] + t.moved[i]
                 switch kind(still: t.still[i], moved: t.moved[i], valid: true, pixels: t.cellH * cellW / 2) {
-                case 1: still += 1
+                case 1: still += 1; lo = min(lo, cy); hi = max(hi, cy)
                 case -1: moving += 1
                 default: break
                 }
             }
-            quiet.append(changed == 0)
-            kinds.append(still >= 4 && still > moving ? 1 : moving >= 3 && moving > still ? -1 : still > moving ? 2 : 0)
+            // A sidebar's still tiles run down most of the view; a menu or tooltip held over the page is one block.
+            let tall = still > 0 && Double(hi - lo + 1) >= Double(r1 - r0) * 0.4
+            quiet.append(changed == 0 && edgeCount(b, x: (cx * cellW)..<min(w, (cx + 1) * cellW), rows: rows) <= 2)
+            kinds.append(still >= 4 && still > moving && tall ? 1 : moving >= 3 && moving > still ? -1 : still > moving ? 2 : 0)
         }
         if Joiner.debug { print("  strips " + kinds.map { ["=", ".", "#", "~"][$0 + 1] }.joined()) }
         return Strips(kinds: kinds, quiet: quiet)
+    }
+
+    /// Pixels in `x`×`rows` (every fourth row) with a sharp step from their left neighbor: visible detail.
+    func edgeCount(_ img: GrayImage, x: Range<Int>, rows: Range<Int>) -> Int {
+        var n = 0
+        img.pixels.withUnsafeBufferPointer { px in
+            for y in stride(from: rows.lowerBound, to: rows.upperBound, by: 4) {
+                let o = y * img.width
+                for c in max(1, x.lowerBound)..<x.upperBound where abs(Int(px[o + c]) - Int(px[o + c - 1])) > 40 { n += 1 }
+            }
+        }
+        return n
     }
 
     /// The columns that scrolled: from the first to the last strip that moved (the widest stretch not split by a
