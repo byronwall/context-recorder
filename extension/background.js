@@ -56,8 +56,10 @@ function setBadge(connected) {
   chrome.action.setTitle({ title: connected ? "Context Recorder: connected" : "Context Recorder: app not running" });
 }
 
-// App requests: {type: "snapshot" | "region", id, payload?, capturePage?}
+// App requests: {type: "snapshot" | "region", id, payload?, capturePage?}, or {type: "reload"}
+// when the app ships a newer copy of these files: an unpacked extension re-reads them on reload.
 async function handle(msg) {
+  if (msg.type === "reload") return chrome.runtime.reload();
   if (msg.type !== "snapshot" && msg.type !== "region") return;
   let data;
   let tab;

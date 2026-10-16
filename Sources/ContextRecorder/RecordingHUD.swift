@@ -159,11 +159,22 @@ struct RecordingDot: View {
     }
 }
 
-/// Whether the Chrome extension is connected.
+/// Whether the Chrome extension is connected. Clicking it opens the setup sheet.
 struct ChromeBadge: View {
     var connected: Bool
 
     var body: some View {
+        Button {
+            NSApp.sendAction(#selector(AppDelegate.showChromeSetup), to: nil, from: nil)
+        } label: {
+            label
+        }
+        .buttonStyle(.plain)
+        .help(connected ? "Browser extension connected: marks in Chrome include page context"
+                        : "Browser extension not connected: marks get app and window context only. Click to set it up.")
+    }
+
+    private var label: some View {
         HStack(spacing: 5) {
             Circle().fill(connected ? Color.green : Color.secondary.opacity(0.5)).frame(width: 6, height: 6)
             Text(connected ? "Chrome" : "No Chrome")
@@ -173,8 +184,7 @@ struct ChromeBadge: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(.quaternary.opacity(0.6), in: .capsule)
-        .help(connected ? "Browser extension connected: marks in Chrome include page context"
-                        : "Browser extension not connected: marks get app and window context only")
+        .contentShape(.capsule)
     }
 }
 

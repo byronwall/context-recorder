@@ -8,10 +8,12 @@ import AppKit
 ///   wait <seconds>
 ///   click <x> <y> [count]          left click; count 2 = double-click
 ///   drag <x1> <y1> <x2> <y2> [middle] [cmd|shift|opt…]
+///   move <x> <y>                   pointer moves there (hover)
 ///   wheel <x> <y> <dy>             mouse wheel (line units)
 ///   swipe <x> <y> <dx> <dy>        trackpad two-finger scroll (precise deltas)
 ///   key <name|char> [cmd|shift|opt…]   names: esc return space left right up down delete tab
 ///   keyup <name|char>
+///   appkey <name|char> [mods]      a key through NSApp, so the window's key monitor (C, space, ←/→, J/K) sees it
 ///   type <text…>
 ///   flag <name>                    writes tmp/ui-test/flags/<name> (a screenshot cue) plus <name>.png (the
 ///                                  window drawn in-process) and waits up to 5 s
@@ -47,11 +49,15 @@ enum DevScript {
                     try? await Task.sleep(for: .milliseconds(8))
                 }
                 mouse(middle ? .otherMouseUp : .leftMouseUp, at: to, in: window, mods: mods)
+            case "move": mouse(.mouseMoved, at: CGPoint(x: n(0), y: n(1)), in: window)
             case "wheel": scroll(at: CGPoint(x: n(0), y: n(1)), dx: 0, dy: n(2), precise: false, in: window)
             case "swipe": scroll(at: CGPoint(x: n(0), y: n(1)), dx: n(2), dy: n(3), precise: true, in: window)
             case "key", "keyup":
                 guard let name = a.first else { continue }
                 key(name, up: cmd == "keyup", mods: modifiers(a.dropFirst()), in: window)
+            case "appkey":
+                guard let name = a.first else { continue }
+                key(name, up: false, mods: modifiers(a.dropFirst()), in: window, throughApp: true)
             case "type":
                 // Into the focused text view the way the input system delivers committed text. Synthetic
                 // key-downs into an NSTextView go through the input method and stall this task.
@@ -128,7 +134,7 @@ enum DevScript {
         "left": (123, "\u{F702}"), "right": (124, "\u{F703}"), "up": (126, "\u{F700}"), "down": (125, "\u{F701}"),
     ]
 
-    private static func key(_ name: String, up: Bool, mods: NSEvent.ModifierFlags, in window: NSWindow) {
+    private static func key(_ name: String, up: Bool, mods: NSEvent.ModifierFlags, in window: NSWindow, throughApp: Bool = false) {
         let (code, chars) = codes[name] ?? (keyCode(name), name)
         guard let e = NSEvent.keyEvent(with: up ? .keyUp : .keyDown, location: .zero, modifierFlags: mods,
                                        timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
@@ -136,6 +142,7 @@ enum DevScript {
         else { return }
         // Command keys go through performKeyEquivalent first, as NSApplication does. Straight to the window
         // rather than NSApp, so it works while another app is frontmost.
+        if throughApp { NSApp.sendEvent(e); return }
         if !up, mods.contains(.command), window.performKeyEquivalent(with: e) { return }
         window.sendEvent(e)
     }

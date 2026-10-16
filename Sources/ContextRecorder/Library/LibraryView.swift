@@ -34,6 +34,7 @@ struct LibraryView: View {
             return !found.isEmpty
         }
         .sheet(isPresented: $state.showShortcuts) { ShortcutsSheet() }
+        .sheet(isPresented: $state.showChromeSetup) { ChromeExtensionSheet() }
         .confirmationDialog(trashTitle, isPresented: Binding(get: { !state.confirmTrash.isEmpty },
                                                              set: { if !$0 { state.confirmTrash = [] } })) {
             Button("Move to Trash", role: .destructive) { state.trashConfirmed() }

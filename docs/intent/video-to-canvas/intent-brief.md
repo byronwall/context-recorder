@@ -3,7 +3,7 @@ title: "Video to canvas"
 slug: "video-to-canvas"
 phase: intent
 status: current
-last_updated: "2026-10-14"
+last_updated: "2026-10-15"
 ---
 
 # Video to canvas
@@ -48,6 +48,6 @@ The current code includes CanvasKit, canvas-tool, source-frame references, pixel
 
 ## Next step after confirmation
 
-The ten answers settle the next shape. The [implementation plan](implementation-plan.md) proves automatic whole-screen continuity and the stable page experience through four working steps. No application implementation is started by this planning update.
+The ten answers settle the next shape. A follow-up review (2026-10-15) split it into two stages: Stage 1 repairs reconstruction in the existing layout and is used on real recordings before Stage 2 adds stable pages and the visit ribbon. The target screen is a maximized browser, and session `2026-10-13_00-57-10` serves as a real canary from the first milestone. See the [implementation plan](implementation-plan.md).
 
 See the [current shape](shape-brief.md) and [collected follow-up](sources/pro-follow-up-2026-10-14/collection.md). Start with the automatic full-screen sidebar/header proof.

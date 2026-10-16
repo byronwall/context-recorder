@@ -128,17 +128,21 @@ Building runs only when you ask, takes a few seconds for a few minutes of video,
 
 Requires the `pgm` CLI (`npm install -g @byronwallrus/product-grid-cli`). `viewer.html` is still written to every session folder as a portable copy (**Session → Open in Browser**).
 
-To work on the window without touching an installed copy of the app, run the debug build on a folder of sessions: `swift run ContextRecorder --library tmp/` (add `--mark 2` to open a mark, `--demo recording|processing|failed` to fake those states on the newest session, or `--export <project-folder>` to open the export sheet; `--export-run` also starts the export). This skips recording, hotkeys and permission prompts. Set `CR_APPEARANCE=dark` to check dark mode.
+To work on the window without touching an installed copy of the app, run the debug build on a folder of sessions: `swift run ContextRecorder --library tmp/` (add `--mark 2` to open a mark, `--chrome-setup` to open the Chrome extension sheet, `--demo recording|processing|failed` to fake those states on the newest session, or `--export <project-folder>` to open the export sheet; `--export-run` also starts the export). This skips recording, hotkeys and permission prompts. Set `CR_APPEARANCE=dark` to check dark mode.
 
 First run asks for **Screen Recording**, **Microphone** and (the first time you mark in Chrome) **Automation → Chrome** permissions. The build is signed with a stable local identity, so macOS keeps these permissions across rebuilds.
 
 ## Chrome extension (page context)
 
-`extension/` is an unpacked MV3 extension. It sends page context to the app over `ws://127.0.0.1:47823`. Your web apps don't need any changes.
+`extension/` is an MV3 extension. It sends page context to the app over `ws://127.0.0.1:47823`. Your web apps don't need any changes.
 
-1. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the `extension/` folder.
-2. Reload any tabs that were already open.
-3. The panel shows **Chrome ● connected** once the extension finds the running app. It retries every 30 s, so the app and Chrome can start in either order.
+Chrome doesn't let another app install an extension that isn't in the Web Store, so you load it once yourself. The app guides you: click the **Chrome** badge on the record card (or **Help → Set Up Chrome Extension…**, also in the menu-bar menu while it isn't connected).
+
+1. Click **Copy Folder Path and Open Chrome Extensions**. The app copies the extension to `~/Library/Application Support/Context Recorder/Chrome Extension`, puts that path on the clipboard and opens `chrome://extensions`.
+2. Turn on **Developer mode**, click **Load unpacked**, press ⌘⇧G, paste and press Return, then click **Select**. You can also drag the folder icon from the sheet onto the page.
+3. The sheet shows **Connected** once the extension finds the app. It retries every 30 s, so the app and Chrome can start in either order. Tabs that were already open are picked up without reloading.
+
+Each launch refreshes that folder with the app's copy of the extension. When an older version connects, the app tells it to reload itself, so updates need no clicks.
 
 What it records:
 

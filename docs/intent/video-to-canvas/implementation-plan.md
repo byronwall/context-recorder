@@ -3,24 +3,24 @@ title: "Video to canvas — implementation plan"
 slug: "video-to-canvas"
 phase: plan
 status: current
-last_updated: "2026-10-14"
+last_updated: "2026-10-15"
 ---
 
 # Video to canvas — implementation plan
 
 ## Plan at a glance
 
-Build one combined outcome: automatic whole-screen reconstruction in a stable page layout, with changes and visits linked to source video. Use four working steps. The existing native canvas remains usable after each step.
+Build in two stages. **Stage 1 (Milestones 6–7)** delivers automatic whole-screen reconstruction with local change markers inside the existing card/column layout. Byron then uses it on real recordings. **Stage 2 (Milestones 8–9)** adds stable pages, the visit ribbon, and visit-aware source access, and is gated on that use plus a short ribbon/layout design pass. The existing native canvas remains usable after each step.
 
 First, make a full-screen web page with a sidebar and header reconstruct automatically. Add positive coverage checks with that behavior. A result containing only cards must fail. Second, keep the page continuous through slow scrolling and temporary overlays while preserving small edits. Show local events and before/after changes in the existing canvas during this step.
 
-Third, give pages stable positions and add the compact visit ribbon. Separate the frame that supplied pixels from later frames that show them. Selecting content uses the active visit and still switches to full video. Fourth, verify the complete flow on a representative personal recording and check native interaction, persistence, and resource cost.
+After Stage 1 use, third, give pages stable positions and add the compact visit ribbon. Separate the frame that supplied pixels from later frames that show them. Selecting content uses the active visit and still switches to full video. Fourth, verify the complete flow on a representative personal recording and check native interaction, persistence, and resource cost.
 
 Do not rebuild the storyboard, repeat the engine selection, or implement all ten research recommendations. Keep the row-profile estimator initially. Add more motion handling only when a failing fixture or recording requires it. Manual crops remain diagnostic tools; they cannot satisfy the whole-screen acceptance gate.
 
 ## Implementation strategy
 
-**Baseline:** `76afc4faa24887408c275360132f0dd03384c94b`. `CanvasKit`, `canvas-tool`, native canvas display, PNG export, and source-frame marks already exist. Preserve the current planning changes. This checkout has a detached HEAD; choose a `codex/` branch in this checkout before implementation commits. Do not create another worktree.
+**Baseline:** `5710dd5` on `main`; canvas code is unchanged since `76afc4f`, the revision Pro reviewed. `CanvasKit`, `canvas-tool`, native canvas display, PNG export, and source-frame marks already exist. Implementation continues on the current working branch.
 
 **Primary seam:** Extend the existing `CanvasDocument` stored in `canvas.json`, with images under `canvas/`. Keep geometry, pixel contributors, visits, and local events distinct within this document. Do not add a database or a parallel analysis pipeline.
 
@@ -38,20 +38,24 @@ This existing command generates missing synthetic clips and runs the native anal
 
 **Transition:** Change analyzer, decoder, and reader together when the document shape changes. Increment `CanvasDocument.currentVersion` and offer Rebuild for old derived files. Do not support two schema versions. Keep recording.mp4 and session notes unchanged. Use disposable session copies for analysis and marks. Keep full-video review available throughout.
 
+**Real canary:** From Milestone 6 on, also analyze a disposable copy of `~/Movies/ContextRecorder/2026-10-13_00-57-10` (97 s, 1512×982, maximized Chrome on explorEDA docs: menu bar, tab and bookmarks bars, Dock, left nav, right “On this page” rail, sticky header, slow scrolls, returns to `/docs`). Copy it under `tmp/canary/` and run `canvas-tool analyze` with no `--box`. Inspect the column images by eye each milestone. Reduce any failure it exposes into a fixture. It lacks a deliberate overlay and small edit; record a short disposable clip for those before closing Milestone 7.
+
 **Output convention:** Save fixture logs and UI screenshots under `tmp/`. Do not commit generated evidence. Do not use `scripts/build-app.sh` for proof: it installs and launches the normal app.
+
+## Stage 1 — reconstruction in the existing layout
 
 ## Milestone 6: A whole-screen page reconstructs automatically
 
 The first visible result is one readable scrolling page despite a detailed stationary sidebar and header.
 
-- In `Sources/CanvasTool/Fixtures.swift`, add a full-screen sidebar/header case and a narrow-pane variant. Keep existing clean, repeated, blank, jump, and cursor controls. Record expected moving bounds and observed document extent separately from analyzer input.
+- In `Sources/CanvasTool/Fixtures.swift`, add a full-screen case modeled on the canary: macOS menu bar, browser chrome, Dock, a detailed left sidebar, and a right rail around the scrolling document. Add a narrow-document variant. Keep existing clean, repeated, blank, jump, and cursor controls. Record expected moving bounds and observed document extent separately from analyzer input.
 - In `Geometry.swift` and `Check.swift`, require a reconstructed column and positive registered coverage on scroll fixtures. Compute coverage as correctly placed unique document area divided by observed document area. Count observed but omitted content as loss. Exclude screen chrome and genuinely unobserved gaps. Explicit `--storyboard` skips reconstruction requirements only; refusal and change-preservation checks must still run where applicable.
 - In `Join.swift`, test a bounded set of region candidates independently of the global zero-shift winner. Include the tracked region and plausible moving bands. Use distributed image support to reject repeated or blank candidates. A candidate must pass verification before it sets the tracked bounds.
 - Return selected bounds and rejection reasons in a small diagnostic record. Emit through the existing CLI/debug path; do not build a diagnostics dashboard.
 - Check `Run.cols`, `CanvasAnalyzer.compose`, `CanvasItem.sourceX`, and source-region mapping together. A detected pane must produce the correct image and source coordinates.
 - In `CanvasModel.swift`, `SessionView.swift`, and the empty state in `CanvasStage.swift`, make ordinary Build and Rebuild analyze the whole frame without opening the picker. Keep explicit crop commands secondary. Rebuild must not silently reuse an earlier crop.
 
-**Proof:** Run the CLI suite. The automatic sidebar/header and narrow-pane cases each produce one readable column. Use at least 90% correctly registered observed document area as an initial engineering gate. Preserve the existing 2 px p95 and 4 px maximum placement limits. Require zero false joins and correct source-region mapping. Do not weaken thresholds to hide a failure.
+**Proof:** Run the CLI suite. The automatic sidebar/header and narrow-document cases each produce one readable column. Use at least 90% correctly registered observed document area as an initial engineering gate. Preserve the existing 2 px p95 and 4 px maximum placement limits. Require zero false joins and correct source-region mapping. Do not weaken thresholds to hide a failure. The canary builds without a crop and its scrolled docs pages read as columns between both sidebars.
 
 ### Desired end state
 
@@ -75,6 +79,12 @@ The page remains continuous without losing edits or temporary UI. Changes appear
 
 The existing canvas shows continuous scrolling with local changes and overlay markers. Native output preserves observations that geometry estimation excluded. A lower card count with lost edits fails.
 
+### Stage 1 gate
+
+Rebuild the canary and the overlay/edit clip in the native app and hand them to Byron. His use of Stage 1 on real recordings, plus a short design pass for the ribbon and page layout, decides whether and how Stage 2 starts. Record the decision in the initiative map.
+
+## Stage 2 — stable pages and visits (gated)
+
 ## Milestone 8: Stable pages and a visit ribbon recover the right moment
 
 Replace the chronological run layout with pages that stay in place while visits carry time.
@@ -93,7 +103,7 @@ Replace the chronological run layout with pages that stay in place while visits 
 
 Stable pages and the visit ribbon work together. Content clicks switch to full video in the active visit. Exported pixel contributors remain distinct from visit history. Keyboard and accessibility actions use the same source resolver as mouse input.
 
-## Milestone 9: The combined flow works on a personal recording
+## Milestone 9: The stable-page flow works on a personal recording
 
 Prove the target experience through the native app, beyond synthetic geometry.
 
@@ -112,7 +122,7 @@ A representative personal recording meets the combined shape. Logs, screenshots,
 
 ## Open decisions and spikes
 
-1. **Region discovery:** Decide whether bounded region candidates handle the changing-header fixture. Add a coarse temporal mask only if residuals show it is needed. A supplied crop remains a diagnostic comparison.
+1. **Region discovery:** Decide whether bounded region candidates handle the changing-header fixture and the canary’s two-sided layout. Add a coarse temporal mask only if residuals show it is needed. A supplied crop remains a diagnostic comparison.
 2. **Fractional motion:** Decide whether accumulated-motion anchors satisfy slow scrolling. If not, add floating-point poses and bounded two-dimensional verification in the existing engine. Correct `VisionEstimator` column cropping before any renewed comparison; no engine replacement without measured benefit.
 3. **Return identity:** Calibrate visual support on A → B → A and similar-page negatives. If uncertain, retain related fragments with a gap. Do not certify a return to satisfy the ribbon.
 
@@ -120,6 +130,7 @@ A representative personal recording meets the combined shape. Logs, screenshots,
 
 - Composite region capture, inline video, and embedded motion playback.
 - Browser telemetry, OCR, general video reconstruction, and a second maintained engine.
-- Several independently scrolling panes reconstructed at once.
+- Several independently scrolling panes reconstructed at once, and nested scrolling panes inside web apps.
+- Windowed browsers that move or resize mid-recording, and non-browser apps.
 - Long-session tiling, elaborate zoom modes, cloud services, and database storage.
 - Compatibility with old derived canvas schemas; offer Rebuild instead.

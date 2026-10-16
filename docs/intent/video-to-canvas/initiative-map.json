@@ -5,10 +5,10 @@
     "slug": "video-to-canvas",
     "scale": "capability",
     "current_phase": "plan",
-    "last_updated": "2026-10-14",
-    "summary": "Automatic whole-screen video reconstruction with stable page positions, a compact visit ribbon, local change markers, and active-visit source playback.",
+    "last_updated": "2026-10-15",
+    "summary": "Stage 1: automatic whole-screen reconstruction with local change markers in the existing layout. Stage 2 (after use): stable page positions, visit ribbon, and active-visit source playback.",
     "status": "active",
-    "next_action": "Start Milestone 6: automatic whole-screen sidebar/header reconstruction with positive coverage and source checks."
+    "next_action": "Stage 1 gate: Byron uses Stage 1 on real recordings and records a short overlay/edit clip; then decide Stage 2 (stable pages, visit ribbon)."
   },
   "artifacts": {
     "intent_brief": {
@@ -151,6 +151,13 @@
       "location": "Sources/CanvasKit; Sources/CanvasTool; Sources/ContextRecorder/Library/CanvasModel.swift and CanvasStage.swift; scripts/ui-test/README.md",
       "anchor": "76afc4f; planning inspection after answers 15–24",
       "authority": "Verified local source and available data paths; no app execution"
+    },
+    {
+      "id": "qa-round-5",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "5",
+      "authority": "direct current intent"
     }
   ],
   "intent": {
@@ -450,9 +457,9 @@
   "implementation": {
     "status": "current",
     "repository_snapshot": {
-      "root": "/Users/byronwall/.codex/worktrees/db78/context-recorder",
-      "revision": "76afc4faa24887408c275360132f0dd03384c94b",
-      "worktree_status": "Detached HEAD; current planning files modified and collected Pro follow-up untracked. Preserve them. No application edits in this planning run.",
+      "root": "/Users/byronwall/Projects/context-recorder (Claude worktree video-canvas-plan-review-8c1474)",
+      "revision": "5710dd5 (canvas code unchanged since 76afc4f)",
+      "worktree_status": "Branch claude/video-canvas-plan-review-8c1474; planning docs only.",
       "subsystems": [
         "Sources/CanvasKit/Join.swift and ShiftEstimator.swift: region proposals and overlap verification",
         "Sources/CanvasKit/Segmenter.swift and Storyboard.swift: anchors, continuity, change selection",
@@ -553,22 +560,33 @@
         "title": "A whole-screen page reconstructs automatically",
         "outcome": "Build without a crop produces a verified tall page beside fixed chrome.",
         "dependencies_introduced": [],
-        "proof": "Automatic sidebar/header and narrow-pane fixtures: one column, initial >=90% registered observed area, p95 <=2 px, max <=4 px, zero false joins; controls and source regions pass.",
+        "proof": "Automatic sidebar/header and narrow-pane fixtures: one column, initial >=90% registered observed area, p95 <=2 px, max <=4 px, zero false joins; controls and source regions pass. Canary: 2026-10-13_00-57-10 copy builds without crop and its docs pages read as columns between both sidebars.",
         "valid_intermediate_state": "Existing chronological canvas displays automatically discovered columns.",
         "rollback": "Revert tracking/build changes; video review remains available.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "canvas-tool check (whole screen, analyzer gets no document box): 12/12 clips pass, including new desktop and desktop-narrow fixtures (menu bar, browser chrome, sticky header, detailed left nav, right rail with moving highlight and scrollbar, Dock, drifting pointer, clock tick). One column each, coverage 97.4% / 95.4%, p95 0 px, max 0 px, zero false joins, 10/10 source regions.",
+          "Scroll clips gain a positive coverage gate (>=90% of observed document area correctly placed in columns; cards don't count): scroll 96.0%, reversal 96.3%, jump 94.6%, header 97.6%, cursor-scroll 98.0%. --supplied-box and --storyboard modes also pass.",
+          "Canary 2026-10-13_00-57-10 (whole screen, no crop): baseline 57 items (32 columns, 25 cards) with columns spanning the sidebars; now 48 items (31 columns, 17 cards), developer-page columns at x 320..<1120 (the document only), longest 6,591 px over 66 patches. Remaining breaks inspected: nested code-block scroller, page navigations, in-page changes while still.",
+          "In-app: --build-canvas full built the canvas through the native app path (CanvasDocument v2, box = whole frame) and the Canvas stage displayed 31 columns / 18 cards."
+        ]
       },
       {
         "id": "M7",
         "title": "Slow scrolling and interruptions preserve content",
         "outcome": "Continuous geometry retains overlays and persistent edits as local events.",
         "dependencies_introduced": [],
-        "proof": "Fractional/overlay fixtures remain continuous; before/after pixels and times match truth; pointer negatives and jump refusals pass.",
+        "proof": "Fractional/overlay fixtures remain continuous; before/after pixels and times match truth; pointer negatives and jump refusals pass. Canary rerun shows no regression; then Stage 1 personal-use review decides whether Stage 2 starts.",
         "valid_intermediate_state": "Existing canvas shows local event/change markers without losing observations.",
         "rollback": "Revert the coherent schema and reader change; rebuild derived canvas; recording remains unchanged.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "canvas-tool check: 15/15 clips pass from the whole screen, plus --supplied-box and --storyboard. New: slow-scroll (0.5 px then 1.5 px a frame; sub-pixel shift estimates keep it one column, coverage 91.4%, p95 0 px), overlay (dropdown open mid-scroll; one overlay event at its first frame, column continuous, coverage 97.6%), small-edit (checkbox ticked and digit changed while a pointer drifts; two edit events with before/after frames of different page states, no pointer edits).",
+          "Old edit clip now keeps one column with an edit event at the changed value (before frame shows A, after shows B); a column may mix page states only when an edit event says so.",
+          "Bounded recovery: a run that stops lining up stays open 1.5 s against its anchor; replayed frames start the next run when the view doesn't come back (jump, repeated and blank still refuse).",
+          "Canary 2026-10-13_00-57-10: 10 items (8 columns, 2 cards) from 48; columns inspected for false joins (none seen). 5 events: 4 overlays (a hovered chip, charts briefly changing on the docs home) and 1 pointer-arrival edit (known limitation).",
+          "App: dashed outline + badge per event; edits open a before/after popover with Show in Video for each; overlays play their moment. Verified by offscreen render (display asleep; live window capture unavailable)."
+        ]
       },
       {
         "id": "M8",
@@ -576,20 +594,20 @@
         "outcome": "Pages stay in place while visits select narration, source frames, and source marks.",
         "dependencies_introduced": [],
         "proof": "A-B-A and similar-page negatives; active visit visible/absent point resolution; reload; pointer and accessible source actions.",
-        "valid_intermediate_state": "Stable page atlas and compact ribbon work on generated native sessions.",
+        "valid_intermediate_state": "Stable page atlas and compact ribbon work on generated native sessions. Starts only after Stage 1 use and a ribbon/page layout design pass.",
         "rollback": "Revert layout/schema together and rebuild derived files; full video remains available.",
-        "status": "planned",
+        "status": "gated",
         "evidence": []
       },
       {
         "id": "M9",
-        "title": "The combined flow works on a personal recording",
+        "title": "The stable-page flow works on a personal recording",
         "outcome": "Automatic target walkthrough passes native interaction and personal-use review.",
         "dependencies_introduced": [],
         "proof": "Whole-screen web clip under five minutes exercises sidebar/header, slow scroll, overlay, edit, return, jump. Verify actual AVPlayer seeks, native narration, marks, export, reload, cancellation, stale rebuild, cut mapping, and measured resource cost.",
         "valid_intermediate_state": "Representative personal recording meets the selected shape, with evidence and limits recorded.",
         "rollback": "Keep full-video review; reduce real failures into directed fixtures before continuing.",
-        "status": "planned",
+        "status": "gated",
         "evidence": []
       }
     ],
@@ -1076,6 +1094,57 @@
             ],
             "answer": "No extra feature until real scrolling works",
             "effect": "Defer composite capture; keep the explicitly selected layout and visit behavior in scope."
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "theme": "Plan review: staging, canary, screen conditions, evidence",
+        "source": "qa-round-5",
+        "questions": [
+          {
+            "n": 25,
+            "question": "How should the large stable-page step be staged?",
+            "options": [
+              "Ship 6-7, use, then 8",
+              "Keep one scope as written",
+              "Trim 8 down"
+            ],
+            "answer": "Ship 6-7, use, then 8",
+            "effect": "Split into Stage 1 (M6-M7 in the existing layout, then personal use) and Stage 2 (M8 stable pages/ribbon after a design pass)."
+          },
+          {
+            "n": 26,
+            "question": "Which real recording should act as a canary from Milestone 6?",
+            "options": [
+              "Record a new disposable walkthrough first",
+              "Try existing sessions first",
+              "Synthetic until M9"
+            ],
+            "answer": "Try existing sessions first",
+            "effect": "Use a disposable copy of 2026-10-13_00-57-10 as the Stage 1 canary; record a new clip only for scenarios it lacks."
+          },
+          {
+            "n": 27,
+            "question": "What does a typical whole-screen recording look like?",
+            "options": [
+              "Browser maximized/fullscreen",
+              "Windowed, may move",
+              "Nested app panes",
+              "Non-browser apps"
+            ],
+            "answer": "Browser maximized/fullscreen",
+            "effect": "Region discovery targets one maximized browser with menu bar, tab/bookmark bars, Dock, and left/right sidebars; moving windows and nested panes are below the cut."
+          },
+          {
+            "n": 28,
+            "question": "Keep the 6.5 MB Pro package and raw results in docs/?",
+            "options": [
+              "Drop zip + raw results",
+              "Keep everything"
+            ],
+            "answer": "Drop zip + raw results",
+            "effect": "Removed canvas-review.zip, manifest.json, and results/ from the repo; a copy lives in the main checkout's ignored tmp/."
           }
         ]
       }

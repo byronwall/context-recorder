@@ -9,6 +9,9 @@ public struct ShiftEstimate: Sendable {
     public var cost: Double
     /// The best cost at any other shift at least 3 px away, if the estimator searched; near `cost` = ambiguous.
     public var runnerUp: Double?
+    /// Sub-pixel refinement: the content moved `shift + fraction` rows (|fraction| ≤ 0.5). Slow trackpad scrolling
+    /// moves less than a pixel a frame; rounding every step would drift.
+    public var fraction: Double = 0
 }
 
 /// Estimates vertical scrolling between two frames, within rows `rows` and columns `cols` of the content box
@@ -54,7 +57,14 @@ public struct RowProfileEstimator: ShiftEstimator {
         }
         guard let best = fine.min(by: { $0.c < $1.c }) else { return nil }
         let runnerUp = fine.filter { abs($0.s - best.s) >= 3 }.map(\.c).min()
-        return ShiftEstimate(shift: best.s, cost: best.c, runnerUp: runnerUp)
+        // A parabola through the costs either side of the best places the minimum between rows.
+        var fraction = 0.0
+        if range.contains(best.s - 1), range.contains(best.s + 1) {
+            let l = cost(pa, pb, shift: best.s - 1, rows: m, step: 1), r = cost(pa, pb, shift: best.s + 1, rows: m, step: 1)
+            let curve = l - 2 * best.c + r
+            if curve > 1e-6 { fraction = max(-0.5, min(0.5, 0.5 * (l - r) / curve)) }
+        }
+        return ShiftEstimate(shift: best.s, cost: best.c, runnerUp: runnerUp, fraction: fraction)
     }
 
     /// rows × bins means, row-major.

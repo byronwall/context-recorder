@@ -4,8 +4,9 @@ import Foundation
 let usage = """
 canvas-tool: build and check Context Recorder canvases.
 
-  canvas-tool check [--fixtures DIR] [--regen] [--only a,b] [--storyboard]
-      Generate synthetic clips if missing, analyze each, check against known answers. Exit 1 on failure.
+  canvas-tool check [--fixtures DIR] [--regen] [--only a,b] [--storyboard] [--supplied-box]
+      Generate synthetic clips if missing, analyze each from the whole screen, check against known answers.
+      Exit 1 on failure. --supplied-box hands the analyzer the true page area instead (diagnostic only).
   canvas-tool fixtures [--fixtures DIR] [--only a,b]
       (Re)generate the synthetic clips.
   canvas-tool bakeoff [--fixtures DIR]
@@ -42,7 +43,7 @@ do {
             print("Writing fixtures to \(fixtures.path)")
             try await Fixtures.write(to: fixtures, only: only)
         }
-        let results = try await Check.run(root: fixtures, only: only, options: options)
+        let results = try await Check.run(root: fixtures, only: only, options: options, suppliedBox: args.contains("--supplied-box"))
         exit(Check.report(results) ? 0 : 1)
     case "bakeoff":
         try await Bakeoff.run(root: fixtures)
@@ -57,9 +58,15 @@ do {
         }
         let started = Date()
         let doc = try await CanvasAnalyzer.build(folder: folder, box: box, options: options)
-        let cols = doc.items.filter { $0.kind == .column }.count
+        let cols = doc.items.filter { $0.kind == .column }
         print(String(format: "%d items (%d columns, %d cards) from %d frames in %.1fs",
-                     doc.items.count, cols, doc.items.count - cols, doc.video.frameCount, Date().timeIntervalSince(started)))
+                     doc.items.count, cols.count, doc.items.count - cols.count, doc.video.frameCount, Date().timeIntervalSince(started)))
+        // Where each column found the page, so a wrong region shows up without opening the app.
+        for c in cols {
+            let x = doc.box.x + (c.sourceX ?? 0)
+            print(String(format: "  %@ %@ x %d..<%d  %d×%d  %d patches  (%@)", c.id, Format.clock(c.start), x, x + c.width,
+                         c.width, c.height, c.patches.count, c.reason.rawValue))
+        }
     default:
         print(usage)
         exit(args.isEmpty ? 0 : 2)
@@ -67,4 +74,8 @@ do {
 } catch {
     print("error: \(error.localizedDescription)")
     exit(1)
+}
+
+enum Format {
+    static func clock(_ t: Double) -> String { String(format: "%d:%05.2f", Int(t) / 60, t.truncatingRemainder(dividingBy: 60)) }
 }

@@ -74,6 +74,7 @@ struct SessionTimeline: View {
                     rails(width: w)
                     scrubSurface(width: w)
                     if let hover { hoverLine(at: hover) }
+                    if hover == nil, let t = model.previewTime { previewLine(at: t, width: w) }
                     playheadLine(width: w)   // under the lanes, so pins stay readable
                     ForEach(lanes, id: \.self) { lane in
                         laneView(lane, width: w)
@@ -315,6 +316,16 @@ struct SessionTimeline: View {
         .offset(x: x(model.currentTime, w) - 5, y: -3)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    /// Where the pointer is in time while it moves over the canvas: moving through the canvas moves along here.
+    private func previewLine(at time: Double, width w: CGFloat) -> some View {
+        Rectangle()
+            .fill(Color.accentColor.opacity(0.55))
+            .frame(width: 1.5, height: totalHeight)
+            .offset(x: x(time, w) - 0.75, y: 0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     private func hoverLine(at p: CGPoint) -> some View {

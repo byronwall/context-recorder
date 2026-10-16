@@ -34,18 +34,41 @@ public enum CanvasAnalyzer {
         let joiner = Joiner(settings: options.join, estimator: options.joinScrolling ? options.estimator : nil)
         var segmenter = Segmenter(settings: options.storyboard, joiner: joiner, pixelCount: (content.width / 2) * (content.height / 2))
         var items: [CanvasItem] = []
+        var events: [CanvasEvent] = []
         var frameCount = 0
         var lastTime = 0.0
 
         func add(_ run: Run) throws {
             let n = items.count + 1
             let name = String(format: run.isColumn ? "column-%04d.png" : "card-%04d.png", n)
-            let (image, patches) = try compose(run)
+            let (image, patches, pageRows, poses, top) = try compose(run)
+            let h = run.start.gray.height
+            let viewRows = (run.topBands.min() ?? 0)...(h - (run.bottomBands.min() ?? 0) - 1)
             try writePNG(image, to: staging.appendingPathComponent(name))
             items.append(CanvasItem(id: "\(run.isColumn ? "col" : "c")\(n)", kind: run.isColumn ? .column : .card,
                                     reason: run.reason, start: run.start.ref.time, end: run.start.ref.time, frame: run.start.ref,
                                     image: "\(CanvasDocument.imageFolder)/\(name)", width: image.width, height: image.height,
-                                    patches: run.isColumn ? patches : [], sourceX: run.isColumn ? run.cols?.lowerBound : nil))
+                                    patches: run.isColumn ? patches : [], sourceX: run.isColumn ? run.cols?.lowerBound : nil,
+                                    pageRows: run.isColumn ? pageRows : nil, poses: run.isColumn ? poses : nil,
+                                    viewRows: run.isColumn ? viewRows : nil))
+            // Events in the item's image pixels: page rows less the column's top, columns less its left edge.
+            let left = run.isColumn ? run.cols?.lowerBound ?? 0 : 0
+            for e in run.events {
+                let k = events.count + 1
+                var rect = PixelRect(x: e.rect.x - left, y: e.rect.y - top, width: e.rect.width, height: e.rect.height)
+                rect = rect.clamped(width: image.width, height: image.height)
+                guard rect.width > 0, rect.height > 0 else { continue }
+                func save(_ img: CGImage?, _ suffix: String) throws -> String? {
+                    guard let img else { return nil }
+                    let file = String(format: "event-%04d-%@.png", k, suffix)
+                    try writePNG(img, to: staging.appendingPathComponent(file))
+                    return "\(CanvasDocument.imageFolder)/\(file)"
+                }
+                events.append(CanvasEvent(id: "e\(k)", kind: e.kind == .edit ? .edit : .overlay, item: items[items.count - 1].id,
+                                          rect: rect, start: e.start.time, end: e.end.time,
+                                          frame: e.kind == .edit ? e.end : e.start, before: e.before,
+                                          beforeImage: try save(e.beforeImage, "before"), afterImage: try save(e.afterImage, "after")))
+            }
         }
 
         while let frame = try source.next() {
@@ -55,7 +78,7 @@ public enum CanvasAnalyzer {
             for run in try segmenter.feed(frame) { try add(run) }
             if frameCount % 15 == 0 { progress(min(0.99, Double(frameCount) / Double(source.estimatedFrameCount))) }
         }
-        if let run = segmenter.finish() { try add(run) }
+        for run in try segmenter.finish() { try add(run) }
         guard !items.isEmpty else { throw CanvasError("The recording has no frames") }
 
         // Each item lasts until the next one starts; the last until the end of the video.
@@ -69,7 +92,7 @@ public enum CanvasAnalyzer {
                              duration: end, frameCount: frameCount),
             box: content,
             builtAt: ISO8601DateFormatter().string(from: .now),
-            items: items)
+            items: items, events: events)
 
         // Swap in the finished canvas.
         let images = folder.appendingPathComponent(CanvasDocument.imageFolder, isDirectory: true)
@@ -81,27 +104,41 @@ public enum CanvasAnalyzer {
     }
 
     /// Draws a run's patches in order (later ones win) into one image; returns patches in image coordinates.
-    static func compose(_ run: Run) throws -> (CGImage, [Patch]) {
-        let top = run.patches.map(\.destY).min() ?? 0
-        let bottom = run.patches.map { $0.destY + $0.height }.max() ?? 0
+    /// A column keeps only page rows (`contentTop..<contentBottom`) and the columns that scrolled: browser chrome,
+    /// sticky headers, the Dock and sidebars would otherwise repeat or frame the page.
+    static func compose(_ run: Run) throws -> (CGImage, [Patch], ClosedRange<Int>?, [Pose], Int) {
+        if !run.isColumn, let only = run.patches.first { return (only.image, [], nil, [], 0) }
+        // The first frame is whole; trim its sticky bands. Its bottom edge is where the first join measured it,
+        // since the next rows were placed against exactly that edge; its top takes a low percentile of the run's
+        // bands, as one pair can mistake blank page rows for a header. Later patches are page rows already.
+        func low(_ xs: [Int]) -> Int { xs.isEmpty ? 0 : xs.sorted()[xs.count / 4] }
+        let h = run.start.gray.height
+        let firstTop = low(run.topBands), firstBottom = run.bottomBands.first ?? 0
+        let startRows = firstTop..<max(firstTop + 1, h - firstBottom)
+        let rest = run.patches.dropFirst()
+        let top = min(startRows.lowerBound, rest.map(\.destY).min() ?? .max)
+        let bottom = max(startRows.upperBound, rest.map { $0.destY + $0.height }.max() ?? .min)
         let cols = run.cols ?? 0..<run.start.gray.width
         let width = cols.count, height = bottom - top
-        if !run.isColumn, let only = run.patches.first { return (only.image, []) }
-        guard let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+        guard height > 0, let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
                                   space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                   bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
         else { throw CanvasError("Couldn't allocate a \(width)×\(height) column") }
         var patches: [Patch] = []
-        for p in run.patches {
-            let y = p.destY - top
+        for (i, p) in run.patches.enumerated() {
+            let y0 = max(p.destY, i == 0 ? startRows.lowerBound : top), y1 = min(p.destY + p.height, i == 0 ? startRows.upperBound : bottom)
+            guard y1 > y0 else { continue }
             // Core Graphics counts from the bottom.
-            // Only the scrolling part: a sticky sidebar would repeat down the column.
-            guard let part = p.image.cropping(to: CGRect(x: cols.lowerBound, y: 0, width: width, height: p.height)) else { continue }
-            ctx.draw(part, in: CGRect(x: 0, y: height - y - p.height, width: width, height: p.height))
-            patches.append(Patch(frame: p.frame, sourceY: p.sourceY, destY: y, height: p.height))
+            let crop = CGRect(x: cols.lowerBound, y: y0 - p.destY, width: width, height: y1 - y0)
+            guard let part = p.image.cropping(to: crop) else { continue }
+            ctx.draw(part, in: CGRect(x: 0, y: height - (y0 - top) - (y1 - y0), width: width, height: y1 - y0))
+            patches.append(Patch(frame: p.frame, sourceY: p.sourceY + (y0 - p.destY), destY: y0 - top, height: y1 - y0))
         }
         guard let image = ctx.makeImage() else { throw CanvasError("Couldn't draw a column") }
-        return (image, patches)
+        // Poses in image rows; consecutive frames at the same position collapse into the first.
+        var poses: [Pose] = []
+        for p in run.poses where poses.last?.y != p.y - top { poses.append(Pose(time: p.time, y: p.y - top)) }
+        return (image, patches, startRows.lowerBound...(startRows.upperBound - 1), poses, top)
     }
 
     /// Whether `doc` still describes `folder/recording.mp4`. Cheap size check first, then the hash.
