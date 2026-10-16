@@ -4,11 +4,15 @@ import CoreGraphics
 import CoreText
 import Foundation
 
-/// Synthetic recordings with known answers. Each clip scrolls a generated tall page inside a fixed
-/// content box, so the true scroll position of every frame is known exactly. A barcode below the box
-/// encodes the frame number, so a seek can be checked against the frame actually shown.
+/// Synthetic recordings with known answers. Each clip scrolls a generated tall page inside a document area on
+/// a simulated screen, so the true scroll position of every frame is known exactly. The analyzer gets the whole
+/// screen and has to find the document itself. A barcode in a band below the screen encodes the frame number,
+/// so a seek can be checked against the frame actually shown; it is test instrumentation, not screen content.
 enum Fixtures {
-    static let frameSize = (width: 1280, height: 800)
+    static let screenSize = (width: 1280, height: 800)
+    static let screen = PixelRect(x: 0, y: 0, width: screenSize.width, height: screenSize.height)
+    static let frameSize = (width: screenSize.width, height: screenSize.height + 56)
+    /// The document area of the windowed layout.
     static let box = PixelRect(x: 100, y: 80, width: 1000, height: 600)
     static let fps: Int32 = 15
     static let pageWidth = 1000
@@ -21,12 +25,46 @@ enum Fixtures {
     /// The value that changes between page variants "A" and "B" sits here.
     static let editY = 900
 
+    /// Where the page sits on screen.
+    enum Layout: String, Codable {
+        /// A plain window: gray margins and a title bar around a 1000×600 document.
+        case window
+        /// A maximized browser like the real recordings: menu bar, tabs and toolbar, a sticky site header, a
+        /// detailed left nav, a right "On this page" rail whose highlight follows the scroll, a scrollbar, the Dock.
+        case desktop
+        /// The same desktop with wide sidebars around a narrow document.
+        case narrow
+
+        var document: PixelRect {
+            switch self {
+            case .window: Fixtures.box
+            case .desktop: PixelRect(x: 230, y: 148, width: 800, height: 592)
+            case .narrow: PixelRect(x: 440, y: 148, width: 400, height: 592)
+            }
+        }
+
+        /// Stationary detail beside the document that a column must leave out: the nav's items and the rail's
+        /// highlight, headings and card. Their blank margins look like the page's and may go either way.
+        var fixed: [PixelRect] {
+            let d = document
+            switch self {
+            case .window: return []
+            case .desktop, .narrow:
+                return [PixelRect(x: 16, y: d.y, width: d.x - 32, height: d.height),
+                        PixelRect(x: d.maxX + 20, y: d.y, width: Fixtures.screenSize.width - d.maxX - 20, height: d.height)]
+            }
+        }
+    }
+
     struct FrameSpec {
         var page: String = "A"
         var scrollY: Int = 0
         var header = false
         var cursor: CGPoint?
         var caret = false
+        var layout: Layout = .window
+        /// The menu bar clock has ticked over (desktop layouts).
+        var minute = 0
     }
 
     struct Clip {
@@ -48,12 +86,20 @@ enum Fixtures {
         var maxColumns: Int?
         /// Joining: the clip has scrolling that a correct joiner must refuse (a jump, ambiguity).
         var mustRefuse: Bool?
+        /// Joining: at least this share of the observed document area must appear, correctly placed, in columns.
+        /// Cards don't count: a canvas of screenshots hasn't reconstructed anything.
+        var minCoverage: Double?
     }
 
     struct Truth: Codable {
         var name: String
         var fps: Int
+        /// What the analyzer gets: the whole simulated screen.
+        var screen: PixelRect
+        /// Where the page scrolls on screen. Never given to the analyzer.
         var box: PixelRect
+        /// Stationary detail beside the document (sidebars, a rail).
+        var fixed: [PixelRect]
         var header: Int
         var pages: [String]
         var scrollY: [Int]
@@ -103,12 +149,12 @@ enum Fixtures {
         var plain = hold(8, FrameSpec())
         plain += scroll(0, 2400, 60)
         plain += hold(8, FrameSpec(scrollY: 2400))
-        clips.append(Clip(name: "scroll", frames: plain, expect: Expectations(maxColumns: 1)))
+        clips.append(Clip(name: "scroll", frames: plain, expect: Expectations(maxColumns: 1, minCoverage: 0.9)))
 
         var reversal = scroll(0, 1800, 30)
         reversal += scroll(1800, 900, 15)
         reversal += scroll(900, 2400, 30)
-        clips.append(Clip(name: "reversal", frames: reversal, expect: Expectations(maxColumns: 1)))
+        clips.append(Clip(name: "reversal", frames: reversal, expect: Expectations(maxColumns: 1, minCoverage: 0.9)))
 
         var jump = scroll(0, 900, 22)
         jump += hold(8, FrameSpec(scrollY: 900))
@@ -116,17 +162,17 @@ enum Fixtures {
         jump += hold(8, FrameSpec(scrollY: 2000))
         jump += scroll(2000, 2400, 15)
         clips.append(Clip(name: "jump", frames: jump, expect: Expectations(
-            mustStartAt: [jumpFrame], neverJoined: [[jumpFrame - 1, jumpFrame]], maxColumns: 2, mustRefuse: true)))
+            mustStartAt: [jumpFrame], neverJoined: [[jumpFrame - 1, jumpFrame]], maxColumns: 2, mustRefuse: true, minCoverage: 0.9)))
 
         var header = hold(5, FrameSpec(header: true))
         header += scroll(0, 2000, 45, FrameSpec(header: true))
-        clips.append(Clip(name: "header", frames: header, expect: Expectations(maxColumns: 1)))
+        clips.append(Clip(name: "header", frames: header, expect: Expectations(maxColumns: 1, minCoverage: 0.9)))
 
         var cursorScroll = scroll(0, 1500, 45)
         for i in cursorScroll.indices {
             cursorScroll[i].cursor = CGPoint(x: 400 + Double(i) * 9, y: 300 + 80 * sin(Double(i) / 6))
         }
-        clips.append(Clip(name: "cursor-scroll", frames: cursorScroll, expect: Expectations(maxColumns: 1)))
+        clips.append(Clip(name: "cursor-scroll", frames: cursorScroll, expect: Expectations(maxColumns: 1, minCoverage: 0.9)))
 
         // 25 px a frame through rows that repeat every 40 px: several distances fit equally well.
         let repStart = repeatedRange.lowerBound - 300
@@ -138,6 +184,20 @@ enum Fixtures {
         var blank = scroll(blankRange.lowerBound - 500, blankRange.upperBound + 300, 50)
         blank += hold(5, FrameSpec(scrollY: blankRange.upperBound + 300))
         clips.append(Clip(name: "blank", frames: blank, expect: Expectations(mustRefuse: true)))
+
+        // A maximized browser: the analyzer has to find the page between a nav and a rail, under chrome, while
+        // the pointer drifts over the page, the rail highlight follows the scroll and the clock ticks.
+        for (name, layout) in [("desktop", Layout.desktop), ("desktop-narrow", Layout.narrow)] {
+            var desk = hold(8, FrameSpec(layout: layout))
+            desk += scroll(0, 2400, 60, FrameSpec(layout: layout))
+            desk += hold(8, FrameSpec(scrollY: 2400, layout: layout))
+            for i in desk.indices {
+                let d = layout.document
+                desk[i].cursor = CGPoint(x: Double(d.x + d.width / 3) + Double(i % 40) * 3, y: Double(d.y + 220) + 40 * sin(Double(i) / 9))
+                if i >= desk.count / 2 { desk[i].minute = 1 }
+            }
+            clips.append(Clip(name: name, frames: desk, expect: Expectations(maxColumns: 1, minCoverage: 0.9)))
+        }
 
         return clips
     }
@@ -153,7 +213,9 @@ enum Fixtures {
             try? FileManager.default.removeItem(at: folder)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try await encode(clip, pages: pages, to: folder.appendingPathComponent("recording.mp4"))
-            let truth = Truth(name: clip.name, fps: Int(fps), box: box, header: clip.frames.contains(where: \.header) ? headerHeight : 0,
+            let layout = clip.frames.first?.layout ?? .window
+            let truth = Truth(name: clip.name, fps: Int(fps), screen: screen, box: layout.document, fixed: layout.fixed,
+                              header: clip.frames.contains(where: \.header) ? headerHeight : 0,
                               pages: clip.frames.map(\.page), scrollY: clip.frames.map(\.scrollY), expect: clip.expect)
             let enc = JSONEncoder()
             enc.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -209,9 +271,18 @@ enum Fixtures {
                                   bytesPerRow: CVPixelBufferGetBytesPerRow(pb), space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                   bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
         else { return }
+        // The barcode band below the screen.
+        ctx.setFillColor(gray: 1, alpha: 1)
+        ctx.fill(cg(CGRect(x: 0, y: screenSize.height, width: W, height: H - screenSize.height), H))
+        for bit in 0..<16 where index & (1 << bit) != 0 {
+            ctx.setFillColor(gray: 0, alpha: 1)
+            ctx.fill(cg(CGRect(x: barcodeX + bit * barcodeStep, y: barcodeY, width: 28, height: 28), H))
+        }
+        if spec.layout != .window { drawDesktop(spec, pages: pages, ctx: ctx, H: H); return }
+
         // Window chrome around the content box: stays still, so it must not matter.
         ctx.setFillColor(gray: 0.86, alpha: 1)
-        ctx.fill(CGRect(x: 0, y: 0, width: W, height: H))
+        ctx.fill(cg(CGRect(x: 0, y: 0, width: W, height: screenSize.height), H))
         ctx.setFillColor(gray: 0.25, alpha: 1)
         ctx.fill(cg(CGRect(x: 0, y: 0, width: W, height: 56), H))
         text("Browser — fixture", at: CGPoint(x: 24, y: 36), size: 18, color: CGColor(gray: 0.95, alpha: 1), in: ctx, height: H)
@@ -230,7 +301,11 @@ enum Fixtures {
             ctx.setFillColor(gray: 0, alpha: 1)
             ctx.fill(cg(CGRect(x: box.x + 420, y: box.y + 200, width: 2, height: 18), H))
         }
-        if let p = spec.cursor {
+        drawCursor(spec.cursor, ctx: ctx, H: H)
+    }
+
+    private static func drawCursor(_ cursor: CGPoint?, ctx: CGContext, H: Int) {
+        if let p = cursor {
             let path = CGMutablePath()
             let pts = [CGPoint(x: 0, y: 0), CGPoint(x: 0, y: 19), CGPoint(x: 5, y: 15), CGPoint(x: 9, y: 23),
                        CGPoint(x: 12, y: 22), CGPoint(x: 8, y: 14), CGPoint(x: 14, y: 14)]
@@ -239,16 +314,67 @@ enum Fixtures {
             ctx.addPath(path); ctx.setFillColor(gray: 0, alpha: 1); ctx.fillPath()
             ctx.addPath(path); ctx.setStrokeColor(gray: 1, alpha: 1); ctx.setLineWidth(1.5); ctx.strokePath()
         }
-        // Frame number, 16 bits, least significant first, below the box.
-        ctx.setFillColor(gray: 1, alpha: 1)
-        ctx.fill(cg(CGRect(x: 0, y: barcodeY - 14, width: W, height: 56), H))
-        for bit in 0..<16 where index & (1 << bit) != 0 {
-            ctx.setFillColor(gray: 0, alpha: 1)
-            ctx.fill(cg(CGRect(x: barcodeX + bit * barcodeStep, y: barcodeY, width: 28, height: 28), H))
-        }
     }
 
-    static let barcodeX = 100, barcodeY = 726, barcodeStep = 40
+    /// A maximized browser on a desktop, modeled on the real recordings.
+    private static func drawDesktop(_ spec: FrameSpec, pages: [String: CGImage], ctx: CGContext, H: Int) {
+        let W = screenSize.width, d = spec.layout.document
+        let ink = CGColor(gray: 0.15, alpha: 1), muted = CGColor(gray: 0.42, alpha: 1)
+        func fill(_ r: CGRect, _ c: CGColor) { ctx.setFillColor(c); ctx.fill(cg(r, H)) }
+        // Wallpaper and Dock.
+        fill(CGRect(x: 0, y: 0, width: W, height: screenSize.height), CGColor(red: 0.2, green: 0.35, blue: 0.45, alpha: 1))
+        fill(CGRect(x: 200, y: d.maxY + 6, width: W - 400, height: screenSize.height - d.maxY - 10), CGColor(gray: 0.85, alpha: 1))
+        for i in 0..<14 {
+            fill(CGRect(x: 216 + i * 62, y: d.maxY + 12, width: 44, height: 40),
+                 CGColor(red: CGFloat(i % 5) / 5, green: CGFloat((i * 3) % 7) / 7, blue: CGFloat((i * 2) % 3) / 3, alpha: 1))
+        }
+        // Menu bar with a clock.
+        fill(CGRect(x: 0, y: 0, width: W, height: 24), CGColor(gray: 0.93, alpha: 1))
+        text("Chrome   File   Edit   View   History   Bookmarks   Window   Help", at: CGPoint(x: 36, y: 17), size: 13, color: ink, in: ctx, height: H)
+        text(spec.minute == 0 ? "Tue Oct 13  00:57" : "Tue Oct 13  00:58", at: CGPoint(x: W - 140, y: 17), size: 13, color: ink, in: ctx, height: H)
+        // Tabs, address bar, bookmarks.
+        fill(CGRect(x: 0, y: 24, width: W, height: 80), CGColor(gray: 0.88, alpha: 1))
+        for i in 0..<8 { text("Tab \(i + 1) · docs", at: CGPoint(x: 20 + i * 150, y: 46), size: 12, color: muted, in: ctx, height: H) }
+        fill(CGRect(x: 120, y: 56, width: 900, height: 24), CGColor(gray: 0.97, alpha: 1))
+        text("exploreda.dev/docs/developers", at: CGPoint(x: 140, y: 73), size: 13, color: ink, in: ctx, height: H)
+        text("Research   Slack   Planning   Dashboard   Usage desk", at: CGPoint(x: 20, y: 98), size: 12, color: muted, in: ctx, height: H)
+        // The page itself, then the site's sticky header over its top.
+        if let page = pages[spec.page], let part = page.cropping(to: CGRect(x: 0, y: spec.scrollY, width: d.width, height: d.height)) {
+            ctx.draw(part, in: cg(CGRect(x: d.x, y: d.y, width: d.width, height: d.height), H))
+        }
+        fill(CGRect(x: 0, y: 104, width: W, height: 44), CGColor(gray: 1, alpha: 1))
+        fill(CGRect(x: 0, y: 147, width: W, height: 1), CGColor(gray: 0.8, alpha: 1))
+        text("explorEDA   Docs        Search the docs", at: CGPoint(x: 30, y: 132), size: 16, color: ink, in: ctx, height: H, bold: true)
+        text("Examples   GitHub", at: CGPoint(x: W - 200, y: 132), size: 14, color: ink, in: ctx, height: H)
+        // Left nav.
+        fill(CGRect(x: 0, y: d.y, width: d.x, height: d.height), CGColor(gray: 1, alpha: 1))
+        let nav = ["The workspace", "Load data", "Fields", "Chart settings", "Developers", "Scatter plot", "Bar chart", "Row chart",
+                   "Line chart", "Box plot", "Calendar heatmap", "Hierarchy", "Donut", "Waterfall", "Sankey chart", "Parallel coordinates"]
+        for (i, item) in nav.enumerated() {
+            let y = d.y + 24 + i * 34
+            if i == 4 { fill(CGRect(x: 16, y: y - 8, width: d.x - 32, height: 28), CGColor(gray: 0.93, alpha: 1)) }
+            text(item, at: CGPoint(x: 30, y: y + 11), size: 14, color: i == 4 ? ink : muted, in: ctx, height: H, bold: i == 4)
+        }
+        // Right rail: "On this page", highlight follows the scroll; a full-example card; the window scrollbar.
+        let rx = d.maxX
+        fill(CGRect(x: rx, y: d.y, width: W - rx, height: d.height), CGColor(gray: 1, alpha: 1))
+        text("ON THIS PAGE", at: CGPoint(x: rx + 24, y: d.y + 30), size: 12, color: ink, in: ctx, height: H, bold: true)
+        let active = min(9, spec.scrollY / 260)
+        for i in 0..<10 {
+            let y = d.y + 52 + i * 26
+            if i == active { fill(CGRect(x: rx + 22, y: y - 4, width: 2, height: 22), CGColor(red: 0.1, green: 0.3, blue: 0.7, alpha: 1)) }
+            text("Section \(i + 1) heading", at: CGPoint(x: rx + 32, y: y + 12), size: 13, color: i == active ? ink : muted,
+                 in: ctx, height: H, bold: i == active)
+        }
+        fill(CGRect(x: rx + 20, y: d.y + 340, width: min(200, W - rx - 40), height: 90), CGColor(gray: 0.96, alpha: 1))
+        text("FULL EXAMPLE", at: CGPoint(x: rx + 32, y: d.y + 364), size: 11, color: ink, in: ctx, height: H, bold: true)
+        text("Inside the order book", at: CGPoint(x: rx + 32, y: d.y + 390), size: 13, color: ink, in: ctx, height: H, bold: true)
+        let thumb = d.y + Int(Double(d.height - 80) * Double(spec.scrollY) / Double(pageHeight - d.height))
+        fill(CGRect(x: W - 10, y: thumb, width: 6, height: 80), CGColor(gray: 0.55, alpha: 1))
+        drawCursor(spec.cursor, ctx: ctx, H: H)
+    }
+
+    static let barcodeX = 100, barcodeY = 814, barcodeStep = 40
 
     /// Reads the frame number back from a decoded frame (top-left origin pixels).
     static func readBarcode(_ image: CGImage) -> Int? {

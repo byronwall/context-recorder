@@ -24,7 +24,8 @@ APP_ID = "com.byronwall.ContextRecorder.UITest"
 SOURCE = Path.home() / "Movies" / "ContextRecorder"
 REQUIRED = ("2026-10-13_00-57-10", "2026-10-13_20-48-53")
 SILENT = ("2026-10-12_22-42-47", "2026-10-12_22-51-23")
-SESSIONS = REQUIRED + SILENT
+# The empty-transcript sessions only matter to the transcript checks; copy them when the library still has them.
+SESSIONS = REQUIRED + tuple(name for name in SILENT if (SOURCE / name / "session.json").is_file())
 
 
 def fraction(value: str) -> float:

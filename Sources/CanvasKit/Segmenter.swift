@@ -24,8 +24,13 @@ struct Run {
     /// The rows with real content so far (relative to `start`).
     var contentTop: Int
     var contentBottom: Int
-    /// The columns that scroll, once a join found a sidebar that doesn't; nil = the whole box.
-    var cols: Range<Int>?
+    /// Where the page scrolls, set by the first join; nil until then (a card is the whole frame).
+    var region: ScrollRegion?
+    var cols: Range<Int>? { region?.cols }
+    /// Every join's sticky bands; the column's first frame is trimmed by a low percentile of them, since one pair
+    /// can mistake blank page rows for a band (too much) and noise can hide a band (too little).
+    var topBands: [Int] = []
+    var bottomBands: [Int] = []
 
     init(start: DecodedFrame, reason: CanvasItem.Reason, confirmed: Bool) throws {
         guard let image = start.colorImage() else { throw CanvasError("Couldn't read frame \(start.ref.index)") }
@@ -84,6 +89,9 @@ struct Segmenter {
     private var lastKept: DecodedFrame?
     /// Why the next run starts: the strongest reason seen since the last kept run ended.
     private var pending: CanvasItem.Reason = .change
+    /// The columns that last scrolled, anywhere in the recording: a page usually keeps its layout, so the next
+    /// run tries them first (they still have to verify).
+    private(set) var tracked: Range<Int>?
 
     init(settings: StoryboardSettings, joiner: Joiner, pixelCount: Int) {
         self.settings = settings
@@ -100,7 +108,7 @@ struct Segmenter {
         let s = settings
         var result: JoinResult = .same
         if Diff.changedCount(current.last.small, frame.small, delta: s.pixelDelta, limit: s.changedPixels) >= s.changedPixels {
-            result = joiner.join(current.last, frame, cols: current.cols)
+            result = joiner.join(current.last, frame, region: current.region, hint: tracked)
         }
         if result == .same {
             // Holding still: a tentative run that lasts becomes a card.
@@ -111,9 +119,20 @@ struct Segmenter {
             return []
         }
 
-        if case let .shift(shift, top, bottom, cols) = result {
-            if cols != 0..<frame.gray.width { current.cols = cols }
-            current.append(frame, shift: shift, fixedTop: top, fixedBottom: bottom)
+        if case let .shift(shift, top, bottom, cols, held) = result {
+            // A few rows past a sticky band's edge are smeared by compression; leave them out too, so no frame
+            // adds a strip of header or Dock to the page. A run's columns only grow (a later pair can show more
+            // of a page than the first one did); its images keep every frame's full width.
+            let band = { (new: Int) in new > 0 ? new + 4 : 0 }
+            let wider = current.region.map { min($0.cols.lowerBound, cols.lowerBound)..<max($0.cols.upperBound, cols.upperBound) } ?? cols
+            let region = ScrollRegion(cols: wider, top: band(top), bottom: band(bottom), held: (current.region?.held ?? []).union(held))
+            current.region = region
+            current.topBands.append(region.top)
+            current.bottomBands.append(region.bottom)
+            // A narrower verified region on the same page is usually a partial view (a grid of cards with a
+            // gap); remember the wider one. A region elsewhere means the layout changed.
+            if let t = tracked, t.overlaps(cols), cols.count < t.count * 9 / 10 {} else { tracked = cols }
+            current.append(frame, shift: shift, fixedTop: region.top, fixedBottom: region.bottom)
             current.confirmed = true
             if current.height > joiner.settings.maxColumnHeight {
                 run = nil
@@ -125,6 +144,9 @@ struct Segmenter {
             return []
         }
 
+        if Joiner.debug {
+            print("break \(current.last.ref.index)->\(frame.ref.index) t=\(String(format: "%.2f", frame.ref.time)) \(result) confirmed \(current.confirmed) region \(current.region.map { "\($0.cols) \($0.top)/\($0.bottom)" } ?? "-")")
+        }
         // The run ends here; what comes next starts a new tentative run.
         let reason: CanvasItem.Reason = switch result {
         case .noOverlap: .noOverlap

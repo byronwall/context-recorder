@@ -12,18 +12,20 @@ enum Check {
         var seconds: Double
     }
 
-    static func run(root: URL, only: Set<String>?, options: CanvasAnalyzer.Options) async throws -> [Result] {
+    /// `suppliedBox`: hand the analyzer the true document area instead of the whole screen (a diagnostic
+    /// comparison; it can't pass for the product, which has to find the page itself).
+    static func run(root: URL, only: Set<String>?, options: CanvasAnalyzer.Options, suppliedBox: Bool = false) async throws -> [Result] {
         var results: [Result] = []
         for clip in Fixtures.clips() where only?.contains(clip.name) ?? true {
             let folder = root.appendingPathComponent(clip.name)
             let truth = try JSONDecoder().decode(Fixtures.Truth.self, from: Data(contentsOf: folder.appendingPathComponent("truth.json")))
             let started = Date()
-            let doc = try await CanvasAnalyzer.build(folder: folder, box: truth.box, options: options)
+            let doc = try await CanvasAnalyzer.build(folder: folder, box: suppliedBox ? truth.box : truth.screen, options: options)
             let seconds = Date().timeIntervalSince(started)
             var failures: [String] = [], notes: [String] = []
             try await checkSeeks(doc, folder: folder, failures: &failures)
             checkStoryboard(doc, truth, failures: &failures)
-            Geometry.check(doc, truth, failures: &failures, notes: &notes)
+            Geometry.check(doc, truth, joining: options.joinScrolling, failures: &failures, notes: &notes)
             results.append(Result(clip: clip.name, doc: doc, failures: failures, notes: notes, seconds: seconds))
         }
         return results

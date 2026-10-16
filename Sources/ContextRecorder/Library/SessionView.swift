@@ -75,8 +75,10 @@ struct SessionView: View {
                 .pickerStyle(.segmented)
                 .help("Switch between the video and the canvas (C)")
             } else {
-                Button { model.chooseCanvasBox() } label: { Label("Build Canvas", systemImage: "rectangle.split.3x1") }
-                    .help("Lay this recording out in space: drag around the page content once")
+                Button { model.buildCanvas() } label: {
+                    Label(model.canvasOutdated ? "Rebuild Canvas" : "Build Canvas", systemImage: "rectangle.split.3x1")
+                }
+                    .help("Lay this recording out in space: scrolled pages become tall columns")
                     .disabled(model.canvasBuilding || model.data == nil)
             }
         }
@@ -127,10 +129,11 @@ struct SessionView: View {
                 Divider()
                 if model.canvas != nil {
                     Button("Rebuild Canvas", systemImage: "arrow.clockwise") { model.rebuildCanvas() }
-                    Button("Choose Content Area and Rebuild…", systemImage: "crop") { model.chooseCanvasBox() }
+                    Button("Rebuild from a Chosen Area…", systemImage: "crop") { model.chooseCanvasBox() }
                     Button("Delete Canvas", systemImage: "trash") { model.deleteCanvas() }
                 } else {
-                    Button("Build Canvas…", systemImage: "rectangle.split.3x1") { model.chooseCanvasBox() }
+                    Button("Build Canvas", systemImage: "rectangle.split.3x1") { model.buildCanvas() }
+                    Button("Build from a Chosen Area…", systemImage: "crop") { model.chooseCanvasBox() }
                 }
                 Divider()
                 Button("Copy Folder Path", systemImage: "link") { copy(model.folder.path) }

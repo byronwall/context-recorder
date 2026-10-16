@@ -7,7 +7,7 @@ import Foundation
 /// pixel maps back to one decoded frame through `frame` (cards) or `patches` (columns), so a click can
 /// return to the moment that supplied it. Images live under `canvas/` and are cropped to the content box.
 public struct CanvasDocument: Codable, Equatable, Sendable {
-    public static let currentVersion = 1
+    public static let currentVersion = 2
     public static let fileName = "canvas.json"
     public static let imageFolder = "canvas"
 
@@ -135,9 +135,12 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
     public var patches: [Patch]
     /// Columns only: the image starts this many pixels into the content box (a sticky sidebar was left out).
     public var sourceX: Int?
+    /// Columns only: the content-box rows where the page shows in its frames (below browser chrome and sticky
+    /// headers, above the Dock). A mark from the column never reaches outside them.
+    public var pageRows: ClosedRange<Int>?
 
     public init(id: String, kind: Kind, reason: Reason, start: Double, end: Double, frame: FrameRef,
-                image: String, width: Int, height: Int, patches: [Patch] = [], sourceX: Int? = nil) {
+                image: String, width: Int, height: Int, patches: [Patch] = [], sourceX: Int? = nil, pageRows: ClosedRange<Int>? = nil) {
         self.id = id
         self.kind = kind
         self.reason = reason
@@ -149,6 +152,7 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
         self.height = height
         self.patches = patches
         self.sourceX = sourceX
+        self.pageRows = pageRows
     }
 
     /// The frame that supplied the pixel at `y` in this item's image.
@@ -170,7 +174,8 @@ public struct CanvasItem: Codable, Equatable, Identifiable, Sendable {
            let p = patches.last(where: { $0.frame == f && Double($0.destY) <= Double(rect.midY) && Double(rect.midY) < Double($0.destY + $0.height) }) {
             viewTop = Double(p.destY - p.sourceY)
         }
-        let top = max(Double(rect.minY), viewTop), bottom = min(Double(rect.maxY), viewTop + Double(box.height))
+        let rows = pageRows ?? 0...(box.height - 1)
+        let top = max(Double(rect.minY), viewTop + Double(rows.lowerBound)), bottom = min(Double(rect.maxY), viewTop + Double(rows.upperBound + 1))
         let left = max(0, Double(rect.minX)), right = min(Double(width), Double(rect.maxX))
         guard bottom - top >= 2, right - left >= 2 else { return nil }
         let x = Double(box.x + (sourceX ?? 0)) + left

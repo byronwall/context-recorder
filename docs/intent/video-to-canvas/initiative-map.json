@@ -8,7 +8,7 @@
     "last_updated": "2026-10-15",
     "summary": "Stage 1: automatic whole-screen reconstruction with local change markers in the existing layout. Stage 2 (after use): stable page positions, visit ribbon, and active-visit source playback.",
     "status": "active",
-    "next_action": "Start Milestone 6 on fixtures plus the 2026-10-13_00-57-10 canary copy."
+    "next_action": "Milestone 7: slow scrolling and interruptions preserve content (fractional scroll, overlay, small edit, local event markers)."
   },
   "artifacts": {
     "intent_brief": {
@@ -563,8 +563,13 @@
         "proof": "Automatic sidebar/header and narrow-pane fixtures: one column, initial >=90% registered observed area, p95 <=2 px, max <=4 px, zero false joins; controls and source regions pass. Canary: 2026-10-13_00-57-10 copy builds without crop and its docs pages read as columns between both sidebars.",
         "valid_intermediate_state": "Existing chronological canvas displays automatically discovered columns.",
         "rollback": "Revert tracking/build changes; video review remains available.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "canvas-tool check (whole screen, analyzer gets no document box): 12/12 clips pass, including new desktop and desktop-narrow fixtures (menu bar, browser chrome, sticky header, detailed left nav, right rail with moving highlight and scrollbar, Dock, drifting pointer, clock tick). One column each, coverage 97.4% / 95.4%, p95 0 px, max 0 px, zero false joins, 10/10 source regions.",
+          "Scroll clips gain a positive coverage gate (>=90% of observed document area correctly placed in columns; cards don't count): scroll 96.0%, reversal 96.3%, jump 94.6%, header 97.6%, cursor-scroll 98.0%. --supplied-box and --storyboard modes also pass.",
+          "Canary 2026-10-13_00-57-10 (whole screen, no crop): baseline 57 items (32 columns, 25 cards) with columns spanning the sidebars; now 48 items (31 columns, 17 cards), developer-page columns at x 320..<1120 (the document only), longest 6,591 px over 66 patches. Remaining breaks inspected: nested code-block scroller, page navigations, in-page changes while still.",
+          "In-app: --build-canvas full built the canvas through the native app path (CanvasDocument v2, box = whole frame) and the Canvas stage displayed 31 columns / 18 cards."
+        ]
       },
       {
         "id": "M7",

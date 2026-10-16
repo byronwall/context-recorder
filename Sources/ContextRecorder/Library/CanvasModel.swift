@@ -15,11 +15,13 @@ extension SessionModel {
         guard stamp != nil, let doc = try? CanvasDocument.load(from: folder), doc.version == CanvasDocument.currentVersion else {
             canvas = nil
             canvasStale = false
+            canvasOutdated = stamp != nil
             if stage == .canvas, !canvasBuilding { stage = .video }
             return
         }
         canvas = doc
         canvasStale = false
+        canvasOutdated = false
         let folder = self.folder
         Task.detached(priority: .utility) {
             let matches = CanvasAnalyzer.matchesVideo(doc, folder: folder)
@@ -30,7 +32,11 @@ extension SessionModel {
         }
     }
 
-    /// Build canvas: pause and let the user drag around the page content once. A click takes the whole frame.
+    /// Build canvas from the whole recording: the analyzer finds the scrolling page itself.
+    func buildCanvas() { buildCanvas(box: nil) }
+
+    /// Build from a chosen area: pause and let the user drag around the page content. A diagnostic and an escape
+    /// hatch; the ordinary build doesn't need it. A click takes the whole frame.
     func chooseCanvasBox() {
         player.pause()
         stage = .video
@@ -39,11 +45,8 @@ extension SessionModel {
         regionMode = true
     }
 
-    /// Rebuild with the content box chosen last time.
-    func rebuildCanvas() {
-        guard let box = canvas?.box else { chooseCanvasBox(); return }
-        buildCanvas(box: box)
-    }
+    /// Rebuild from the whole recording. An area chosen for an earlier build is not reused silently.
+    func rebuildCanvas() { buildCanvas(box: nil) }
 
     /// `region` is normalized to the video (0…1, top-left origin); nil = whole frame.
     func buildCanvas(region: CGRect?) {

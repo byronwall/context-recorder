@@ -37,11 +37,13 @@ struct CanvasStage: View {
             .onDisappear { model.previewTime = nil }
         } else {
             ContentUnavailableView {
-                Label("No Canvas", systemImage: "rectangle.split.3x1")
+                Label(model.canvasOutdated ? "Canvas Needs Rebuilding" : "No Canvas", systemImage: "rectangle.split.3x1")
             } description: {
-                Text("Build a canvas to see this recording laid out in space.")
+                Text(model.canvasOutdated ? "An older version built this canvas. Rebuild it to see the recording laid out in space."
+                                          : "Build a canvas to see this recording laid out in space.")
             } actions: {
-                Button("Build Canvas…") { model.chooseCanvasBox() }
+                Button(model.canvasOutdated ? "Rebuild Canvas" : "Build Canvas") { model.buildCanvas() }
+                    .disabled(model.canvasBuilding)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.stage)

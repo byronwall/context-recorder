@@ -58,6 +58,8 @@ final class SessionModel {
     var canvas: CanvasDocument?
     /// The recording no longer matches the canvas (re-recorded or replaced).
     var canvasStale = false
+    /// canvas.json exists but an older version of the app built it; it can't be read, only rebuilt.
+    var canvasOutdated = false
     /// 0…1 while a canvas is being built.
     var canvasProgress: Double?
     var canvasError: String?
