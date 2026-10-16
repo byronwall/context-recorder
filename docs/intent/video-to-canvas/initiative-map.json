@@ -4,17 +4,17 @@
     "title": "Video to canvas",
     "slug": "video-to-canvas",
     "scale": "capability",
-    "current_phase": "execution",
-    "last_updated": "2026-10-14",
-    "summary": "Turn a narrated screen recording into a spatial, source-linked canvas reviewed in the portable HTML viewer; storyboard first, verified scroll joining second.",
+    "current_phase": "plan",
+    "last_updated": "2026-10-15",
+    "summary": "Stage 1: automatic whole-screen reconstruction with local change markers in the existing layout. Stage 2 (after use): stable page positions, visit ribbon, and active-visit source playback.",
     "status": "active",
-    "next_action": "M5: Byron uses Canvas mode on his own sessions and records go/narrow/stop"
+    "next_action": "Start Milestone 6 on fixtures plus the 2026-10-13_00-57-10 canary copy."
   },
   "artifacts": {
     "intent_brief": {
       "path": "intent-brief.md",
       "status": "current",
-      "updated_at": "2026-10-13"
+      "updated_at": "2026-10-14"
     },
     "brainstorm": {
       "path": "brainstorm.md",
@@ -24,12 +24,12 @@
     "shape_brief": {
       "path": "shape-brief.md",
       "status": "current",
-      "updated_at": "2026-10-13"
+      "updated_at": "2026-10-14"
     },
     "implementation_plan": {
       "path": "implementation-plan.md",
       "status": "current",
-      "updated_at": "2026-10-13"
+      "updated_at": "2026-10-14"
     }
   },
   "sources": [
@@ -122,6 +122,41 @@
       "type": "question-round",
       "location": "conversation",
       "anchor": "3",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "pro-follow-up-2026-10-14",
+      "type": "external-research",
+      "location": "sources/pro-follow-up-2026-10-14/response.md",
+      "anchor": "Second assistant response after Today 8:59 PM; reviewed 76afc4f",
+      "authority": "implementation research; synthetic findings reported, native behavior unrun"
+    },
+    {
+      "id": "user-pro-follow-up-2026-10-14",
+      "type": "direct-user-input",
+      "location": "sources/pro-follow-up-2026-10-14/collection.md",
+      "anchor": "Manual follow-up requesting scrolling and display improvements",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "qa-round-4",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "4; questions 15–24 answered",
+      "authority": "direct current intent"
+    },
+    {
+      "id": "repo-plan-2026-10-14",
+      "type": "repository",
+      "location": "Sources/CanvasKit; Sources/CanvasTool; Sources/ContextRecorder/Library/CanvasModel.swift and CanvasStage.swift; scripts/ui-test/README.md",
+      "anchor": "76afc4f; planning inspection after answers 15–24",
+      "authority": "Verified local source and available data paths; no app execution"
+    },
+    {
+      "id": "qa-round-5",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "5",
       "authority": "direct current intent"
     }
   ],
@@ -255,7 +290,7 @@
         "statement": "No test suite or tracked sample recording; OpenCV is not installed locally; FFmpeg is.",
         "commitment": "derived",
         "importance": "supporting",
-        "status": "active",
+        "status": "superseded",
         "time_horizon": "current",
         "sources": [
           "SRC-005"
@@ -291,7 +326,7 @@
         "statement": "First slice: tall column per scrolled page left to right; changes, returns, and motion are plain cards. Recordings under 5 minutes. Built on request.",
         "commitment": "explicit",
         "importance": "core",
-        "status": "active",
+        "status": "superseded",
         "time_horizon": "proof",
         "sources": [
           "qa-round-2"
@@ -307,6 +342,66 @@
         "time_horizon": "proof",
         "sources": [
           "qa-round-3"
+        ]
+      },
+      {
+        "id": "INT-013",
+        "type": "problem",
+        "statement": "Current scrolling fragments into cards after limited stitching; improve continuity and explore better presentation.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "user-pro-follow-up-2026-10-14"
+        ]
+      },
+      {
+        "id": "REAL-004",
+        "type": "current-repository-reality",
+        "statement": "Native CanvasKit, CanvasTool fixtures and SwiftUI integration exist. Local source confirms region-discovery gating, immediate run closure, and geometry checks that return with no columns.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "current",
+        "sources": [
+          "pro-follow-up-2026-10-14"
+        ]
+      },
+      {
+        "id": "INT-014",
+        "type": "decision",
+        "statement": "Combine continuity repair and stable page layout. Process the whole screen automatically with very little correction; a web page with sidebar and header is the first success case.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "qa-round-4"
+        ]
+      },
+      {
+        "id": "INT-015",
+        "type": "required-behavior",
+        "statement": "Use stable pages and a compact visit ribbon. Select narration and full-video playback by the active visit, with other visits available. Group uncertain related fragments with visible gaps.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "qa-round-4"
+        ]
+      },
+      {
+        "id": "INT-016",
+        "type": "required-behavior",
+        "statement": "Show transient UI as small source-playback event markers and persistent edits as local before/after markers. Defer composite capture until real scrolling works.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "qa-round-4"
         ]
       }
     ],
@@ -327,210 +422,213 @@
   },
   "shape": {
     "status": "current",
-    "appetite": "Experiment-sized slice for recordings under 5 minutes in the native Sessions window; enough for Byron to judge from own use whether spatial review beats scrubbing.",
+    "appetite": "One coherent scope combines automatic continuity repair and stable page layout for personal recordings under five minutes. Defer composite capture until real scrolling works.",
     "problem": "Ordinary video review hides how much content was traversed, where it changed, and what was said about it.",
     "recommended_shape": {
-      "summary": "Canvas stage mode in the Sessions window, built on request with one manual content box: storyboard cards first, then tall verified columns, with click-to-video, hover narration via existing now strip, column PNG export, and mark-from-canvas.",
-      "selected_option": null,
+      "summary": "Automatic whole-screen processing builds stable pages with a compact visit ribbon, grouped uncertain fragments, local before/after edits, overlay event markers, and active-visit click-to-full-video.",
       "provisional_choices": [
-        "Python+OpenCV vs Apple Vision engine",
-        "scrollsnap reuse"
+        "Exact region proposal and recovery mechanics",
+        "Minimum representation for page identity and visit poses"
       ]
     },
     "success_moves": [
-      "Ship the storyboard in Canvas mode first; it is the refusal fallback and a useful result if stitching fails.",
-      "Develop joining against synthetic scroll clips cut from tall screenshots with FFmpeg so every offset is known exactly.",
-      "Burn a frame counter into synthetic clips to verify click-to-video lands on the true source frame.",
-      "Keep canvas.json + canvas/ as the single engine-neutral seam read by SessionModel; absent or mismatched data leaves the Sessions window unchanged.",
-      "Decide Python+OpenCV vs Apple Vision with one bake-off on the same fixtures, then keep only one engine.",
-      "Reuse RegionPicker, SessionModel.seek, NowStrip, and addReviewShot instead of new UI paths."
+      "Require automatic full-screen coverage in acceptance; use known crops only to diagnose failures.",
+      "Reuse the native CLI and deterministic fixtures before native review of a personal recording.",
+      "Try independent regions and bounded recovery before replacing the matcher.",
+      "Keep event inspection separate from geometry anchors to preserve edits and overlays.",
+      "Separate pixel contributors from visits so repeated content keeps correct narration.",
+      "Deliver small runnable steps within the combined reconstruction and stable-page scope."
     ],
     "first_proof": {
-      "question": "Can verified joining reconstruct scrolled content with zero false joins, and do scripted walkthroughs produce readable columns that click back to the right frame?",
-      "artifact": "Synthetic fixture suite plus 2-3 scripted recordings under 5 minutes in Canvas mode.",
-      "decision_rule": "Use it on own sessions if synthetic p95 <= 2 px with zero false joins and scripted clips yield readable columns; otherwise keep the storyboard and stop stitching."
+      "question": "Can a whole-screen web page remain a useful stable surface through sidebar/header interference, slow scroll, an overlay, an edit, a return, and a true jump?",
+      "artifact": "Native directed fixtures plus a disposable representative personal recording, reviewed in the stable page layout.",
+      "decision_rule": "Require useful reconstructed coverage, no false joins or lost edits, distinct visit narration, correct full-video seeks, and explicit gaps. A manually supplied crop does not pass."
     },
     "rabbit_holes": [
-      "general video support",
-      "DOM replay or scroll instrumentation",
-      "return detection",
-      "long-session tiling",
-      "HTML viewer canvas",
-      "maintaining two analysis engines"
+      "Composite capture before real scrolling works",
+      "Inline playback despite the retained full-video click behavior",
+      "Browser instrumentation without a measured need",
+      "General video support",
+      "Long-session tiling",
+      "A database or graph service for visits"
     ],
     "open_decisions": []
   },
   "implementation": {
     "status": "current",
     "repository_snapshot": {
-      "root": "context-recorder",
-      "revision": "6c74158ca96abd36819d2a58f75bacdc44107bb0",
-      "worktree_status": "clean before this run",
+      "root": "/Users/byronwall/Projects/context-recorder (Claude worktree video-canvas-plan-review-8c1474)",
+      "revision": "5710dd5 (canvas code unchanged since 76afc4f)",
+      "worktree_status": "Branch claude/video-canvas-plan-review-8c1474; planning docs only.",
       "subsystems": [
-        "Sources/ContextRecorder/Library/SessionView.swift (Stage, RegionPicker, NowStrip)",
-        "Sources/ContextRecorder/Library/SessionModel.swift (player, seek)",
-        "Sources/ContextRecorder/Library/Review.swift (addReviewShot, reprocess)",
-        "scripts/analyze_canvas.py (proposed)",
-        "scripts/canvas/ fixtures and tests (proposed)"
+        "Sources/CanvasKit/Join.swift and ShiftEstimator.swift: region proposals and overlap verification",
+        "Sources/CanvasKit/Segmenter.swift and Storyboard.swift: anchors, continuity, change selection",
+        "Sources/CanvasKit/CanvasDocument.swift and CanvasAnalyzer.swift: contributors, composition, persistence",
+        "Sources/CanvasKit/FrameSource.swift: native decode and exact presentation times",
+        "Sources/CanvasTool/Fixtures.swift, Check.swift, Geometry.swift, main.swift: directed corpus and checks",
+        "Sources/ContextRecorder/Library/CanvasModel.swift, CanvasStage.swift, SessionModel.swift, SessionView.swift: build, layout, source seeking, marks",
+        "scripts/ui-test/harness.py and README.md: isolated native UI proof"
       ],
       "test_commands": [
-        "python3 scripts/canvas/test_canvas.py (proposed)",
-        "swift build"
+        "swift run -c release canvas-tool check --fixtures tmp/canvas-next",
+        "swift build",
+        "python3 scripts/ui-test/harness.py prepare",
+        "python3 scripts/ui-test/harness.py launch --session 2026-10-13_00-57-10",
+        "python3 scripts/ui-test/harness.py stop"
       ],
       "deployment_surfaces": [
-        "local app build via scripts/build-app.sh",
-        "session folder canvas.json + canvas/"
+        "Local isolated UI test app; no production install needed",
+        "Derived session output canvas.json and canvas/"
       ]
     },
     "dependencies": [
       {
         "id": "DEP-001",
-        "name": "Stitching engine: row-profile estimator (chosen over Apple Vision and OpenCV)",
+        "name": "Existing row-profile matching and native composition",
         "material": true,
-        "application_seam": "canvas.json written by the analyzer, read by SessionModel",
+        "application_seam": "Joiner result into Segmenter; CanvasDocument output",
         "semantic_contract": [
-          "estimate translation",
-          "verify overlap",
-          "refuse with reason"
+          "Automatic region discovery from full frames",
+          "Verified geometry independent of residual content changes",
+          "Source pixels and timestamps preserved"
         ],
         "failure_modes": [
-          "false join on repeated text",
-          "fixed header bias",
-          "cursor motion",
-          "insufficient overlap",
-          "install incompatibility"
+          "Stationary detail wins zero shift",
+          "Repeated rows falsely align",
+          "Temporary failure closes run",
+          "Persistent edit is lost"
         ],
         "proof_rungs": [
           "deterministic-fake",
           "contract-test",
-          "live-sandbox"
+          "native-app-smoke"
         ],
-        "local_proof": "Synthetic FFmpeg-cut scroll clips with known offsets, same contract for both candidates.",
-        "live_proof": "2-3 scripted recordings, then own sessions.",
-        "rollout": "Bake-off in M2; keep one engine; analyzer runs only on request.",
+        "local_proof": "Native generated clips with separate expected regions; coverage, geometry, edit, and refusal checks.",
+        "live_proof": "Whole-screen representative personal clip on a disposable copy.",
+        "rollout": "Existing local dependency; use disposable outputs, version derived schema once, keep video review available.",
         "first_proof_role": {
           "mode": "real",
-          "rationale": "Joining accuracy is the core uncertainty; exercised on synthetic clips with exact ground truth."
+          "rationale": "Use existing native implementation on generated video to expose real decode/composition behavior. No new external dependency is introduced."
         }
       },
       {
         "id": "DEP-002",
-        "name": "FFmpeg decode timing (showinfo)",
+        "name": "AVFoundation decode and native source playback",
         "material": true,
-        "application_seam": "frame index in canvas.json",
+        "application_seam": "FrameSource FrameRef and SessionModel.seek",
         "semantic_contract": [
-          "frame number",
-          "presentation time",
-          "time base",
-          "size"
+          "Actual presentation times",
+          "Point visible at selected source frame",
+          "Active-visit coordinates and original recording time"
         ],
         "failure_modes": [
-          "irregular frame gaps",
-          "seek lands on neighbor frame",
-          "first/last frame offsets"
+          "Seek shows adjacent frame",
+          "Contributor time substitutes for later visit",
+          "Cut-session mapping applies incorrectly"
         ],
         "proof_rungs": [
           "deterministic-fake",
-          "live-sandbox"
+          "contract-test",
+          "native-app-smoke"
         ],
-        "local_proof": "Synthetic clip with burned-in frame counter.",
-        "live_proof": "Spot-check seeks on a real recording.",
-        "rollout": "Already a project dependency.",
+        "local_proof": "Existing barcode image-generator checks extended to visits; native Core Graphics output checked.",
+        "live_proof": "Actual AVPlayer and SwiftUI pointer/keyboard checks in the isolated app.",
+        "rollout": "Existing local dependency; use disposable outputs, version derived schema once, keep video review available.",
         "first_proof_role": {
           "mode": "real",
-          "rationale": "Already installed and used; mapping is verified directly in M1."
+          "rationale": "Use existing native implementation on generated video to expose real decode/composition behavior. No new external dependency is introduced."
         }
       }
     ],
     "fast_local_loop": {
-      "command": "swift run -c release canvas-tool check",
+      "command": "swift run -c release canvas-tool check --fixtures tmp/canvas-next",
       "network_required": false,
       "shared_infrastructure_required": false,
       "dependencies_started": [],
       "failure_injection": [
-        "generated fixtures: fixed header, cursor, repeated rows, blank gap, fast jump, mid-scroll edit"
+        "Detailed sidebar and header; narrow pane",
+        "Fractional scroll, changing badge, brief overlay",
+        "Persistent edit while scrolling; cursor and caret negatives",
+        "True jump, periodic rows, blank area",
+        "Return A to B to A and similar unrelated pages"
       ],
-      "slower_confirmation": "swift build and Canvas mode on scripted recordings."
+      "slower_confirmation": "Isolated native UI test bundle on generated sessions and disposable personal recording copies. Existing real inputs found; scenario suitability remains unverified."
     },
     "milestones": [
       {
-        "id": "M1",
-        "title": "Storyboard in Canvas mode",
-        "outcome": "Build canvas + content box produce change cards in a Canvas stage mode; click returns to video at the exact frame.",
+        "id": "M6",
+        "title": "A whole-screen page reconstructs automatically",
+        "outcome": "Build without a crop produces a verified tall page beside fixed chrome.",
         "dependencies_introduced": [],
-        "proof": "Burned-in counter matches card frame after click; synthetic change clip yields expected cards.",
-        "valid_intermediate_state": "Useful storyboard; sessions without canvas unchanged.",
-        "rollback": "Delete canvas.json and canvas/.",
-        "status": "completed",
-        "evidence": [
-          "canvas-tool check: 10/10 fixture clips pass incl. barcode seek checks; real 97 s session -> 38 cards in 2.2 s; app build path via --build-canvas hook"
-        ]
+        "proof": "Automatic sidebar/header and narrow-pane fixtures: one column, initial >=90% registered observed area, p95 <=2 px, max <=4 px, zero false joins; controls and source regions pass. Canary: 2026-10-13_00-57-10 copy builds without crop and its docs pages read as columns between both sidebars.",
+        "valid_intermediate_state": "Existing chronological canvas displays automatically discovered columns.",
+        "rollback": "Revert tracking/build changes; video review remains available.",
+        "status": "planned",
+        "evidence": []
       },
       {
-        "id": "M2",
-        "title": "Engine choice and joining on fake clips",
-        "outcome": "One engine chosen; joins verified or refused with reasons.",
-        "dependencies_introduced": [
-          "DEP-001"
-        ],
-        "proof": "Fixture suite: p95 <= 2 px, zero false joins, refusal on every jump/edit fixture.",
-        "valid_intermediate_state": "Storyboard still works; joining validated offline.",
-        "rollback": "Disable joining; storyboard only.",
-        "status": "completed",
-        "evidence": [
-          "canvas-tool check: 10/10 clips pass with joining (p95 0 px, no false joins, refusals on jump/repeated/blank); bake-off in spikes/engine-bakeoff.md; real 97 s session -> 20 columns (max 8867 px) + 17 cards in 4.7 s"
-        ]
+        "id": "M7",
+        "title": "Slow scrolling and interruptions preserve content",
+        "outcome": "Continuous geometry retains overlays and persistent edits as local events.",
+        "dependencies_introduced": [],
+        "proof": "Fractional/overlay fixtures remain continuous; before/after pixels and times match truth; pointer negatives and jump refusals pass. Canary rerun shows no regression; then Stage 1 personal-use review decides whether Stage 2 starts.",
+        "valid_intermediate_state": "Existing canvas shows local event/change markers without losing observations.",
+        "rollback": "Revert the coherent schema and reader change; rebuild derived canvas; recording remains unchanged.",
+        "status": "planned",
+        "evidence": []
       },
       {
-        "id": "M3",
-        "title": "Tall columns in Canvas mode",
-        "outcome": "Scripted clips show readable columns with cards between; every point clicks to its source frame.",
+        "id": "M8",
+        "title": "Stable pages and a visit ribbon recover the right moment",
+        "outcome": "Pages stay in place while visits select narration, source frames, and source marks.",
         "dependencies_introduced": [],
-        "proof": "Click-to-frame spot checks and seam inspection.",
-        "valid_intermediate_state": "Canvas usable on short real recordings.",
-        "rollback": "Storyboard only.",
-        "status": "completed",
-        "evidence": [
-          "canvas-tool check row->frame mapping 100% of sampled rows on all fixture columns; real 97 s session renders tall columns with hover time badge (offscreen render); scripted recordings by Byron still pending, real sessions used instead"
-        ]
+        "proof": "A-B-A and similar-page negatives; active visit visible/absent point resolution; reload; pointer and accessible source actions.",
+        "valid_intermediate_state": "Stable page atlas and compact ribbon work on generated native sessions. Starts only after Stage 1 use and a ribbon/page layout design pass.",
+        "rollback": "Revert layout/schema together and rebuild derived files; full video remains available.",
+        "status": "gated",
+        "evidence": []
       },
       {
-        "id": "M4",
-        "title": "Export a column and mark from the canvas",
-        "outcome": "Columns copy/export as PNG; canvas selection creates a normal review mark.",
+        "id": "M9",
+        "title": "The stable-page flow works on a personal recording",
+        "outcome": "Automatic target walkthrough passes native interaction and personal-use review.",
         "dependencies_introduced": [],
-        "proof": "Mark time and crop match selection and survive reprocess.",
-        "valid_intermediate_state": "Extras on existing paths.",
-        "rollback": "Hide menu items.",
-        "status": "completed",
-        "evidence": [
-          "canvas-tool check: canvas->video region mapping correct on all fixture columns (mutation-tested); real column selection produced review mark 8 whose shot matches the column crop (mean abs diff 0.16)"
-        ]
-      },
-      {
-        "id": "M5",
-        "title": "Decide from real use",
-        "outcome": "Go/narrow/stop decision recorded from own sessions.",
-        "dependencies_introduced": [],
-        "proof": "Written judgment in the initiative map.",
-        "valid_intermediate_state": "Decision recorded; storyboard kept regardless.",
-        "rollback": "Keep storyboard.",
-        "status": "planned"
+        "proof": "Whole-screen web clip under five minutes exercises sidebar/header, slow scroll, overlay, edit, return, jump. Verify actual AVPlayer seeks, native narration, marks, export, reload, cancellation, stale rebuild, cut mapping, and measured resource cost.",
+        "valid_intermediate_state": "Representative personal recording meets the selected shape, with evidence and limits recorded.",
+        "rollback": "Keep full-video review; reduce real failures into directed fixtures before continuing.",
+        "status": "gated",
+        "evidence": []
       }
     ],
     "cut_line": [
-      "changed states beside earlier states",
-      "return arrows",
-      "motion posters and stacks",
-      "automatic content-area detection",
-      "long-session tiling",
-      "lecture mode",
-      "Product Grid canvas export",
-      "HTML viewer canvas",
-      "browser scroll instrumentation",
-      "token-level transcript alignment"
+      "Selected composite capture",
+      "Inline video and embedded motion",
+      "Browser telemetry and OCR",
+      "General video and several independent panes at once",
+      "Second maintained engine",
+      "Long-session tiling, elaborate zoom, cloud or database",
+      "Old derived-schema compatibility"
     ],
-    "open_decisions": []
+    "open_decisions": [
+      {
+        "id": "region-discovery",
+        "decision": "Bounded region proposals versus adding coarse temporal masks",
+        "evidence": "Automatic sidebar/header and changing-badge fixtures; spatial residuals",
+        "fallback": "Diagnose using known crop, but keep automatic milestone incomplete until it passes."
+      },
+      {
+        "id": "fractional-motion",
+        "decision": "Accumulated-motion anchors versus floating poses and bounded 2D verification",
+        "evidence": "Fractional slow-scroll fixtures and representative recording",
+        "fallback": "Keep explicit unaligned fragments; do not skip event inspection or ship false joins."
+      },
+      {
+        "id": "return-identity",
+        "decision": "Minimum image-supported identity and pose evidence for a return",
+        "evidence": "A-B-A and similar unrelated-page negatives",
+        "fallback": "Related fragments with an explicit gap, without certified page identity."
+      }
+    ]
   },
   "history": [
     {
@@ -572,6 +670,191 @@
       "date": "2026-10-14",
       "phase": "execution",
       "change": "M4: Copy Image / Export PNG on canvas items; M and S marks from the canvas through the existing review-mark path; region math in CanvasItem.sourceRegion, checked against fixture truth."
+    },
+    {
+      "date": "2026-10-14",
+      "change": "Collected only the second Pro response and original ZIP; verified 550 manifest entries. Updated intent and provisional shape. Marked prior plan stale. Prepared ten product questions. No application changes or experiments run."
+    },
+    {
+      "date": "2026-10-14",
+      "change": "Absorbed all ten answers. Automatic whole-screen analysis and stable pages are one scope. Retained full-video clicks; selected visit-aware narration, local changes, and overlay markers. Deferred composite capture. Rewrote intent and shape; prior plan remains stale."
+    },
+    {
+      "date": "2026-10-14",
+      "phase": "plan",
+      "change": "Replaced the obsolete implementation plan after questions 15–24. Preserved earlier implementation evidence here; M5 personal-use decision is absorbed into M9, not marked complete. No new implementation or native proof was run.",
+      "superseded_implementation": {
+        "status": "stale",
+        "repository_snapshot": {
+          "root": "context-recorder",
+          "revision": "76afc4faa24887408c275360132f0dd03384c94b",
+          "worktree_status": "clean before this run",
+          "subsystems": [
+            "Sources/ContextRecorder/Library/SessionView.swift (Stage, RegionPicker, NowStrip)",
+            "Sources/ContextRecorder/Library/SessionModel.swift (player, seek)",
+            "Sources/ContextRecorder/Library/Review.swift (addReviewShot, reprocess)",
+            "scripts/analyze_canvas.py (proposed)",
+            "scripts/canvas/ fixtures and tests (proposed)"
+          ],
+          "test_commands": [
+            "python3 scripts/canvas/test_canvas.py (proposed)",
+            "swift build"
+          ],
+          "deployment_surfaces": [
+            "local app build via scripts/build-app.sh",
+            "session folder canvas.json + canvas/"
+          ]
+        },
+        "dependencies": [
+          {
+            "id": "DEP-001",
+            "name": "Stitching engine: row-profile estimator (chosen over Apple Vision and OpenCV)",
+            "material": true,
+            "application_seam": "canvas.json written by the analyzer, read by SessionModel",
+            "semantic_contract": [
+              "estimate translation",
+              "verify overlap",
+              "refuse with reason"
+            ],
+            "failure_modes": [
+              "false join on repeated text",
+              "fixed header bias",
+              "cursor motion",
+              "insufficient overlap",
+              "install incompatibility"
+            ],
+            "proof_rungs": [
+              "deterministic-fake",
+              "contract-test",
+              "live-sandbox"
+            ],
+            "local_proof": "Synthetic FFmpeg-cut scroll clips with known offsets, same contract for both candidates.",
+            "live_proof": "2-3 scripted recordings, then own sessions.",
+            "rollout": "Bake-off in M2; keep one engine; analyzer runs only on request.",
+            "first_proof_role": {
+              "mode": "real",
+              "rationale": "Joining accuracy is the core uncertainty; exercised on synthetic clips with exact ground truth."
+            }
+          },
+          {
+            "id": "DEP-002",
+            "name": "FFmpeg decode timing (showinfo)",
+            "material": true,
+            "application_seam": "frame index in canvas.json",
+            "semantic_contract": [
+              "frame number",
+              "presentation time",
+              "time base",
+              "size"
+            ],
+            "failure_modes": [
+              "irregular frame gaps",
+              "seek lands on neighbor frame",
+              "first/last frame offsets"
+            ],
+            "proof_rungs": [
+              "deterministic-fake",
+              "live-sandbox"
+            ],
+            "local_proof": "Synthetic clip with burned-in frame counter.",
+            "live_proof": "Spot-check seeks on a real recording.",
+            "rollout": "Already a project dependency.",
+            "first_proof_role": {
+              "mode": "real",
+              "rationale": "Already installed and used; mapping is verified directly in M1."
+            }
+          }
+        ],
+        "fast_local_loop": {
+          "command": "swift run -c release canvas-tool check",
+          "network_required": false,
+          "shared_infrastructure_required": false,
+          "dependencies_started": [],
+          "failure_injection": [
+            "generated fixtures: fixed header, cursor, repeated rows, blank gap, fast jump, mid-scroll edit"
+          ],
+          "slower_confirmation": "swift build and Canvas mode on scripted recordings."
+        },
+        "milestones": [
+          {
+            "id": "M1",
+            "title": "Storyboard in Canvas mode",
+            "outcome": "Build canvas + content box produce change cards in a Canvas stage mode; click returns to video at the exact frame.",
+            "dependencies_introduced": [],
+            "proof": "Burned-in counter matches card frame after click; synthetic change clip yields expected cards.",
+            "valid_intermediate_state": "Useful storyboard; sessions without canvas unchanged.",
+            "rollback": "Delete canvas.json and canvas/.",
+            "status": "completed",
+            "evidence": [
+              "canvas-tool check: 10/10 fixture clips pass incl. barcode seek checks; real 97 s session -> 38 cards in 2.2 s; app build path via --build-canvas hook"
+            ]
+          },
+          {
+            "id": "M2",
+            "title": "Engine choice and joining on fake clips",
+            "outcome": "One engine chosen; joins verified or refused with reasons.",
+            "dependencies_introduced": [
+              "DEP-001"
+            ],
+            "proof": "Fixture suite: p95 <= 2 px, zero false joins, refusal on every jump/edit fixture.",
+            "valid_intermediate_state": "Storyboard still works; joining validated offline.",
+            "rollback": "Disable joining; storyboard only.",
+            "status": "completed",
+            "evidence": [
+              "canvas-tool check: 10/10 clips pass with joining (p95 0 px, no false joins, refusals on jump/repeated/blank); bake-off in spikes/engine-bakeoff.md; real 97 s session -> 20 columns (max 8867 px) + 17 cards in 4.7 s"
+            ]
+          },
+          {
+            "id": "M3",
+            "title": "Tall columns in Canvas mode",
+            "outcome": "Scripted clips show readable columns with cards between; every point clicks to its source frame.",
+            "dependencies_introduced": [],
+            "proof": "Click-to-frame spot checks and seam inspection.",
+            "valid_intermediate_state": "Canvas usable on short real recordings.",
+            "rollback": "Storyboard only.",
+            "status": "completed",
+            "evidence": [
+              "canvas-tool check row->frame mapping 100% of sampled rows on all fixture columns; real 97 s session renders tall columns with hover time badge (offscreen render); scripted recordings by Byron still pending, real sessions used instead"
+            ]
+          },
+          {
+            "id": "M4",
+            "title": "Export a column and mark from the canvas",
+            "outcome": "Columns copy/export as PNG; canvas selection creates a normal review mark.",
+            "dependencies_introduced": [],
+            "proof": "Mark time and crop match selection and survive reprocess.",
+            "valid_intermediate_state": "Extras on existing paths.",
+            "rollback": "Hide menu items.",
+            "status": "completed",
+            "evidence": [
+              "canvas-tool check: canvas->video region mapping correct on all fixture columns (mutation-tested); real column selection produced review mark 8 whose shot matches the column crop (mean abs diff 0.16)"
+            ]
+          },
+          {
+            "id": "M5",
+            "title": "Decide from real use",
+            "outcome": "Go/narrow/stop decision recorded from own sessions.",
+            "dependencies_introduced": [],
+            "proof": "Written judgment in the initiative map.",
+            "valid_intermediate_state": "Decision recorded; storyboard kept regardless.",
+            "rollback": "Keep storyboard.",
+            "status": "planned"
+          }
+        ],
+        "cut_line": [
+          "changed states beside earlier states",
+          "return arrows",
+          "motion posters and stacks",
+          "automatic content-area detection",
+          "long-session tiling",
+          "lecture mode",
+          "Product Grid canvas export",
+          "HTML viewer canvas",
+          "browser scroll instrumentation",
+          "token-level transcript alignment"
+        ],
+        "open_decisions": []
+      }
     }
   ],
   "closure": null,
@@ -683,6 +966,174 @@
             "question": "Extras in first version?",
             "answer": "Copy/export a column image; Mark from the canvas",
             "effect": "Adds PNG copy/export of a column and creating a review mark at a selected patch source time."
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "theme": "Continuity repair and review experience",
+        "source": "qa-round-4",
+        "questions": [
+          {
+            "n": 15,
+            "question": "Which result should lead the next change?",
+            "options": [
+              "Reliable long scrolling surfaces",
+              "A better canvas layout",
+              "Both in one change"
+            ],
+            "answer": "Both in one change",
+            "effect": "Combine continuity repair and stable page layout in the next scope."
+          },
+          {
+            "n": 16,
+            "question": "How much manual crop correction is acceptable?",
+            "options": [
+              "One initial box, automatic thereafter",
+              "Adjust and retry when needed",
+              "Several manual corrections are fine"
+            ],
+            "answer": "Very minimal. I really expect to capture the whole screen and rely on auto processing",
+            "effect": "Require automatic whole-screen processing; manual crop cannot pass acceptance."
+          },
+          {
+            "n": 17,
+            "question": "Which difficult recording should define success first?",
+            "options": [
+              "Web page with sidebar and header",
+              "Nested scrolling application pane",
+              "Code or slide walkthrough"
+            ],
+            "answer": "Web page with sidebar and header",
+            "effect": "Lead with a full-screen web page containing a sidebar and header."
+          },
+          {
+            "n": 18,
+            "question": "If alignment remains uncertain, what should you see?",
+            "options": [
+              "Related fragments grouped with a visible gap",
+              "Separate cards in time order",
+              "An uncertain connection I can approve"
+            ],
+            "answer": "Related fragments grouped with a visible gap",
+            "effect": "Preserve related fragments with explicit unverified gaps."
+          },
+          {
+            "n": 19,
+            "question": "How should brief menus, tooltips, and overlays appear?",
+            "options": [
+              "Small event marker with source playback",
+              "Separate visible card",
+              "Source video only"
+            ],
+            "answer": "Small event marker with source playback",
+            "effect": "Represent transient UI with source-linked event markers."
+          },
+          {
+            "n": 20,
+            "question": "How should a small persistent edit appear?",
+            "options": [
+              "Local marker with before/after",
+              "New full page state beside the old one",
+              "Source-linked event without comparison"
+            ],
+            "answer": "Local marker with before/after",
+            "effect": "Preserve persistent edits in local before/after views."
+          },
+          {
+            "n": 21,
+            "question": "Should clicking content still switch to video?",
+            "options": [
+              "Keep canvas visible with inline playback",
+              "Keep current switch to full video",
+              "Select first; use an explicit play command"
+            ],
+            "answer": "Keep current switch to full video",
+            "effect": "Retain click-to-full-video behavior."
+          },
+          {
+            "n": 22,
+            "question": "Should page location or chronology organize the canvas?",
+            "options": [
+              "Stable pages plus a compact visit ribbon",
+              "Left-to-right chronology",
+              "Selectable spatial and chronological views"
+            ],
+            "answer": "Stable pages plus a compact visit ribbon",
+            "effect": "Adopt stable spatial page positions and a chronological visit ribbon."
+          },
+          {
+            "n": 23,
+            "question": "When content appears twice, which moment should selection use?",
+            "options": [
+              "The active visit, with other visits available",
+              "The frame that supplied those pixels",
+              "The latest appearance"
+            ],
+            "answer": "The active visit, with other visits available",
+            "effect": "Separate visits from pixel contributors; choose source context by active visit."
+          },
+          {
+            "n": 24,
+            "question": "Which addition belongs beside continuity repair?",
+            "options": [
+              "Selected multi-frame composite capture",
+              "Return visits with narration",
+              "No extra feature until real scrolling works"
+            ],
+            "answer": "No extra feature until real scrolling works",
+            "effect": "Defer composite capture; keep the explicitly selected layout and visit behavior in scope."
+          }
+        ]
+      },
+      {
+        "round": 5,
+        "theme": "Plan review: staging, canary, screen conditions, evidence",
+        "source": "qa-round-5",
+        "questions": [
+          {
+            "n": 25,
+            "question": "How should the large stable-page step be staged?",
+            "options": [
+              "Ship 6-7, use, then 8",
+              "Keep one scope as written",
+              "Trim 8 down"
+            ],
+            "answer": "Ship 6-7, use, then 8",
+            "effect": "Split into Stage 1 (M6-M7 in the existing layout, then personal use) and Stage 2 (M8 stable pages/ribbon after a design pass)."
+          },
+          {
+            "n": 26,
+            "question": "Which real recording should act as a canary from Milestone 6?",
+            "options": [
+              "Record a new disposable walkthrough first",
+              "Try existing sessions first",
+              "Synthetic until M9"
+            ],
+            "answer": "Try existing sessions first",
+            "effect": "Use a disposable copy of 2026-10-13_00-57-10 as the Stage 1 canary; record a new clip only for scenarios it lacks."
+          },
+          {
+            "n": 27,
+            "question": "What does a typical whole-screen recording look like?",
+            "options": [
+              "Browser maximized/fullscreen",
+              "Windowed, may move",
+              "Nested app panes",
+              "Non-browser apps"
+            ],
+            "answer": "Browser maximized/fullscreen",
+            "effect": "Region discovery targets one maximized browser with menu bar, tab/bookmark bars, Dock, and left/right sidebars; moving windows and nested panes are below the cut."
+          },
+          {
+            "n": 28,
+            "question": "Keep the 6.5 MB Pro package and raw results in docs/?",
+            "options": [
+              "Drop zip + raw results",
+              "Keep everything"
+            ],
+            "answer": "Drop zip + raw results",
+            "effect": "Removed canvas-review.zip, manifest.json, and results/ from the repo; a copy lives in the main checkout's ignored tmp/."
           }
         ]
       }
