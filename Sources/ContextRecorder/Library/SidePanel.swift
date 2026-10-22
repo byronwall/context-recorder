@@ -1,85 +1,143 @@
 import SwiftUI
 
-/// Inspector column: marks (default), transcript, page events and activity.
+/// Inspector column. Three tabs, one job each: Marks (what you flagged, with everything known at that
+/// moment), Transcript (what was said) and Events (what happened: app switches and page events in one
+/// log). One find field filters all three; each tab's count shows its matches.
 struct SidePanel: View {
     @Bindable var model: SessionModel
 
     var body: some View {
         VStack(spacing: 0) {
-            InspectorTabs(model: model)
+            InspectorHeader(model: model)
             Divider()
-            switch model.tab {
-            case .marks: MarksList(model: model)
-            case .transcript: TranscriptList(model: model)
-            case .page: PageEventsList(model: model)
-            case .activity: ActivityList(model: model)
+            Group {
+                switch model.tab {
+                case .marks: MarksList(model: model)
+                case .transcript: TranscriptList(model: model)
+                case .events: EventsList(model: model)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
 
-/// One row of text tabs with counts, instead of stacked segmented controls. The marks filter is a small
-/// menu at the end, shown only when a session has both marks and shots.
-struct InspectorTabs: View {
+// MARK: Header
+
+/// Text tabs with counts, then one find row whose trailing menu filters the current tab.
+struct InspectorHeader: View {
     @Bindable var model: SessionModel
     @Namespace private var underline
+    @FocusState private var findFocused: Bool
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(SessionModel.Tab.allCases) { tab in
-                TabButton(title: tab == .page ? "Page" : tab.rawValue, count: count(tab),
-                          selected: model.tab == tab, underline: underline) {
-                    withAnimation(.snappy(duration: 0.2)) { model.tab = tab }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 2) {
+                ForEach(SessionModel.Tab.allCases) { tab in
+                    TabButton(title: tab.rawValue, count: model.count(tab), finding: !model.query.isEmpty,
+                              selected: model.tab == tab, underline: underline) {
+                        withAnimation(.snappy(duration: 0.2)) { model.tab = tab }
+                    }
                 }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
-            if model.tab == .marks, hasBothKinds { filterMenu }
+            findRow
         }
         .padding(.horizontal, 10)
         .padding(.top, 8)
+        .padding(.bottom, 8)
+        .onChange(of: model.focusFind) { _, ask in
+            guard ask else { return }
+            findFocused = true
+            model.focusFind = false
+        }
+    }
+
+    private var findRow: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(findFocused ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+            TextField("Find in session", text: $model.query)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12.5))
+                .focused($findFocused)
+                .onExitCommand { model.query = ""; findFocused = false }
+                .accessibilityLabel("Find in marks, transcript and events")
+            if !model.query.isEmpty {
+                Button { model.query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tertiary)
+                .help("Clear (Esc)")
+                .accessibilityLabel("Clear find")
+            } else if !findFocused {
+                Text("⌘F").font(.system(size: 11)).foregroundStyle(.quaternary)
+            }
+            filterMenu
+        }
+        .padding(.leading, 8)
+        .padding(.trailing, 4)
+        .frame(height: 26)
+        .background(.quaternary.opacity(findFocused ? 0.8 : 0.5), in: .rect(cornerRadius: 6))
+    }
+
+    @ViewBuilder private var filterMenu: some View {
+        switch model.tab {
+        case .marks where hasBothKinds:
+            FilterMenu(active: model.markFilter != .all, label: model.markFilter.rawValue, help: "Show only marks or only shots") {
+                Picker("Show", selection: $model.markFilter) {
+                    ForEach(SessionModel.MarkFilter.allCases) { f in Text(f.rawValue).tag(f) }
+                }
+                .pickerStyle(.inline)
+            }
+        case .events:
+            FilterMenu(active: model.eventFilter != .all, label: model.eventFilter.rawValue, help: "Show one kind of event") {
+                Picker("Show", selection: $model.eventFilter) {
+                    ForEach(EventFilter.allCases) { f in Text(f.rawValue).tag(f) }
+                }
+                .pickerStyle(.inline)
+            }
+        default:
+            EmptyView()
+        }
     }
 
     private var hasBothKinds: Bool { model.marks.contains(where: \.isShot) && model.marks.contains { !$0.isShot } }
+}
 
-    private var filterMenu: some View {
-        Menu {
-            Picker("Show", selection: $model.markFilter) {
-                ForEach(SessionModel.MarkFilter.allCases) { f in Text("\(f.rawValue)  \(filterCount(f))").tag(f) }
+/// A filter icon that names the filter while one is on, so the list's scope is never hidden.
+private struct FilterMenu<Items: View>: View {
+    var active: Bool
+    var label: String
+    var help: String
+    @ViewBuilder var items: Items
+
+    var body: some View {
+        Menu { items } label: {
+            HStack(spacing: 4) {
+                if active { Text(label).font(.system(size: 11, weight: .semibold)) }
+                Image(systemName: active ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+                    .font(.system(size: 12, weight: .medium))
             }
-            .pickerStyle(.inline)
-        } label: {
-            Image(systemName: model.markFilter == .all ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
-                .foregroundStyle(model.markFilter == .all ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
+            .foregroundStyle(active ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            .padding(.horizontal, 4)
+            .frame(height: 22)
+            .contentShape(.rect)
         }
         .menuStyle(.button)
-        .buttonStyle(.borderless)
+        .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .padding(.bottom, 6)
-        .help(model.markFilter == .all ? "Show only marks or only shots" : "Showing \(model.markFilter.rawValue.lowercased()) only")
-    }
-
-    private func count(_ tab: SessionModel.Tab) -> Int {
-        switch tab {
-        case .marks: model.marks.count
-        case .transcript: model.transcript.count
-        case .page: model.pageEvents.count
-        case .activity: model.activity.count
-        }
-    }
-
-    private func filterCount(_ f: SessionModel.MarkFilter) -> Int {
-        switch f {
-        case .all: model.marks.count
-        case .mark: model.marks.filter { !$0.isShot }.count
-        case .screenshot: model.marks.filter(\.isShot).count
-        }
+        .help(active ? "Showing \(label.lowercased()) only" : help)
     }
 }
 
 private struct TabButton: View {
     var title: String
     var count: Int
+    var finding: Bool
     var selected: Bool
     var underline: Namespace.ID
     var action: () -> Void
@@ -87,18 +145,18 @@ private struct TabButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
+            VStack(spacing: 5) {
                 HStack(spacing: 4) {
-                    Text(title).font(.system(size: 12, weight: selected ? .semibold : .medium))
-                    if count > 0 {
-                        Text("\(count)").font(.system(size: 11, weight: .medium).monospacedDigit())
-                            .foregroundStyle(.tertiary)
-                    }
+                    Text(title).font(.system(size: 12.5, weight: selected ? .semibold : .medium))
+                    Text("\(count)")
+                        .font(.system(size: 11, weight: finding ? .semibold : .medium).monospacedDigit())
+                        .foregroundStyle(finding && count > 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                        .contentTransition(.numericText())
                 }
                 .fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(count == 0 ? .tertiary : .secondary))
                 .padding(.horizontal, 5)
-                .padding(.vertical, 3)
+                .padding(.vertical, 2)
                 .background(hovering && !selected ? AnyShapeStyle(.quaternary.opacity(0.6)) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 5))
                 ZStack {
                     if selected {
@@ -118,34 +176,53 @@ private struct TabButton: View {
     }
 }
 
+/// Shown when find or a filter hides everything in a tab.
+private struct NoMatches: View {
+    var model: SessionModel
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Nothing Matches", systemImage: "magnifyingglass")
+        } description: {
+            Text(model.query.isEmpty ? "Nothing of this kind in this session." : "Nothing here matches “\(model.query)”.")
+        } actions: {
+            Button(model.query.isEmpty ? "Show Everything" : "Clear Find") {
+                if model.query.isEmpty { model.markFilter = .all; model.eventFilter = .all } else { model.query = "" }
+            }
+        }
+    }
+}
+
 // MARK: Marks
 
 struct MarksList: View {
     var model: SessionModel
 
     var body: some View {
-        if model.filteredMarks.isEmpty {
+        if model.marks.isEmpty {
             ContentUnavailableView {
-                Label(model.marks.isEmpty ? "No Marks" : "Nothing Matches", systemImage: "flag")
+                Label("No Marks", systemImage: "flag")
             } description: {
-                Text(model.marks.isEmpty ? "Press ⌃⌥M or ⌃⌥S while recording to mark a moment." : "No marks of this kind.")
+                Text("Press M (or ⌃⌥M while recording) to mark a moment, S for a region.")
             }
+        } else if model.filteredMarks.isEmpty {
+            NoMatches(model: model)
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    // Not lazy: marks are few, and a lazy stack scrolls to the wrong spot when a card expands.
-                    VStack(spacing: 4) {
+                    // Not lazy: marks are few, and a lazy stack scrolls to the wrong spot when a row expands.
+                    VStack(spacing: 0) {
                         ForEach(model.filteredMarks) { m in
                             MarkCard(model: model, mark: m, expanded: model.selectedMark == m.index)
                                 .id(m.index)
                         }
                     }
-                    .padding(10)
+                    .padding(.vertical, 4)
                 }
                 .onChange(of: model.selectedMark) { _, index in
                     guard let index else { return }
                     Task {
-                        try? await Task.sleep(for: .milliseconds(60))   // after the card has expanded
+                        try? await Task.sleep(for: .milliseconds(60))   // after the row has expanded
                         withAnimation(.snappy) { proxy.scrollTo(index, anchor: .top) }
                     }
                 }
@@ -154,6 +231,8 @@ struct MarksList: View {
     }
 }
 
+/// A mark in the list: one compact row, or the whole mark inline when it's selected. Flat either way:
+/// the open mark is a light tint across the column, not a card.
 struct MarkCard: View {
     var model: SessionModel
     var mark: SessionMark
@@ -161,13 +240,15 @@ struct MarkCard: View {
     @State private var hovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        Group {
             if expanded {
                 MarkDetail(model: model, mark: mark) {
                     withAnimation(.snappy) { model.select(nil, seek: false) }
                 }
-                .padding(12)
-                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+                .padding(.bottom, 14)
+                .transition(.opacity)
             } else {
                 Button {
                     withAnimation(.snappy) { model.select(mark.index) }
@@ -175,20 +256,15 @@ struct MarkCard: View {
                     row.contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .padding(8)
-                .accessibilityLabel("\(mark.isShot ? "Shot" : "Mark") \(mark.index), \(Format.time(mark.offsetSeconds)): \(MarkText.title(mark))")
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .accessibilityLabel("\(mark.isShot ? "Shot" : "Mark") \(mark.index) at \(Format.time(mark.offsetSeconds)): \(MarkText.title(mark))")
                 .accessibilityHint("Seeks the video and shows details")
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            if expanded {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.background)
-                    .shadow(color: .black.opacity(0.07), radius: 10, y: 3)
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.separator.opacity(0.6), lineWidth: 0.5))
-            } else if hovering {
-                RoundedRectangle(cornerRadius: 10).fill(.quaternary.opacity(0.6))
-            }
+            if expanded { Color.accentColor.opacity(0.06) } else if hovering { Rectangle().fill(.quaternary.opacity(0.5)) }
         }
         .onHover { hovering = $0 }
         .contextMenu {
@@ -202,33 +278,57 @@ struct MarkCard: View {
     }
 
     private var row: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Thumbnail(url: model.url(mark.image), maxPixel: 280, revision: model.annotationRevision)
-                .frame(width: 92, height: 58)
-                .clipShape(.rect(cornerRadius: 7))
-                .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(.separator.opacity(0.7), lineWidth: 0.5))
-                .overlay(alignment: .topLeading) { MarkGlyph(mark: mark, size: 18).offset(x: -5, y: -5) }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(MarkText.title(mark))
+        HStack(alignment: .top, spacing: 10) {
+            Thumbnail(url: model.url(mark.image), maxPixel: 240, revision: model.annotationRevision)
+                .frame(width: 76, height: 48)
+                .clipShape(.rect(cornerRadius: 5))
+                .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.separator.opacity(0.7), lineWidth: 0.5))
+                .overlay(alignment: .topLeading) { MarkGlyph(mark: mark, size: 17).offset(x: -5, y: -5) }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(Highlight.text(MarkText.title(mark), model.query))
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 MarkMeta(model: model, mark: mark)
+                if let hit = matchOutsideTitle {
+                    Text(Highlight.text(hit, model.query))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+
+    /// While finding: where a mark matched when it isn't in the title (narration, note, URL, window).
+    private var matchOutsideTitle: String? {
+        guard !model.query.isEmpty, !Highlight.matches(MarkText.title(mark), model.query) else { return nil }
+        let c = mark.context
+        return [mark.note, mark.narration.map(MarkText.withoutFlag), c?.browserURL, c?.windowTitle, c?.appName]
+            .lazy.compactMap { $0.flatMap { Highlight.snippet($0, model.query) } }.first
+    }
 }
 
-/// App icon, where it happened, timecode and a problem count.
+/// Where it happened, a problem count and the timecode. `showKind` adds "Shot" or "Mark" in front.
 struct MarkMeta: View {
     var model: SessionModel
     var mark: SessionMark
+    var showKind = false
 
     var body: some View {
         let c = mark.context
         let problems = (mark.browser?.recent ?? []).filter(\.isProblem).count
         HStack(spacing: 5) {
+            if showKind {
+                Text(mark.isShot ? "Shot" : "Mark")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(mark.isShot ? Color.shot : Color.mark)
+                if mark.isReview {
+                    Text("added in review").foregroundStyle(.tertiary)
+                        .help("Taken from the video afterwards: no live page snapshot")
+                }
+            }
             AppIcon(bundleID: c?.bundleID, size: 13)
             Text(where_(c))
                 .lineLimit(1)
@@ -240,7 +340,7 @@ struct MarkMeta: View {
                     Text("\(problems)")
                 }
                 .foregroundStyle(.red)
-                .help(problems == 1 ? "1 recent error on the page" : "\(problems) recent errors on the page")
+                .help(problems == 1 ? "1 recent problem on the page" : "\(problems) recent problems on the page")
             }
             Text(Format.time(mark.offsetSeconds)).monospacedDigit().foregroundStyle(.tertiary)
         }
@@ -266,123 +366,194 @@ struct TranscriptList: View {
         if model.transcript.isEmpty {
             ContentUnavailableView("Silent Recording", systemImage: "mic.slash", description: Text("There's no narration for this session."))
         } else {
-            let current = model.sentenceAt(model.focusTime)
-            ScrollViewReader { proxy in
-                List(Array(model.transcript.enumerated()), id: \.offset) { i, s in
-                    TimedRow(time: s.start, highlighted: s == current) {
-                        Text(s.text).foregroundStyle(s == current ? .primary : .secondary)
-                    } action: { model.seek(s.start) }
-                    .id(i)
-                    .listRowBackground(s == current ? Color.accentColor.opacity(0.1) : nil)
-                }
-                .listStyle(.plain)
-                .onChange(of: current) { _, s in
-                    guard model.isPlaying || model.previewTime != nil, let s, let i = model.transcript.firstIndex(of: s) else { return }
-                    withAnimation { proxy.scrollTo(i, anchor: .center) }
+            let rows = model.transcriptMatches
+            if rows.isEmpty {
+                NoMatches(model: model)
+            } else {
+                let current = model.sentenceAt(model.focusTime)
+                let marksAt = model.marksBySentence
+                ScrollViewReader { proxy in
+                    List(rows, id: \.self) { i in
+                        let s = model.transcript[i]
+                        TimedRow(time: s.start, highlighted: s == current) {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text(Highlight.text(s.text, model.query))
+                                    .font(.system(size: 13))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                // The marks made during this sentence; click one to open it.
+                                ForEach(marksAt[i] ?? []) { m in
+                                    Button {
+                                        withAnimation(.snappy) { model.tab = .marks; model.select(m.index) }
+                                    } label: { MarkGlyph(mark: m, size: 16) }
+                                    .buttonStyle(.plain)
+                                    .help("\(m.isShot ? "Shot" : "Mark") \(m.index): \(MarkText.title(m))")
+                                    .accessibilityLabel("Open \(m.isShot ? "shot" : "mark") \(m.index)")
+                                }
+                            }
+                        } action: { model.seek(s.start) }
+                        .id(i)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 10))
+                        .listRowBackground(s == current ? Color.accentColor.opacity(0.1) : nil)
+                    }
+                    .listStyle(.plain)
+                    .onChange(of: current) { _, s in
+                        guard model.isPlaying || model.previewTime != nil, let s, let i = model.transcript.firstIndex(of: s) else { return }
+                        withAnimation { proxy.scrollTo(i, anchor: .center) }
+                    }
                 }
             }
         }
     }
 }
 
-// MARK: Page events
+// MARK: Events
 
-struct PageEventsList: View {
+/// App switches and page events in one time-ordered log. Problems are red; identical events in a
+/// quick run share a row with a ×N count. The row at the playhead is lit and followed while playing.
+struct EventsList: View {
     var model: SessionModel
 
     var body: some View {
-        if model.pageEvents.isEmpty {
-            ContentUnavailableView("No Page Events", systemImage: "puzzlepiece.extension",
-                                   description: Text("Install the Chrome extension (see README) to capture clicks, navigation, console errors and failed requests."))
+        if model.events.isEmpty {
+            ContentUnavailableView("No Events", systemImage: "list.bullet.rectangle",
+                                   description: Text("App switches and page events appear here. Set up the Chrome extension (Help menu) to capture clicks, navigation, console errors and failed requests."))
         } else {
-            List(Array(model.pageEvents.enumerated()), id: \.offset) { _, entry in
-                TimedRow(time: entry.offsetSeconds, highlighted: false) {
-                    PageEventRow(event: entry.event)
-                } action: { model.seek(entry.offsetSeconds) }
-                .listRowBackground(entry.event.isProblem ? Color.red.opacity(0.07) : nil)
+            let events = model.filteredEvents
+            if events.isEmpty {
+                NoMatches(model: model)
+            } else {
+                let current = events.last { $0.time <= model.focusTime + 0.05 }?.id
+                ScrollViewReader { proxy in
+                    List(events) { e in
+                        TimedRow(time: e.time, highlighted: e.id == current) {
+                            EventRow(event: e, query: model.query)
+                        } action: { model.seek(e.time) }
+                        .id(e.id)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 10))
+                        .listRowBackground(e.id == current ? Color.accentColor.opacity(0.1) : nil)
+                    }
+                    .listStyle(.plain)
+                    .onChange(of: current) { _, id in
+                        guard model.isPlaying || model.previewTime != nil, let id else { return }
+                        withAnimation { proxy.scrollTo(id, anchor: .center) }
+                    }
+                }
             }
-            .listStyle(.plain)
         }
     }
 }
 
+struct EventRow: View {
+    var event: SessionEvent
+    var query: String
+
+    var body: some View {
+        switch event.source {
+        case .app(let c): AppEventRow(context: c, query: query)
+        case .page(let e): PageEventRow(event: e, repeats: event.repeats, query: query)
+        }
+    }
+}
+
+/// The front app or window changed.
+private struct AppEventRow: View {
+    var context: MarkContext?
+    var query: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
+            AppIcon(bundleID: context?.bundleID, size: 14)
+                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
+                .frame(width: 15)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(Highlight.text(context?.appName ?? "Unknown app", query)).font(.system(size: 12.5, weight: .medium))
+                if let sub = (context?.browserURL.nonEmpty.map(Format.shortURL)) ?? context?.windowTitle.nonEmpty {
+                    Text(Highlight.text(sub, query))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+        }
+        .help([context?.appName, context?.windowTitle, context?.browserURL].compactMap { $0.nonEmpty }.joined(separator: "\n"))
+    }
+}
+
+/// One page event in at most two lines: the thing itself, then a quieter detail line. Used in the
+/// Events log and in a mark's problems.
 struct PageEventRow: View {
     var event: PageEvent
+    var repeats = 1
+    var query = ""
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
             Image(systemName: PageEventStyle.symbol(event))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(PageEventStyle.color(event))
-                .frame(width: 16)
+                .frame(width: 15)
                 .accessibilityLabel(PageEventStyle.name(event))
-            VStack(alignment: .leading, spacing: 3) {
-                switch event.kind {
-                case "request":
-                    HStack(spacing: 5) {
-                        Tag(text: event.method ?? "?", tint: .secondary)
-                        if let status = event.status { Tag(text: "\(status)", tint: event.isProblem ? .red : .green) }
-                        if let ms = event.ms { Text("\(Format.number(ms.rounded())) ms").font(.caption).foregroundStyle(.secondary) }
-                        if event.slow == true { Tag(text: "slow", tint: .orange) }
-                    }
-                    Text(event.requestUrl ?? "").font(.callout).lineLimit(1).truncationMode(.middle)
-                    if let detail = event.error ?? event.body {
-                        Text(detail).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(3)
-                    }
-                case "click":
-                    Text(event.element?.text.nonEmpty.map { "“\($0)”" } ?? "Click").font(.callout)
-                    Text(event.element?.selector ?? "").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
-                case "nav":
-                    Text(event.url ?? "").font(.callout).lineLimit(1).truncationMode(.middle)
-                    Text(event.how ?? "").font(.caption).foregroundStyle(.secondary)
-                case "console":
-                    Text(event.message ?? "").font(.callout).lineLimit(3)
-                    Text("console.\(event.level ?? "log")").font(.caption.monospaced()).foregroundStyle(.secondary)
-                case "error":
-                    Text(event.message ?? event.source ?? "").font(.callout).lineLimit(3)
-                    Text(event.type ?? "Error").font(.caption.monospaced()).foregroundStyle(.secondary)
-                default:
-                    Text(event.summary).font(.callout)
-                }
+            VStack(alignment: .leading, spacing: 1) { lines }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if repeats > 1 {
+                Text("×\(repeats)")
+                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .help("\(repeats) in a row")
             }
         }
+        .help(event.summary)
     }
-}
 
-struct Tag: View {
-    var text: String
-    var tint: Color
-    var body: some View {
-        Text(text)
-            .font(.caption2.weight(.semibold).monospaced())
-            .foregroundStyle(tint)
-            .padding(.horizontal, 5).padding(.vertical, 1)
-            .background(tint.opacity(0.13), in: .rect(cornerRadius: 4))
-    }
-}
-
-// MARK: Activity
-
-struct ActivityList: View {
-    var model: SessionModel
-
-    var body: some View {
-        if model.activity.isEmpty {
-            ContentUnavailableView("No Activity", systemImage: "macwindow", description: Text("No app or window changes were recorded."))
-        } else {
-            List(Array(model.activity.enumerated()), id: \.offset) { _, a in
-                TimedRow(time: a.offsetSeconds, highlighted: false) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        RoundedRectangle(cornerRadius: 3).fill(model.color(forApp: a.context?.appName)).frame(width: 10, height: 10)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(a.context?.appName ?? "Unknown app").font(.callout.weight(.medium))
-                            if let sub = a.context?.browserURL ?? a.context?.windowTitle, !sub.isEmpty {
-                                Text(sub).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                            }
-                        }
-                    }
-                } action: { model.seek(a.offsetSeconds) }
+    @ViewBuilder private var lines: some View {
+        switch event.kind {
+        case "request":
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(event.method ?? "?").font(.system(size: 11, weight: .semibold).monospaced()).foregroundStyle(.secondary)
+                if let status = event.status {
+                    Text(status == 0 ? "failed" : "\(status)")
+                        .font(.system(size: 11, weight: .semibold).monospaced())
+                        .foregroundStyle(event.isProblem ? .red : .green)
+                }
+                primary(Format.shortURL(event.requestUrl ?? ""), lines: 1)
             }
-            .listStyle(.plain)
+            detail([event.error ?? event.body, event.ms.map { "\(Format.number($0.rounded())) ms" }, event.slow == true ? "slow" : nil])
+        case "click":
+            primary(event.element?.text.nonEmpty.map { "Click “\($0)”" } ?? "Click", lines: 1)
+            detail([event.element?.selector], mono: true)
+        case "nav":
+            primary(Format.shortURL(event.url ?? ""), lines: 1)
+            detail([event.how])
+        case "console":
+            primary(trimmed(event.message), lines: 2)
+        case "error":
+            primary(trimmed(event.message ?? event.source), lines: 2)
+            detail([event.type], mono: true)
+        default:
+            primary(event.summary, lines: 2)
+        }
+    }
+
+    private func trimmed(_ s: String?) -> String { (s ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private func primary(_ s: String, lines: Int) -> some View {
+        Text(Highlight.text(s, query))
+            .font(.system(size: 12.5))
+            .lineLimit(lines)
+            .truncationMode(lines == 1 ? .middle : .tail)
+    }
+
+    @ViewBuilder private func detail(_ parts: [String?], mono: Bool = false) -> some View {
+        let text = parts.compactMap { $0?.split(whereSeparator: \.isNewline).first.map(String.init) }.filter { !$0.isEmpty }.joined(separator: " · ")
+        if !text.isEmpty {
+            Text(text)
+                .font(mono ? .system(size: 11).monospaced() : .system(size: 11))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
     }
 }
@@ -396,15 +567,14 @@ struct TimedRow<Content: View>: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(Format.time(time))
-                    .font(.caption.monospacedDigit())
+                    .font(.system(size: 11).monospacedDigit())
                     .foregroundStyle(highlighted ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
-                    .frame(width: 34, alignment: .trailing)
+                    .frame(width: 32, alignment: .trailing)
                 content
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, 2)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

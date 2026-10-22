@@ -16,7 +16,8 @@ import AppKit
 ///   appkey <name|char> [mods]      a key through NSApp, so the window's key monitor (C, space, ←/→, J/K) sees it
 ///   type <text…>
 ///   flag <name>                    writes tmp/ui-test/flags/<name> (a screenshot cue) plus <name>.png (the
-///                                  window drawn in-process) and waits up to 5 s
+///                                  window drawn in-process; the inspector column, which that leaves
+///                                  blank, also goes to <name>.inspector.png) and waits up to 5 s
 ///                                  for the harness to delete it
 ///
 /// `CR_SCRIPT_LOG=1` prints each step to stderr as it starts.
@@ -90,6 +91,18 @@ enum DevScript {
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
         view.cacheDisplay(in: view.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?.write(to: url)
+        // The inspector sits in a glass split item that draws as a placeholder above; its own hosting
+        // view draws fine.
+        func inspector(_ v: NSView) -> NSView? {
+            if String(describing: type(of: v)).contains("InspectorStyleContext") { return v }
+            for s in v.subviews { if let hit = inspector(s) { return hit } }
+            return nil
+        }
+        if let panel = inspector(view), let panelRep = panel.bitmapImageRepForCachingDisplay(in: panel.bounds) {
+            panel.cacheDisplay(in: panel.bounds, to: panelRep)
+            try? panelRep.representation(using: .png, properties: [:])?
+                .write(to: url.deletingPathExtension().appendingPathExtension("inspector.png"))
+        }
     }
 
     private static func windowPoint(_ p: CGPoint, _ window: NSWindow) -> CGPoint {

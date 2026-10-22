@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Everything about one mark. The top answers "what is this": title, when and where, the note and the
-/// picture. Below it, folding sections hold what was said and the page detail, most useful first.
+/// Everything about one mark, laid out flat in the list. The top answers "what is this": title, when
+/// and where, actions, the note and the picture. Below it, folding sections hold what was said and the
+/// page detail, most useful first.
 struct MarkDetail: View {
     var model: SessionModel
     var mark: SessionMark
@@ -10,17 +11,18 @@ struct MarkDetail: View {
     @State private var confirmDelete = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             header
             NoteEditor(model: model, mark: mark)
             images
-            if let n = MarkText.narration(mark.narration) {
-                InspectorSection("narration", title: "What was said", symbol: "waveform") {
-                    NarrationText(narration: n)
+            VStack(alignment: .leading, spacing: 12) {
+                if let n = MarkText.narration(mark.narration) {
+                    InspectorSection("narration", title: "Said") { NarrationText(narration: n) }
                 }
+                if let b = mark.browser { PageContext(model: model, snapshot: b) }
+                ContextBlock(context: mark.context)
             }
-            if let b = mark.browser { PageContext(model: model, snapshot: b) }
-            ContextBlock(context: mark.context)
+            .padding(.top, 4)
         }
         .confirmationDialog("Delete mark \(mark.index)?", isPresented: $confirmDelete) {
             Button("Delete", role: .destructive) { Task { await model.deleteReviewMark(mark.index) } }
@@ -29,33 +31,28 @@ struct MarkDetail: View {
         }
     }
 
+    /// Glyph, title and meta collapse the mark when clicked; the actions sit on the title's first line.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                MarkGlyph(mark: mark, size: 22)
-                    .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
-                Text(MarkText.title(mark))
-                    .font(.system(size: 15, weight: .semibold))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
-                Spacer(minLength: 4)
-                IconButton(symbol: "chevron.up", help: "Collapse", action: collapse)
-            }
-            HStack(spacing: 6) {
-                Text(mark.isShot ? "Shot" : "Mark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(mark.isShot ? Color.shot : Color.mark)
-                if mark.isReview {
-                    Text("Review")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(.quaternary, in: .capsule)
-                        .help("Taken from the video afterwards: no live page snapshot")
+        HStack(alignment: .top, spacing: 4) {
+            Button(action: collapse) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    MarkGlyph(mark: mark, size: 20)
+                        .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(Highlight.text(MarkText.title(mark), model.query))
+                            .font(.system(size: 14, weight: .semibold))
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        MarkMeta(model: model, mark: mark, showKind: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                MarkMeta(model: model, mark: mark)
+                .contentShape(.rect)
             }
-            .padding(.leading, 30)
+            .buttonStyle(.plain)
+            .help("Collapse")
+            .accessibilityLabel("\(mark.isShot ? "Shot" : "Mark") \(mark.index): \(MarkText.title(mark))")
+            .accessibilityHint("Collapses the mark")
             HStack(spacing: 0) {
                 IconButton(symbol: "play.fill", help: "Play from 5 seconds before") { model.playFromBefore(mark) }
                 IconButton(symbol: copied ? "checkmark" : "doc.on.doc", help: "Copy as Markdown") {
@@ -63,43 +60,61 @@ struct MarkDetail: View {
                     withAnimation { copied = true }
                     Task { try? await Task.sleep(for: .seconds(1.4)); withAnimation { copied = false } }
                 }
-                if let url = model.url(mark.image) {
-                    IconButton(symbol: "folder", help: "Reveal image in Finder") {
-                        NSWorkspace.shared.activateFileViewerSelecting([url])
-                    }
-                }
-                if mark.isReview {
-                    IconButton(symbol: "trash", help: "Delete this mark") { confirmDelete = true }
-                }
+                .contentTransition(.symbolEffect(.replace))
+                moreMenu
             }
-            .padding(.leading, 24)
+            .offset(y: -3)
         }
     }
 
-    /// The shot, with the full frame as a small inset: a region shot is cropped, and the frame shows what
-    /// else was on screen.
+    private var moreMenu: some View {
+        Menu {
+            if let url = model.url(mark.image) {
+                Button("View Image", systemImage: "eye") { model.view(mark.originalImage) }
+                Button("Reveal Image in Finder", systemImage: "folder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            }
+            if let page = model.url(mark.browser?.pageFile) {
+                Button("Open Saved Page in Chrome", systemImage: "doc.richtext") { PageContext.openInChrome(page) }
+            }
+            if mark.isReview {
+                Divider()
+                Button("Delete Mark…", systemImage: "trash", role: .destructive) { confirmDelete = true }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 26, height: 24)
+                .contentShape(.rect)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .foregroundStyle(.secondary)
+        .fixedSize()
+        .help("More")
+    }
+
+    /// The shot at its own shape, capped in height so a tall capture stays a column. A region shot
+    /// also shows the full frame beside it: what else was on screen.
     @ViewBuilder private var images: some View {
         if let url = model.url(mark.image) {
-            MarkImage(url: url, label: "Mark \(mark.index) image", annotated: mark.imageAnnotated, revision: model.annotationRevision) { model.view(mark.originalImage) }
-                .overlay(alignment: .bottomLeading) {
-                    if mark.isShot, let frame = model.url(mark.frame), mark.frame != mark.image,
-                       FileManager.default.fileExists(atPath: frame.path) {
-                        MarkImage(url: frame, label: "Full screen frame for mark \(mark.index)", compact: true, annotated: mark.frameAnnotated, revision: model.annotationRevision) { model.view(mark.originalFrame) }
-                            .frame(width: 92)
-                            .overlay(alignment: .bottom) {
-                                Text("Full screen")
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 5).padding(.vertical, 1)
-                                    .background(.black.opacity(0.55), in: .capsule)
-                                    .padding(4)
-                                    .allowsHitTesting(false)
-                            }
-                            .shadow(color: .black.opacity(0.25), radius: 4, y: 1)
-                            .padding(8)
-                            .help("What else was on screen at this moment")
-                    }
+            HStack(alignment: .top, spacing: 10) {
+                FitBox(aspect: ImageAspect.of(url, revision: model.annotationRevision), maxHeight: 220) {
+                    MarkImage(url: url, label: "Mark \(mark.index) image", annotated: mark.imageAnnotated, revision: model.annotationRevision) { model.view(mark.originalImage) }
                 }
+                if mark.isShot, let frame = model.url(mark.frame), mark.frame != mark.image,
+                   FileManager.default.fileExists(atPath: frame.path) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        FitBox(aspect: ImageAspect.of(frame, revision: model.annotationRevision), maxHeight: 120) {
+                            MarkImage(url: frame, label: "Full screen frame for mark \(mark.index)", compact: true, annotated: mark.frameAnnotated, revision: model.annotationRevision) { model.view(mark.originalFrame) }
+                        }
+                        Text("Full screen").font(.system(size: 10.5)).foregroundStyle(.secondary)
+                    }
+                    .frame(width: 92, alignment: .leading)
+                    .help("What else was on screen at this moment")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -120,21 +135,20 @@ struct MarkImage: View {
         Button(action: open) {
             ZStack {
                 if let image {
-                    Image(nsImage: image).resizable().scaledToFit()
+                    Image(nsImage: image).resizable()
                 } else {
-                    Rectangle().fill(.quaternary).aspectRatio(16 / 10, contentMode: .fit)
+                    Rectangle().fill(.quaternary)
                 }
             }
-            .background(Color.stage.opacity(0.5))
-            .clipShape(.rect(cornerRadius: compact ? 6 : 9))
-            .overlay(RoundedRectangle(cornerRadius: compact ? 6 : 9).strokeBorder(.separator.opacity(0.7), lineWidth: 0.5))
+            .clipShape(.rect(cornerRadius: compact ? 4 : 6))
+            .overlay(RoundedRectangle(cornerRadius: compact ? 4 : 6).strokeBorder(.separator.opacity(0.7), lineWidth: 0.5))
             .overlay(alignment: .topTrailing) {
                 if annotated {
                     Image(systemName: "pencil.tip.crop.circle.fill")
                         .font(.system(size: compact ? 11 : 14, weight: .semibold))
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(.white, Color.accentColor)
-                        .padding(compact ? 3 : 6)
+                        .padding(compact ? 3 : 5)
                         .help("Annotated in the image viewer")
                         .accessibilityLabel("Annotated")
                 }
@@ -145,11 +159,10 @@ struct MarkImage: View {
                         .font(.system(size: 10, weight: .bold))
                         .frame(width: 24, height: 24)
                         .glassEffect(.regular, in: .circle)
-                        .padding(7)
+                        .padding(6)
                         .opacity(hovering ? 1 : 0)
                 }
             }
-            .shadow(color: .black.opacity(compact ? 0 : 0.08), radius: 6, y: 2)
         }
         .buttonStyle(.plain)
         .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hovering = h } }
@@ -173,8 +186,8 @@ struct NarrationText: View {
         let dim = Color.secondary.opacity(0.85)
         let text: Text = Text("\(Text(before.isEmpty ? "" : before + " ").foregroundStyle(dim))\(Text(lead).foregroundStyle(.primary).fontWeight(.medium))\(marker)\(Text(tail).foregroundStyle(.primary).fontWeight(.medium))\(Text(after.isEmpty ? "" : " " + after).foregroundStyle(dim))")
         text
-            .font(.system(size: 13))
-            .lineSpacing(3)
+            .font(.system(size: 12.5))
+            .lineSpacing(2)
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityElement(children: .ignore)
@@ -182,37 +195,30 @@ struct NarrationText: View {
     }
 }
 
+/// The app, window, page title and URL at the mark. Folded by default: the meta line already says where.
 struct ContextBlock: View {
     var context: MarkContext?
 
     var body: some View {
         if let c = context {
-            let rows: [(String, String?)] = [
-                ("Window", c.windowTitle.nonEmpty),
-                ("Page", c.browserTitle != c.windowTitle ? c.browserTitle.nonEmpty : nil),
-            ].filter { $0.1 != nil }
-            InspectorSection("window", title: "Window", symbol: "macwindow", open: false) { GroupBlock {
-                GroupRow(divider: !rows.isEmpty || c.browserURL.nonEmpty != nil) {
-                    HStack(spacing: 8) {
-                        AppIcon(bundleID: c.bundleID, size: 18)
-                        Text(c.appName ?? "Unknown app").font(.system(size: 13, weight: .medium))
-                        Spacer()
-                        if let id = c.bundleID { Text(id).font(.system(size: 10.5).monospaced()).foregroundStyle(.tertiary).lineLimit(1) }
+            InspectorSection("window", title: "Window", open: false) {
+                VStack(alignment: .leading, spacing: 5) {
+                    KeyValue(key: "App") {
+                        HStack(spacing: 5) {
+                            AppIcon(bundleID: c.bundleID, size: 14)
+                            Text(c.appName ?? "Unknown app")
+                            if let id = c.bundleID { Text(id).font(.system(size: 11).monospaced()).foregroundStyle(.tertiary).lineLimit(1) }
+                        }
                     }
-                }
-                ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
-                    GroupRow(divider: i < rows.count - 1 || c.browserURL.nonEmpty != nil) {
-                        KeyValue(key: row.0) { Text(row.1 ?? "").textSelection(.enabled) }
-                    }
-                }
-                if let u = c.browserURL.nonEmpty {
-                    GroupRow(divider: false) {
+                    if let w = c.windowTitle.nonEmpty { KeyValue(key: "Window") { Text(w).textSelection(.enabled) } }
+                    if c.browserTitle != c.windowTitle, let t = c.browserTitle.nonEmpty { KeyValue(key: "Page") { Text(t).textSelection(.enabled) } }
+                    if let u = c.browserURL.nonEmpty {
                         KeyValue(key: "URL") {
                             if let url = URL(string: u) { Link(u, destination: url) } else { Text(u) }
                         }
                     }
                 }
-            } }
+            }
         }
     }
 }
@@ -222,9 +228,9 @@ struct KeyValue<Value: View>: View {
     @ViewBuilder var value: Value
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(key).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 52, alignment: .leading)
-            value.font(.system(size: 12.5)).lineLimit(3)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(key).font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 52, alignment: .leading)
+            value.font(.system(size: 12)).lineLimit(3)
         }
     }
 }
@@ -232,42 +238,36 @@ struct KeyValue<Value: View>: View {
 // MARK: Page context
 
 /// Problems first (they're usually why you marked), then the element under the pointer, the region's
-/// elements, focus, and the saved page.
+/// elements, focus, and a link to the saved page. Flat: section headers and rows, no boxes.
 struct PageContext: View {
     var model: SessionModel
     var snapshot: PageSnapshot
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             if let error = snapshot.error {
                 Label("Page snapshot unavailable: \(error)", systemImage: "exclamationmark.circle")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
             let problems = Array((snapshot.recent ?? []).filter(\.isProblem).suffix(8))
             if !problems.isEmpty {
-                InspectorSection("problems", title: "Recent problems", symbol: "exclamationmark.triangle.fill", tint: .red,
-                                 trailing: "\(problems.count)") {
-                    GroupBlock {
-                        ForEach(Array(problems.enumerated()), id: \.offset) { i, e in
-                            GroupRow(divider: i < problems.count - 1) { PageEventRow(event: e) }
+                InspectorSection("problems", title: "Problems", tint: .red, trailing: "\(problems.count)") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(PageEvent.folded(problems).enumerated()), id: \.offset) { _, p in
+                            PageEventRow(event: p.event, repeats: p.repeats)
                         }
                     }
                 }
             }
             if let h = snapshot.hovered {
-                InspectorSection("pointer", title: "Under pointer", symbol: "cursorarrow.rays") {
-                    GroupBlock { ElementView(element: h, full: true).padding(10) }
-                }
+                InspectorSection("pointer", title: "Under pointer") { ElementView(element: h, full: true) }
             }
             if let region = snapshot.region {
                 if let els = region.elements, !els.isEmpty {
                     let shown = Array(els.prefix(15))
-                    InspectorSection("region", title: "Elements in region", symbol: "rectangle.dashed",
-                                     trailing: "\(els.count)", open: false) {
-                        GroupBlock {
-                            ForEach(Array(shown.enumerated()), id: \.offset) { i, el in
-                                GroupRow(divider: i < shown.count - 1) { ElementView(element: el, full: false, compact: true) }
-                            }
+                    InspectorSection("region", title: "In region", trailing: "\(els.count)", open: false) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            ForEach(Array(shown.enumerated()), id: \.offset) { _, el in ElementView(element: el, full: false, compact: true) }
                         }
                     }
                 } else if let note = region.note {
@@ -275,37 +275,28 @@ struct PageContext: View {
                 }
             }
             if snapshot.focused != nil || snapshot.selection.nonEmpty != nil {
-                InspectorSection("focus", title: "Focus and selection", symbol: "character.cursor.ibeam", open: false) {
-                    GroupBlock {
-                        if let f = snapshot.focused {
-                            GroupRow(divider: snapshot.selection.nonEmpty != nil) { ElementView(element: f, full: false) }
-                        }
+                InspectorSection("focus", title: "Focus and selection", open: false) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let f = snapshot.focused { ElementView(element: f, full: false) }
                         if let s = snapshot.selection.nonEmpty {
-                            GroupRow(divider: false) {
-                                KeyValue(key: "Selected") { Text("“\(s)”").textSelection(.enabled) }
-                            }
+                            KeyValue(key: "Selected") { Text("“\(s)”").textSelection(.enabled) }
                         }
                     }
                 }
             }
             if let page = model.url(snapshot.pageFile) {
-                Button { openInChrome(page) } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "doc.richtext").font(.system(size: 16)).foregroundStyle(.tint)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Open saved page").font(.system(size: 12.5, weight: .medium))
-                            Text("The DOM as it was at the mark, in Chrome").font(.system(size: 11)).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "arrow.up.forward").font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary)
+                Button { Self.openInChrome(page) } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "doc.richtext")
+                        Text("Open saved page in Chrome")
+                        Image(systemName: "arrow.up.forward").font(.system(size: 9, weight: .semibold))
                     }
-                    .padding(10)
-                    .background(.background.opacity(0.7), in: .rect(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.separator.opacity(0.5), lineWidth: 0.5))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.tint)
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .help(page.path)
+                .help("The DOM, styles and images as they were at the mark\n\(page.path)")
             } else if let err = snapshot.pageError {
                 Label("Saved page missing: \(err)", systemImage: "doc.badge.ellipsis")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
@@ -314,7 +305,7 @@ struct PageContext: View {
     }
 
     /// Safari can't render MHTML; Chrome can.
-    private func openInChrome(_ url: URL) {
+    static func openInChrome(_ url: URL) {
         if let chrome = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.Chrome") {
             NSWorkspace.shared.open([url], withApplicationAt: chrome, configuration: NSWorkspace.OpenConfiguration())
         } else {
@@ -330,23 +321,19 @@ struct ElementView: View {
     var compact = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if let t = element.text.nonEmpty, !compact {
-                Text("“\(t)”").font(.system(size: 13, weight: .medium)).lineLimit(3).textSelection(.enabled)
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(element.selector ?? element.tag ?? "element")
-                    .font(.system(size: 11).monospaced())
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 5).padding(.vertical, 2)
-                    .background(.quaternary.opacity(0.7), in: .rect(cornerRadius: 4))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+        VStack(alignment: .leading, spacing: compact ? 1 : 4) {
+            if let t = element.text.nonEmpty {
+                Text("“\(compact ? String(t.prefix(80)) : t)”")
+                    .font(.system(size: compact ? 12 : 12.5, weight: compact ? .regular : .medium))
+                    .lineLimit(compact ? 1 : 3)
                     .textSelection(.enabled)
-                if compact, let t = element.text.nonEmpty {
-                    Text("“\(String(t.prefix(80)))”").font(.system(size: 12)).lineLimit(1)
-                }
             }
+            Text(element.selector ?? element.tag ?? "element")
+                .font(.system(size: 11).monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
             if !element.componentPath.isEmpty, !compact || full {
                 Breadcrumbs(items: element.componentPath)
             }
@@ -396,7 +383,6 @@ struct Breadcrumbs: View {
     var items: [String]
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "square.stack.3d.up").font(.system(size: 9)).foregroundStyle(.tertiary)
             ForEach(Array(items.enumerated()), id: \.offset) { i, name in
                 if i > 0 { Image(systemName: "chevron.compact.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(.quaternary) }
                 Text(name)
@@ -440,10 +426,8 @@ struct SourceButton: View {
             .help(exists ? "Open in editor" : "Copy path (the file isn't at this path on this Mac)")
             if source.isPostTransform {
                 Text("post-transform line")
-                    .font(.system(size: 10))
+                    .font(.system(size: 10.5))
                     .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 5).padding(.vertical, 1)
-                    .overlay(Capsule().strokeBorder(.quaternary))
                     .help("React 19 stacks point at the transformed module, so the line can be off.")
             }
         }
@@ -451,10 +435,12 @@ struct SourceButton: View {
 }
 
 /// A typed note for the mark; its first line becomes the title. Saved on Return or when focus leaves.
+/// No box: a light fill shows on hover and while typing.
 struct NoteEditor: View {
     var model: SessionModel
     var mark: SessionMark
     @State private var text = ""
+    @State private var hovering = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -462,17 +448,19 @@ struct NoteEditor: View {
             Image(systemName: "square.and.pencil")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(focused ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
-            TextField("Add a note…", text: $text, axis: .vertical)
+                .frame(width: 20)
+            TextField("Add a note (its first line becomes the title)", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
-                .lineLimit(1...6)
+                .lineLimit(1...8)
                 .focused($focused)
                 .onSubmit { save() }
         }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(.background.opacity(0.7), in: .rect(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(focused ? AnyShapeStyle(.tint.opacity(0.6)) : AnyShapeStyle(.separator.opacity(0.6)),
-                                                                lineWidth: focused ? 1.5 : 0.5))
+        .padding(.vertical, 5)
+        .padding(.trailing, 6)
+        .background(focused ? AnyShapeStyle(.quaternary.opacity(0.7)) : hovering ? AnyShapeStyle(.quaternary.opacity(0.4)) : AnyShapeStyle(.clear),
+                    in: .rect(cornerRadius: 5))
+        .onHover { hovering = $0 }
         .onAppear {
             text = mark.note ?? ""
             if model.focusNoteFor == mark.index {

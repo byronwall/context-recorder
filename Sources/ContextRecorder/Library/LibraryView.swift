@@ -356,6 +356,7 @@ struct ShortcutsSheet: View {
     @Environment(\.dismiss) private var dismiss
     private let rows: [(String, String)] = [
         ("Space", "Play or pause"),
+        ("⌘F", "Find in marks, transcript and events"),
         ("J", "Next mark"),
         ("K", "Previous mark"),
         ("M", "Add a mark at the playhead"),

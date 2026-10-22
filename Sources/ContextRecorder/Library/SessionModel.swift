@@ -31,6 +31,13 @@ final class SessionModel {
     var selectedMark: Int?
     var tab: Tab = .marks
     var markFilter: MarkFilter = .all
+    var eventFilter: EventFilter = .all
+    /// Find in session: filters every inspector tab, and each tab's count shows its matches.
+    var query = ""
+    /// ⌘F asks the find field to take focus.
+    var focusFind = false
+    /// Activity and page events merged into one log (rebuilt on reload).
+    private(set) var events: [SessionEvent] = []
     /// The open export sheet, if any.
     var export: ExportSheetModel?
     /// The image viewer over the stage, if open.
@@ -79,8 +86,9 @@ final class SessionModel {
     @ObservationIgnored var annotationPass: Task<Void, Never>?
     @ObservationIgnored var annotationPassAgain = false
 
+    /// Marks: what you flagged. Transcript: what was said. Events: what happened (apps and pages).
     enum Tab: String, CaseIterable, Identifiable {
-        case marks = "Marks", transcript = "Transcript", page = "Page Events", activity = "Activity"
+        case marks = "Marks", transcript = "Transcript", events = "Events"
         var id: String { rawValue }
     }
     enum MarkFilter: String, CaseIterable, Identifiable {
@@ -138,6 +146,7 @@ final class SessionModel {
             if let errors = data?.errors, !errors.isEmpty { reviewError = errors.joined(separator: "\n") }
             applyEdits()
             assignAppColors()
+            events = EventLog.build(activity: activity, page: pageEvents)
             reloadCanvas()
         } catch {
             loadError = "session.json could not be read: \(error.localizedDescription)"
@@ -233,12 +242,48 @@ final class SessionModel {
 
     /// In time order: marks added while reviewing get later numbers but belong where they happened.
     var filteredMarks: [SessionMark] {
-        let sorted = marks.sorted { $0.offsetSeconds < $1.offsetSeconds }
+        let sorted = marks.sorted { $0.offsetSeconds < $1.offsetSeconds }.filter(matchesQuery)
         switch markFilter {
         case .all: return sorted
         case .mark: return sorted.filter { !$0.isShot }
         case .screenshot: return sorted.filter(\.isShot)
         }
+    }
+
+    private func matchesQuery(_ m: SessionMark) -> Bool {
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return true }
+        let c = m.context
+        return [MarkText.title(m), m.note, m.narration, c?.browserURL, c?.windowTitle, c?.appName]
+            .compactMap { $0 }.contains { Highlight.matches($0, query) }
+    }
+
+    /// Indices into `transcript` of the sentences that match find.
+    var transcriptMatches: [Int] {
+        transcript.indices.filter { Highlight.matches(transcript[$0].text, query) }
+    }
+
+    var filteredEvents: [SessionEvent] {
+        events.filter { $0.passes(eventFilter) && Highlight.matches($0.searchText, query) }
+    }
+
+    /// The count shown on each inspector tab: everything, or the matches while finding.
+    func count(_ tab: Tab) -> Int {
+        switch tab {
+        case .marks: filteredMarks.count
+        case .transcript: transcriptMatches.count
+        case .events: filteredEvents.count
+        }
+    }
+
+    /// Which sentence each mark landed in (the last one started at or before it), for the transcript.
+    var marksBySentence: [Int: [SessionMark]] {
+        guard !transcript.isEmpty else { return [:] }
+        var out: [Int: [SessionMark]] = [:]
+        for m in marks.sorted(by: { $0.offsetSeconds < $1.offsetSeconds }) {
+            let i = transcript.lastIndex { $0.start <= m.offsetSeconds + 0.05 } ?? 0
+            out[i, default: []].append(m)
+        }
+        return out
     }
 
     /// Bundle ID for an app name, from the activity log.
@@ -334,6 +379,7 @@ final class SessionModel {
             : sorted.last { $0.offsetSeconds < t - 0.3 }
         guard let next else { return }
         tab = .marks
+        if !matchesQuery(next) { query = "" }
         if markFilter == .mark && next.isShot || markFilter == .screenshot && !next.isShot { markFilter = .all }
         select(next.index)
     }

@@ -218,6 +218,11 @@ final class LibraryWindowController: NSWindowController, NSWindowDelegate {
                 if event.modifierFlags.contains(.shift) { model.redoEdit() } else { model.undoEdit() }
                 return nil
             }
+            // ⌘F: find in the inspector (marks, transcript and events).
+            if event.keyCode == 3, event.modifierFlags.intersection([.command, .control, .option, .shift]) == .command {
+                model.focusFind = true
+                return nil
+            }
             if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty { return event }
             if model.canvasSelecting {
                 if event.keyCode == 53 { model.canvasSelecting = false; NSCursor.arrow.set(); return nil }   // esc
