@@ -119,7 +119,7 @@ final class CloudState {
         guard let config = CloudConfig.current() else { showSettings = true; return }
         errors[folder] = nil
         // Signed out: sign in first, then push. A local dev Worker needs no sign-in.
-        let needsSignIn = !config.hasCredentials && !CloudAuth.isLocal(config.url)
+        let needsSignIn = account(for: config.url) == nil && config.token == nil && !CloudAuth.isLocal(config.url)
         jobs[folder] = Job(phase: needsSignIn ? "Signing in…" : "Preparing", fraction: 0)
         Task {
             do {

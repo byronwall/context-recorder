@@ -158,4 +158,6 @@ the Mac app and MCP agents.
   sees them.
 - Each request sends `Authorization: Bearer`. On a 401 or within 60 s of expiry it refreshes once; if
   the refresh fails, it reports "Sign in again" and keeps the address.
-- The CLI uses the same stored sign-in. `CR_CLOUD_TOKEN` (an access token) overrides it for scripts.
+- The CLI uses the same stored sign-in. Sign the `swift build` binary like the app
+  (`scripts/sign-dev-binary.sh`), or macOS asks for Keychain access on every run. The Keychain item is read
+  once per process. `CR_CLOUD_TOKEN` (an access token) overrides it for scripts.

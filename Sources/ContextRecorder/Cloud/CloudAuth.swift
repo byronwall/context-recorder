@@ -25,13 +25,27 @@ protocol CloudAuthStore: Sendable {
 }
 
 /// One generic-password item, service `ContextRecorder.CloudAuth`, holding the credentials as JSON.
+/// Read at most once per process: every Keychain read from a binary macOS doesn't trust is a prompt.
 struct KeychainAuthStore: CloudAuthStore {
     static let service = "ContextRecorder.CloudAuth"
+    private static let memo = MemoryAuthStore()
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var loaded = false
     private var base: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Self.service, kSecAttrAccount as String: "default"]
     }
 
     func load() -> CloudCredentials? {
+        Self.lock.withLock {
+            if !Self.loaded {
+                Self.loaded = true
+                if let creds = read() { try? Self.memo.save(creds) }
+            }
+        }
+        return Self.memo.load()
+    }
+
+    private func read() -> CloudCredentials? {
         var query = base
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -51,9 +65,15 @@ struct KeychainAuthStore: CloudAuthStore {
             status = SecItemAdd(add as CFDictionary, nil)
         }
         guard status == errSecSuccess else { throw ReviewError("Couldn't save the cloud sign-in to the Keychain (\(status))") }
+        Self.lock.withLock { Self.loaded = true }
+        try Self.memo.save(credentials)
     }
 
-    func delete() { SecItemDelete(base as CFDictionary) }
+    func delete() {
+        SecItemDelete(base as CFDictionary)
+        Self.lock.withLock { Self.loaded = true }
+        Self.memo.delete()
+    }
 
     /// The service token item older builds kept (service `ContextRecorder.Cloud`). Removed once, silently.
     static func removeLegacyServiceToken() {
