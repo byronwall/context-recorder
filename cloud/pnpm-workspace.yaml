@@ -1,0 +1,5 @@
+# Standalone pnpm project for the Cloudflare Worker (not part of a parent workspace).
+allowBuilds:
+  core-js-pure: false
+  esbuild: true
+  workerd: true

@@ -1,0 +1,72 @@
+import type { AppEnv } from "./env";
+import { HttpError, json, readJson, sha256Hex } from "./http";
+import type { Identity } from "./identity";
+import { assertSessionId, parseManifest, SHA256 } from "./manifest";
+import { Store } from "./store";
+
+/** /api/* routes (contract §2). Returns null when nothing matched. */
+export async function handleApi(request: Request, env: AppEnv, identity: Identity, url: URL): Promise<Response | null> {
+  const store = new Store(env);
+  const parts = url.pathname.split("/").slice(2).map(decodeURIComponent); // after "/api"
+  const method = request.method;
+
+  if (parts[0] === "sessions") {
+    if (parts.length === 1 && method === "GET") return json(await store.listSessions());
+    const id = parts[1]!;
+    assertSessionId(id);
+    if (parts.length === 3 && parts[2] === "push" && method === "POST") {
+      const { value } = await readJson(request);
+      const manifest = parseManifest(value, id);
+      return json({ missing: await store.missing(manifest.files.map((f) => f.sha256)) });
+    }
+    if (parts.length === 3 && parts[2] === "commit" && method === "POST") {
+      const { text, value } = await readJson(request);
+      const manifest = parseManifest(value, id);
+      const manifestSha256 = await sha256Hex(text);
+      await store.commit(manifest, text, manifestSha256, identity.id);
+      return json({ url: `${url.origin}/s/${encodeURIComponent(id)}/`, manifestSha256 });
+    }
+    if (parts.length === 2 && method === "GET") {
+      const row = await store.getSession(id);
+      if (!row) throw new HttpError(404, "no such session");
+      const { manifestText, manifestSha256: _sha, ...rest } = row;
+      return json({ ...rest, manifest: JSON.parse(manifestText) });
+    }
+    if (parts.length === 2 && method === "DELETE") {
+      if (!(await store.deleteSession(id))) throw new HttpError(404, "no such session");
+      return new Response(null, { status: 204 });
+    }
+  }
+
+  if (parts[0] === "blobs" && parts[1] !== undefined) {
+    const sha = parts[1];
+    if (!SHA256.test(sha)) throw new HttpError(400, "invalid sha256");
+    if (parts.length === 2 && method === "PUT") {
+      await store.putBlob(sha, request);
+      return new Response(null, { status: 204 });
+    }
+    if (parts.length === 3 && parts[2] === "uploads" && method === "POST") {
+      return json({ uploadId: await store.createUpload(sha) });
+    }
+    const uploadId = parts[3];
+    if (parts[2] === "uploads" && uploadId) {
+      if (parts.length === 5 && parts[4] === "complete" && method === "POST") {
+        const { value } = await readJson(request);
+        const list = (value as { parts?: unknown })?.parts;
+        if (!Array.isArray(list) || !list.length) throw new HttpError(400, "parts must be a non-empty array");
+        const uploaded = list.map((p: { partNumber?: unknown; etag?: unknown }) => {
+          if (!Number.isInteger(p?.partNumber) || typeof p?.etag !== "string") throw new HttpError(400, "each part needs partNumber and etag");
+          return { partNumber: p.partNumber as number, etag: p.etag };
+        });
+        await store.completeUpload(sha, uploadId, uploaded);
+        return new Response(null, { status: 204 });
+      }
+      if (parts.length === 5 && method === "PUT") {
+        const partNumber = Number(parts[4]);
+        if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > 10000) throw new HttpError(400, "invalid part number");
+        return json({ etag: await store.uploadPart(sha, uploadId, partNumber, request) });
+      }
+    }
+  }
+  return null;
+}

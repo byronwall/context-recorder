@@ -180,6 +180,7 @@ extension SessionModel {
         do { try AnnotationsFile.save(next, to: folder) } catch {
             reviewError = "annotations.json couldn't be saved: \(error.localizedDescription)"
         }
+        CloudState.shared.localChange()   // the sidebar's "cloud copy out of date" badge
     }
 
     func updateAnnotation(_ a: Annotation) {

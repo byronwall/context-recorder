@@ -109,6 +109,11 @@ struct SessionView: View {
             .help("Copy every mark as Markdown, for an agent or an issue")
             .disabled(model.marks.isEmpty)
         }
+        if CloudState.shared.configured, model.data != nil, !recorder.processing.contains(model.folder) {
+            ToolbarItem(placement: .primaryAction) {
+                CloudPushButton(folder: model.folder, editToken: model.annotations.count &+ (model.edits?.segments.count ?? 0) &* 1000)
+            }
+        }
         sessionMenu
         ToolbarItem(placement: .primaryAction) {
             Button { withAnimation { showInspector.toggle() } } label: { Label("Marks", systemImage: "sidebar.trailing") }
@@ -137,6 +142,10 @@ struct SessionView: View {
                 }
                 Divider()
                 Button("Copy Folder Path", systemImage: "link") { copy(model.folder.path) }
+                if model.data != nil, CloudState.shared.configured {
+                    Divider()
+                    CloudMenuItems(folder: model.folder)
+                }
                 Divider()
                 Button("Undo", systemImage: "arrow.uturn.backward") { model.undoEdit() }
                     .disabled(!model.canUndoEdit)

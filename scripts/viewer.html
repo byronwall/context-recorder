@@ -61,8 +61,19 @@ kbd { font: 500 10px/1 var(--mono); min-width: 18px; height: 18px; display: inli
 /* Stage */
 .main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 0; }
 .stage { display: flex; flex-direction: column; min-height: 0; padding: 20px; gap: 14px; overflow: auto; }
-.player { border-radius: var(--radius); overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--line), var(--shadow); }
+.player { position: relative; border-radius: var(--radius); overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--line), var(--shadow); }
 video { display: block; width: 100%; max-height: 60vh; background: #000; }
+/* Cloud copies: drawings sit over the video's content box (letterboxing excluded); clicks pass through to the controls. */
+.drawings { position: absolute; pointer-events: none; }
+.drawings img { position: absolute; inset: 0; width: 100%; height: 100%; display: none; }
+.drawings img.on { display: block; }
+.thumbtip { position: fixed; z-index: 5; pointer-events: none; display: none; padding: 4px; border-radius: 8px; background: var(--raised); border: 1px solid var(--line-2); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.thumbtip.on { display: block; }
+.thumbtip img { display: block; width: 200px; height: auto; border-radius: 5px; background: #000; }
+.thumbtip span { display: block; text-align: center; font: 11px/18px var(--mono); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.load-error { max-width: 520px; margin: 18vh auto 0; padding: 0 16px; text-align: center; color: var(--muted); }
+.load-error h2 { font-size: 15px; color: var(--text); margin: 0 0 8px; }
+.load-error code { display: inline-block; margin-top: 6px; }
 
 .section-label, .card h3 { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0; }
 
@@ -223,6 +234,7 @@ code { font: 11px var(--mono); background: var(--panel-2); border: 1px solid var
     </aside>
   </div>
 </div>
+<div class="thumbtip" id="thumbtip"><img alt=""><span></span></div>
 <div class="lightbox" id="lightbox" role="dialog" aria-label="Image viewer"><img alt="">
   <div class="zoombar">
     <button data-zoombtn="out" title="Zoom out (−)" aria-label="Zoom out">−</button>
@@ -234,8 +246,10 @@ code { font: 11px var(--mono); background: var(--panel-2); border: 1px solid var
   </div>
 </div>
 
-<script>
-const DATA = /*__SESSION_DATA__*/null;
+<script type="module">
+// Embedded mode: the placeholder below is replaced with the session JSON (plus `cloud` in a cloud copy's index.html).
+// Fetched mode (the cloud /s/:id/ page): it stays null and the files are fetched relative to the page.
+const DATA = /*__SESSION_DATA__*/null ?? await loadFetched();
 const $ = (s) => document.querySelector(s);
 const video = $("#video");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -255,6 +269,43 @@ const ICONS = {
 };
 const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 const emptyState = (ic, text) => `<div class="empty-state">${icon(ic)}${text}</div>`;
+
+async function loadFetched() {
+  const get = async (path, optional) => {
+    try {
+      const res = await fetch(path, { cache: "no-cache" });
+      if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      if (optional) return null;
+      throw err instanceof SyntaxError ? new Error(`${path}: not valid JSON`) : err;
+    }
+  };
+  try {
+    const [session, manifest, drawings] = await Promise.all([get("session.json"), get("manifest.json", true), get("drawings.json", true)]);
+    return manifest ? { ...session, cloud: { manifest, drawings: drawings || [] } } : session;
+  } catch (err) {
+    const local = location.protocol === "file:";
+    document.title = "Session unavailable";
+    document.body.innerHTML = `<div class="load-error"><h2>Couldn't load this session</h2>
+      <div>${local ? "This page has no session embedded and the browser won't fetch files from disk. Open the processed <code>viewer.html</code> (or a cloud copy's <code>index.html</code>), or serve the folder over HTTP." : "The session files didn't load. It may have been deleted, or you may need to sign in again."}</div>
+      <code>${String(err.message || err).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`)}</code></div>`;
+    throw err;
+  }
+}
+
+// Cloud copy (format 1): one flattened video, drawings as PNGs, timeline thumbnails, relative paths.
+const cloud = DATA.cloud || null;
+const manifest = cloud?.manifest || null;
+const drawings = (cloud?.drawings || []).filter((d) => d && d.file);
+const skippedPages = new Map((manifest?.skippedPages || []).map((p) => [p.path, p]));
+const sessionTitle = manifest?.title || DATA.name || "Session";
+// Absolute link for a bundle-relative path: the page's URL over http(s), the file's path on disk.
+const cloudURL = (path) => {
+  const u = new URL(path, location.href);
+  return u.protocol === "file:" ? decodeURIComponent(u.pathname) : u.href;
+};
+const videoPath = manifest?.video?.path || "recording.mp4";
 
 let tab = "marks", filter = "all", selected = null;
 const marks = DATA.marks || [];
@@ -285,7 +336,8 @@ function pageHtml(b) {
   const problems = (b.recent || []).filter(isProblem).slice(-8);
   return `<dl class="kv" style="margin-top:6px">${elementHtml("Mouse", b.hovered)}${elementHtml("Focused", b.focused)}${b.selection ? `<dt>Selected</dt><dd>${esc(b.selection)}</dd>` : ""}</dl>` +
     regionHtml(b.region) +
-    (b.pageFile ? `<div class="sub" style="margin-top:6px"><a href="${esc(b.pageFile)}" target="_blank">Open saved page (MHTML)</a> to inspect the DOM as it was</div>` : "") +
+    (b.pageFile && skippedPages.has(b.pageFile) ? `<div class="sub" style="margin-top:6px">Saved page not uploaded${skippedPages.get(b.pageFile).size ? ` (${(skippedPages.get(b.pageFile).size / 1e6).toFixed(1)} MB, over the cloud copy's budget)` : ""}. It's still in the session folder on the Mac.</div>` :
+     b.pageFile ? `<div class="sub" style="margin-top:6px"><a href="${esc(b.pageFile)}" target="_blank">Open saved page (MHTML)</a> to inspect the DOM as it was</div>` : "") +
     (b.pageError ? `<div class="sub" style="margin-top:6px">Saved page missing: ${esc(b.pageError)}</div>` : "") +
     (problems.length ? `<ul class="problems">${problems.map((e) => `<li>${esc(pageEventText(e))}</li>`).join("")}</ul>` : "");
 }
@@ -293,10 +345,11 @@ let duration = DATA.duration || Math.max(1, ...marks.map((m) => m.offsetSeconds 
 
 // Edited sessions: the <video> is the original recording, so play only the kept segments and show
 // everything in edited time (the times in DATA). Joined sessions span several videos; open those in the app.
+// A cloud copy is already flattened into one video, so it always plays straight through.
 const segments = (DATA.segments || []).filter((s) => s.source === ".");
-const edited = (DATA.segments || []).length > 1 || (segments[0] && (segments[0].start > 0.05 ||
-  Math.abs(segments[0].end - (DATA.sourceDurations?.["."] ?? segments[0].end)) > 0.05));
-const joined = (DATA.segments || []).some((s) => s.source !== ".");
+const edited = !cloud && ((DATA.segments || []).length > 1 || (segments[0] && (segments[0].start > 0.05 ||
+  Math.abs(segments[0].end - (DATA.sourceDurations?.["."] ?? segments[0].end)) > 0.05)));
+const joined = !cloud && (DATA.segments || []).some((s) => s.source !== ".");
 const toEdited = (t) => {
   if (!edited) return t;
   for (const s of segments) if (t <= s.end) return s.editedStart + Math.max(0, t - s.start);
@@ -330,25 +383,27 @@ function markdownFor(m) {
   const c = m.context || {};
   return [
     `## ${String(m.index).padStart(3, "0")} · ${fmt(m.offsetSeconds)} · ${titleOf(m)}`,
-    "", `![mark ${m.index}](${m.image})`, "",
+    "", `![mark ${m.index}](${cloud ? cloudURL(m.image) : m.image})`, "",
     m.narration ? `> ${m.narration}\n` : "",
     c.appName && `- **App:** ${c.appName} (\`${c.bundleID}\`)`,
     c.windowTitle && `- **Window:** ${c.windowTitle}`,
     c.browserURL && `- **URL:** ${c.browserURL}`,
     c.browserTitle && `- **Page title:** ${c.browserTitle}`,
-    `- **Video:** \`${DATA.folder}/recording.mp4\` @ ${m.offsetSeconds.toFixed(1)}s`,
+    `- **Video:** \`${cloud ? cloudURL(videoPath) : `${DATA.folder}/recording.mp4`}\` @ ${m.offsetSeconds.toFixed(1)}s`,
     m.browser?.hovered && `- **Under mouse:** \`${m.browser.hovered.selector}\`${m.browser.hovered.text ? ` “${m.browser.hovered.text}”` : ""}${m.browser.hovered.components ? ` in ${[...m.browser.hovered.components].slice(0, 5).reverse().join(" › ")}` : ""}`,
     m.browser?.hovered?.source && `- **Source:** \`${sourceText(m.browser.hovered.source)}\``,
     m.browser?.focused && `- **Focused:** \`${m.browser.focused.selector}\``,
     ...(m.browser?.region?.elements || []).slice(0, 15).map((el) => `- In region: \`${el.selector}\`${el.text ? ` “${el.text.slice(0, 80)}”` : ""}${el.source ? ` · ${sourceText(el.source)}` : ""}`),
-    m.browser?.pageFile && `- **Saved page:** \`${DATA.folder}/${m.browser.pageFile}\``,
+    m.browser?.pageFile && (!cloud ? `- **Saved page:** \`${DATA.folder}/${m.browser.pageFile}\``
+      : skippedPages.has(m.browser.pageFile) ? `- **Saved page:** not uploaded (\`${m.browser.pageFile}\` is only in the local session)`
+      : `- **Saved page:** \`${cloudURL(m.browser.pageFile)}\``),
     ...(m.browser?.recent || []).filter(isProblem).slice(-8).map((e) => `- ⚠ ${pageEventText(e)}`),
   ].filter((x) => x !== undefined && x !== null && x !== false).join("\n");
 }
 
 function renderHeader() {
-  document.title = `Session ${DATA.name}`;
-  $("#name").textContent = DATA.name;
+  document.title = manifest?.title ? sessionTitle : `Session ${DATA.name}`;
+  $("#name").textContent = sessionTitle;
   $("#copyAll").innerHTML = `${icon("copy")}Copy all as Markdown`;
   const shots = marks.filter((m) => m.kind === "screenshot").length;
   const apps = new Set(activity.map((a) => a.context?.appName)).size;
@@ -480,7 +535,7 @@ document.addEventListener("click", (e) => {
   if (el.closest("#lightbox")) return;
   if (btn?.matches("[data-copy]")) return copy(markdownFor(marks.find((m) => m.index === +btn.dataset.copy)), btn);
   if (btn?.matches("[data-play]")) { const m = marks.find((x) => x.index === +btn.dataset.play); seekTo(m.offsetSeconds - 5); return video.play(); }
-  if (btn?.id === "copyAll") return copy(`# Session ${DATA.name}\n\n` + marks.map(markdownFor).join("\n\n"), btn);
+  if (btn?.id === "copyAll") return copy(`# ${manifest?.title ? sessionTitle : `Session ${DATA.name}`}\n\n` + marks.map(markdownFor).join("\n\n"), btn);
   const pin = el.closest("[data-mark]");
   if (pin && !el.closest(".detail")) return select(+pin.dataset.mark, { scroll: !!pin.classList.contains("pin") });
   const row = el.closest("[data-seek]");
@@ -625,6 +680,66 @@ video.addEventListener("loadedmetadata", () => {
 });
 if (joined) document.querySelector(".player").insertAdjacentHTML("beforeend",
   `<div class="sub" style="padding:8px">This is a joined session. Open it in Context Recorder to play it; times below are in the joined session.</div>`);
+
+if (cloud) setupCloud();
+
+function setupCloud() {
+  if (video.getAttribute("src") !== videoPath) video.src = videoPath;
+  if (manifest?.poster) video.poster = manifest.poster;
+
+  // Drawings: one PNG per drawing at the video's pixel size, shown between start and end. The layer is sized
+  // to the picture inside the <video> element (object-fit: contain leaves bars when max-height bites).
+  if (drawings.length) {
+    const layer = document.createElement("div");
+    layer.className = "drawings";
+    layer.innerHTML = drawings.map((d, i) => `<img data-drawing="${i}" src="${esc(d.file)}" alt="">`).join("");
+    $(".player").append(layer);
+    const imgs = [...layer.children];
+    const place = () => {
+      const vw = video.videoWidth || manifest?.video?.width, vh = video.videoHeight || manifest?.video?.height;
+      const cw = video.clientWidth, ch = video.clientHeight;
+      if (!vw || !vh || !cw || !ch) return;
+      const k = Math.min(cw / vw, ch / vh), w = vw * k, h = vh * k;
+      Object.assign(layer.style, { left: `${video.offsetLeft + (cw - w) / 2}px`, top: `${video.offsetTop + (ch - h) / 2}px`, width: `${w}px`, height: `${h}px` });
+    };
+    const show = () => {
+      const t = now();
+      drawings.forEach((d, i) => imgs[i].classList.toggle("on", t >= d.start && t < d.end));
+    };
+    let raf = 0;
+    const tick = () => { show(); raf = video.paused ? 0 : requestAnimationFrame(tick); };
+    new ResizeObserver(place).observe(video);
+    addEventListener("resize", place);
+    video.addEventListener("loadedmetadata", place);
+    video.addEventListener("play", () => { if (!raf) raf = requestAnimationFrame(tick); });
+    ["seeked", "seeking", "timeupdate", "pause"].forEach((ev) => video.addEventListener(ev, show));
+    place(); show();
+  }
+
+  // Timeline hover: the thumbnail nearest the pointer's time (thumb i is at i * interval).
+  const th = manifest?.thumbs;
+  if (th && th.count > 0 && th.interval > 0 && th.pattern) {
+    const tip = $("#thumbtip"), tipImg = tip.querySelector("img"), tipTime = tip.querySelector("span");
+    const thumbPath = (i) => th.pattern.replace(/%(0?)(\d*)d/, (_, z, w) => String(i).padStart(+w || 0, z ? "0" : " "));
+    const timeline = $("#timeline");
+    const vw = manifest.video?.width, vh = manifest.video?.height;
+    if (vw && vh) tipImg.style.aspectRatio = `${vw} / ${vh}`; // stable size before the JPEG decodes
+    timeline.addEventListener("pointermove", (e) => {
+      const lane = e.target.closest(".lane");
+      if (!lane) return tip.classList.remove("on");
+      const r = lane.getBoundingClientRect();
+      const t = Math.min(duration, Math.max(0, ((e.clientX - r.left) / r.width) * duration));
+      const src = thumbPath(Math.min(th.count - 1, Math.max(0, Math.round(t / th.interval))));
+      if (tipImg.getAttribute("src") !== src) tipImg.src = src;
+      tipTime.textContent = fmt(t);
+      tip.classList.add("on");
+      const w = tip.offsetWidth, h = tip.offsetHeight;
+      tip.style.left = `${Math.min(innerWidth - w - 8, Math.max(8, e.clientX - w / 2))}px`;
+      tip.style.top = `${Math.max(8, timeline.getBoundingClientRect().top - h - 6)}px`; // above the lanes, not over them
+    });
+    timeline.addEventListener("pointerleave", () => tip.classList.remove("on"));
+  }
+}
 
 renderHeader(); renderTimeline(); setTab("marks");
 </script>

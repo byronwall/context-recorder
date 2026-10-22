@@ -1,0 +1,764 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Cloud sessions",
+    "slug": "cloud-sessions",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-21",
+    "summary": "Push locally recorded sessions to an owner-only Cloudflare-hosted store so they can be reviewed in a browser and processed by agents from any machine.",
+    "status": "planned",
+    "next_action": "Review shape open choices, then start M1 (cloud copy on disk)."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-21"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-21"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-21"
+    }
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "type": "transcript",
+      "location": "conversation",
+      "anchor": "initial /software-design-sleuth-full request, 2026-10-21",
+      "authority": "user"
+    },
+    {
+      "id": "S2",
+      "type": "repo",
+      "location": "README.md",
+      "anchor": "Session output; Edited sessions; Drawing on the video",
+      "authority": "repo"
+    },
+    {
+      "id": "S3",
+      "type": "repo",
+      "location": "scripts/viewer.html",
+      "anchor": "const DATA = /*__SESSION_DATA__*/null",
+      "authority": "repo"
+    },
+    {
+      "id": "S4",
+      "type": "repo",
+      "location": "~/Movies/ContextRecorder",
+      "anchor": "du: 3 sessions, 40-50 MB each",
+      "authority": "repo"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2",
+      "authority": "user"
+    },
+    {
+      "id": "S5",
+      "type": "repo",
+      "location": "~/Movies/ContextRecorder/*",
+      "anchor": "du per part: mp4 26-41MB, pages 0-12MB, audio.wav 3-7MB, jsonl <200KB",
+      "authority": "repo"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "3",
+      "authority": "user"
+    },
+    {
+      "id": "S6",
+      "type": "doc",
+      "location": "https://developers.cloudflare.com/stream/transform-videos/",
+      "anchor": "mode=frame; input <100MB, <=10min; 5000 free/month",
+      "authority": "inferred"
+    },
+    {
+      "id": "S7",
+      "type": "doc",
+      "location": "https://developers.cloudflare.com/agents/model-context-protocol/authorization/",
+      "anchor": "workers-oauth-provider; Access as IdP; createMcpHandler stateless; remote-mcp-cf-access template",
+      "authority": "inferred"
+    },
+    {
+      "id": "S8",
+      "type": "repo",
+      "location": "Sources/ContextRecorder/Library/Edits.swift; Sources/Annotation/Render.swift",
+      "anchor": "EditMap.composition(in:); Renderer.draw",
+      "authority": "repo"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Record on one computer, then view and have an agent process the session from a different computer or the cloud.",
+        "kind": "outcome",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "One owner signs in. The owner can also hand out private per-session share links to people without accounts.",
+        "kind": "constraint",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high",
+        "notes": "Whether anyone besides the owner ever views is unasked."
+      },
+      {
+        "id": "C3",
+        "statement": "Sessions are local by default and pushed to the cloud explicitly.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C4",
+        "statement": "The cloud viewer has review parity with the native viewer.",
+        "kind": "desired experience",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "medium",
+        "notes": "Scoped in round 2: cuts, drawings, joins; canvas later."
+      },
+      {
+        "id": "C5",
+        "statement": "Advanced features (joining, cutting, canvas building) may be limited in the cloud. Keeping annotation would be nice.",
+        "kind": "anti-goal",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high",
+        "notes": "Annotating in the cloud is out for the first release because the cloud is read-only (round 1). Drawings made on the Mac are still shown."
+      },
+      {
+        "id": "C6",
+        "statement": "Agents read sessions from two places: Claude Code on another Mac and cloud agents. Both need access without the recording Mac.",
+        "kind": "implementation hypothesis",
+        "commitment": "tentative",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "low",
+        "notes": "Durable intent: an agent elsewhere can read a session. The mechanism is undecided."
+      },
+      {
+        "id": "C7",
+        "statement": "Target Cloudflare and use its native services. Coolify with Docker Compose and a volume is the known fallback.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high",
+        "notes": "The user has no Cloudflare account yet."
+      },
+      {
+        "id": "C8",
+        "statement": "Sessions are 40-50 MB, dominated by recording.mp4. session.json bundles the viewer data. viewer.html does not render edits, annotations or the canvas.",
+        "kind": "current repository reality",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "proof",
+        "sources": [
+          "S2",
+          "S3",
+          "S4"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C9",
+        "statement": "Saved pages and narration may hold sensitive content, so what gets uploaded is a policy choice.",
+        "kind": "derived implication",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S2"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C10",
+        "statement": "The cloud is a read-only mirror of what the Mac pushed. Changes happen on the Mac, and you push again.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C11",
+        "statement": "A second Mac pulling cloud sessions into its native library comes later.",
+        "kind": "future possibility",
+        "commitment": "explicit",
+        "importance": "peripheral",
+        "status": "active",
+        "horizon": "later",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "Push is a per-session button. Later edits on the Mac mark the cloud copy stale until you push again.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C13",
+        "statement": "Upload video, narration, logs and saved pages, with a size cap on saved pages so they never dwarf the video.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-2",
+          "S5"
+        ],
+        "confidence": "medium",
+        "notes": "The cap value is a provisional default. audio.wav is redundant with the mp4 audio track."
+      },
+      {
+        "id": "C14",
+        "statement": "Share links are view-only, unguessable, per session, with no expiry by default, and revocable.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C15",
+        "statement": "The cloud viewer must play edited sessions with cuts applied, show drawings on the video, and play joined sessions. The canvas view can wait.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C16",
+        "statement": "Agents use sessions to turn marks into fixes or tickets, and need to see the video at moments that may have no mark.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C17",
+        "statement": "Budget is up to about $5/month. The site runs on a domain the user owns, moved to Cloudflare DNS.",
+        "kind": "constraint",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C18",
+        "statement": "Trashing a pushed session on the Mac asks whether to delete the cloud copy as well.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C19",
+        "statement": "Cross-session search and questions like \"what happened\" are not first-release agent jobs.",
+        "kind": "anti-goal",
+        "commitment": "derived",
+        "importance": "peripheral",
+        "status": "active",
+        "horizon": "later",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "themes": [
+      "portable sessions",
+      "owner-only cloud",
+      "agent access",
+      "viewer parity"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "One Worker, one R2 bucket, D1, KV, and a push command in the app. No cloud-side processing except frame extraction.",
+    "problem": "Sessions are reachable only on the recording Mac. Viewing elsewhere and agent processing need a private, owned cloud copy.",
+    "recommended_shape": "Flatten on the Mac (EditMap composition export, rendered drawing PNGs, edited-time session.json, thumbs) into a self-contained cloud copy. One Cloudflare Worker serves the library, viewer, share pages and a remote MCP from R2 and D1, behind Access.",
+    "success_moves": [
+      "Flatten cuts and joins at push using EditMap.composition, so no cloud code knows about edits",
+      "Render drawings with Annotation.Renderer to PNG overlays, avoiding a second JS renderer",
+      "One viewer template for local viewer.html and the cloud",
+      "Thumbs every 2 s serve viewer hover and act as the local fake for get_frame",
+      "Content-hashed manifest makes re-push incremental and drives the out-of-date badge",
+      "Identity, Store and Frames seams let the Worker run fully on wrangler dev"
+    ],
+    "first_proof": {
+      "question": "Does a flattened cloud copy keep cuts, joins, drawings and mark times faithful to the app?",
+      "artifact": "--cloud-bundle output for a real edited and annotated session, played by the shared viewer from disk and then from wrangler dev",
+      "decision_rule": "If cut points, mark times and drawing windows match the app within one frame, keep flatten-on-push. If not, switch to client-side segment stepping before building further."
+    },
+    "rabbit_holes": [
+      "Rendering edits or joins in the browser",
+      "A JS drawing renderer",
+      "HLS or Stream transcoding",
+      "Two-way sync"
+    ],
+    "open_decisions": [
+      "Agents and shares never see cut footage (treated as intended)",
+      "Saved-page budget default: max(10 MB, half the video)"
+    ]
+  },
+  "implementation": {
+    "status": "planned",
+    "repository_snapshot": {
+      "root": null,
+      "revision": "08faf14",
+      "worktree_status": "clean",
+      "subsystems": [
+        "Sources/ContextRecorder/Library (EditMap, Annotations, SessionModel)",
+        "Sources/Annotation (Renderer)",
+        "scripts/process_session.py",
+        "scripts/viewer.html",
+        "new: Sources/ContextRecorder/Cloud",
+        "new: cloud/ Worker"
+      ],
+      "test_commands": [
+        "swift run ContextRecorder --library <session> --self-test edits",
+        "python3 -m unittest scripts/test_process_session.py",
+        "swift run -c release canvas-tool check"
+      ],
+      "deployment_surfaces": [
+        "Cloudflare Workers + R2 + D1 + KV on user domain, behind Access (new)"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "D1",
+        "name": "Cloudflare R2, D1, KV",
+        "material": true,
+        "application_seam": "Store (R2 keys sessions/<id>/<path>, D1 sessions/shares)",
+        "failure_modes": [
+          "upload interrupted mid-push",
+          "request body over the Worker limit",
+          "Range not honoured so mp4 cannot seek",
+          "orphaned files after re-push"
+        ],
+        "proof_rungs": [
+          "Miniflare via vitest-pool-workers",
+          "wrangler dev with the real app pushing",
+          "live deploy"
+        ],
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "M1 proves the cloud copy on disk without any storage."
+        },
+        "local_proof": "vitest: push/commit/re-push, Range, delete, with an injected failed PUT then retry",
+        "live_proof": "M4 push of a real session, seek in the deployed viewer",
+        "rollout": "Push hidden until a cloud URL is configured; the cloud can be wiped and re-pushed from the Mac"
+      },
+      {
+        "id": "D2",
+        "name": "Cloudflare Access (owner sign-in, service token, share bypass)",
+        "material": true,
+        "application_seam": "Identity(request) for every route",
+        "failure_modes": [
+          "missing or invalid JWT",
+          "share path accidentally behind Access",
+          "share bypass exposing non-share routes",
+          "service token expired"
+        ],
+        "proof_rungs": [
+          "DEV_IDENTITY in dev with tests for denied requests",
+          "live Access app and service token"
+        ],
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "Auth does not affect whether the cloud copy is faithful."
+        },
+        "local_proof": "vitest: routes reject without identity, /share only serves its own session",
+        "live_proof": "M4 signed-out request is blocked; Mac pushes with service token; M6 share link works signed-out",
+        "rollout": "Access policies changeable in the dashboard without redeploy"
+      },
+      {
+        "id": "D3",
+        "name": "Cloudflare Media Transformations (frames at a time)",
+        "material": true,
+        "application_seam": "Frames port with thumbs and media adapters",
+        "failure_modes": [
+          "source fetch blocked by Access",
+          "video over 100 MB or 10 min",
+          "transform not enabled on zone"
+        ],
+        "proof_rungs": [
+          "thumbs nearest-frame adapter",
+          "live spike on the zone"
+        ],
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "Thumbnails pushed in M1 stand in until the spike."
+        },
+        "local_proof": "MCP contract tests against the thumbs adapter",
+        "live_proof": "M4 spike: frame from a signed /src path, latency and cached rerun",
+        "rollout": "Adapter choice by env var; thumbs remains the fallback and covers long recordings"
+      },
+      {
+        "id": "D4",
+        "name": "Remote MCP OAuth (workers-oauth-provider + Access for SaaS)",
+        "material": true,
+        "application_seam": "OAuth wrapper around the /mcp handler, off in dev",
+        "failure_modes": [
+          "client cannot complete dynamic registration",
+          "token expiry mid-session",
+          "connector not supported by a client"
+        ],
+        "proof_rungs": [
+          "unauthenticated local MCP with Inspector and Claude Code",
+          "live OAuth from two agent homes"
+        ],
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "Tool behavior is proven locally before auth."
+        },
+        "local_proof": "M3 Inspector and claude mcp add against localhost",
+        "live_proof": "M5 Claude Code on a second machine and a Claude.ai connector fetch the same frame",
+        "rollout": "MCP route can be disabled independently of the viewer"
+      },
+      {
+        "id": "D5",
+        "name": "AVFoundation export of edited/joined compositions",
+        "material": true,
+        "application_seam": "CloudBundle video step",
+        "failure_modes": [
+          "export timing drift vs EditMap",
+          "joined sources of different sizes",
+          "missing source folder"
+        ],
+        "proof_rungs": [
+          "self-test with synthetic edited session",
+          "real edited and annotated session"
+        ],
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "This is the first proof: whether flattening keeps times faithful."
+        },
+        "local_proof": "--self-test cloud-bundle asserts duration, mark times and drawing windows",
+        "live_proof": "Not needed beyond the local run",
+        "rollout": "Unedited sessions copy the mp4 untouched"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "swift run ContextRecorder --library tmp/ --self-test cloud-bundle",
+      "worker_command": "pnpm --dir cloud test && pnpm --dir cloud dev",
+      "network": "none until M4"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "The cloud copy plays from disk",
+        "outcome": "--cloud-bundle writes a self-contained folder that the shared viewer plays with cuts, joins and drawings matching the app.",
+        "dependencies_introduced": [
+          "D5"
+        ],
+        "proof": "--self-test cloud-bundle; one real edited, annotated session compared against the app within one frame",
+        "valid_intermediate_state": "A local export command exists; nothing uploads; viewer.html still works embedded.",
+        "rollback": "Remove the command; session folders are untouched (output goes to a chosen folder).",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Push to a local cloud and browse it",
+        "outcome": "The app pushes a session to the Worker on wrangler dev, and it plays in the browser with seeking; re-push sends only changed files.",
+        "dependencies_introduced": [
+          "D1"
+        ],
+        "proof": "vitest push/commit/Range/delete; app push to localhost viewed in the browser pane",
+        "valid_intermediate_state": "Cloud usable locally; push hidden unless a cloud URL is configured.",
+        "rollback": "Unset the cloud URL; delete exports/cloud.json.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Agents read sessions locally over MCP",
+        "outcome": "Claude Code connected to the local Worker reads marks and fetches a frame at any time.",
+        "dependencies_introduced": [],
+        "proof": "MCP contract tests on seeded Miniflare; Inspector and claude mcp add run",
+        "valid_intermediate_state": "MCP served locally with the thumbs frames adapter.",
+        "rollback": "Remove the /mcp route.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "Live on your domain",
+        "outcome": "Sessions play at sessions.<domain> behind Access, pushed from the app with a service token.",
+        "dependencies_introduced": [
+          "D2",
+          "D3"
+        ],
+        "proof": "Signed-out request blocked; phone viewing after sign-in; Media Transformations spike result recorded",
+        "valid_intermediate_state": "Live cloud for the owner; MCP live but unauthenticated route disabled until m5.",
+        "rollback": "Disable the Worker route or Access app; Mac copies are untouched.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m5",
+        "title": "Agents from anywhere",
+        "outcome": "Claude Code on another machine and a cloud agent sign in and use the MCP while the recording Mac sleeps.",
+        "dependencies_introduced": [
+          "D4"
+        ],
+        "proof": "Both clients fetch get_frame for the same moment",
+        "valid_intermediate_state": "Viewer unchanged; MCP behind OAuth.",
+        "rollback": "Disable /mcp; viewer and push keep working.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m6",
+        "title": "Sharing and lifecycle",
+        "outcome": "Revocable view-only share links; trashing a pushed session asks about the cloud copy.",
+        "dependencies_introduced": [],
+        "proof": "vitest share/revoke; signed-out browser check; trash prompt in the app",
+        "valid_intermediate_state": "Complete first release.",
+        "rollback": "Revoke all shares; remove the Bypass policy.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "Canvas view",
+      "ZIP download",
+      "Cross-session search/Q&A",
+      "Second-Mac pull",
+      "Auto push",
+      "Cloud editing",
+      "Stream/HLS",
+      "Multi-user"
+    ],
+    "open_decisions": [
+      "Frames source (M4 spike)",
+      "Saved-page budget"
+    ]
+  },
+  "question_rounds": {
+    "focus": "intent before shaping",
+    "per_round": 6,
+    "planned_rounds": 3,
+    "status": "complete",
+    "rounds": [
+      {
+        "round": 1,
+        "theme": "goals and stakes",
+        "source": "qa-round-1",
+        "questions": [
+          {
+            "n": 1,
+            "question": "Who besides you ever looks at a cloud session?",
+            "answer": "Me + share links",
+            "effect": "Owner-only login plus per-session private share links for people without accounts."
+          },
+          {
+            "n": 2,
+            "question": "Where does the processing agent run?",
+            "answer": "Claude Code on another Mac, and cloud agents",
+            "effect": "Needs both a local-friendly route and a remote route (remote MCP or HTTP API)."
+          },
+          {
+            "n": 3,
+            "question": "Can you change a session from the cloud?",
+            "answer": "Read-only copy",
+            "effect": "Cloud mirrors pushes; no sync-back. Cloud annotation drops out of first release."
+          },
+          {
+            "n": 4,
+            "question": "Should a second Mac pull cloud sessions into its library?",
+            "answer": "Later, not first release",
+            "effect": "Below the cut line; keep the stored format download-friendly."
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "theme": "behavior and limits",
+        "source": "qa-round-2",
+        "questions": [
+          {
+            "n": 5,
+            "question": "How does a session get to the cloud and stay current?",
+            "answer": "Button; re-push manually",
+            "effect": "Explicit push; app flags stale cloud copy; re-push replaces."
+          },
+          {
+            "n": 6,
+            "question": "Which parts go up?",
+            "answer": "Video, narration audio; saved pages and raw logs OK up to some size limit — no feel for the limit",
+            "effect": "Provisional default: upload all but audio.wav (redundant with mp4); logs always; saved pages under a per-session cap, largest dropped first, skipped ones listed."
+          },
+          {
+            "n": 7,
+            "question": "What should a share link do?",
+            "answer": "View-only, revocable",
+            "effect": "Unguessable per-session link, no default expiry, owner can revoke. Not an agent credential."
+          },
+          {
+            "n": 8,
+            "question": "Parity bar for first release?",
+            "answer": "Cuts applied, drawings on video, joined sessions",
+            "effect": "Canvas view is below the cut line. Joined sessions need their sources uploaded or resolved at push."
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "theme": "boundaries and confirmation",
+        "source": "qa-round-3",
+        "questions": [
+          {
+            "n": 9,
+            "question": "What will agents mostly do with a session?",
+            "answer": "Marks to fixes/tickets; look at the video",
+            "effect": "Agent route serves mark Markdown, images, page context, and frames at arbitrary times. Cross-session search and Q&A are below the line."
+          },
+          {
+            "n": 10,
+            "question": "Monthly bill?",
+            "answer": "<= $5/mo is fine",
+            "effect": "Workers Paid allowed; Stream-class spend not assumed."
+          },
+          {
+            "n": 11,
+            "question": "Address?",
+            "answer": "A domain I own",
+            "effect": "Zone moves to Cloudflare DNS; custom hostname enables Access and Media Transformations."
+          },
+          {
+            "n": 12,
+            "question": "Lifecycle check",
+            "answer": "Local trash asks",
+            "effect": "Trashing a pushed session prompts to delete the cloud copy too; otherwise lifecycles are independent."
+          }
+        ]
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-21",
+      "change": "Created initiative. Drafted intent brief from the initial request and repository survey."
+    },
+    {
+      "date": "2026-10-21",
+      "change": "Three question rounds completed; intent rewritten; shape and plan written with Cloudflare research."
+    }
+  ],
+  "closure": null
+}

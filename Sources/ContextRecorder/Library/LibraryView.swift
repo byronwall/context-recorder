@@ -35,6 +35,9 @@ struct LibraryView: View {
         }
         .sheet(isPresented: $state.showShortcuts) { ShortcutsSheet() }
         .sheet(isPresented: $state.showChromeSetup) { ChromeExtensionSheet() }
+        .sheet(isPresented: Binding(get: { CloudState.shared.showSettings }, set: { CloudState.shared.showSettings = $0 })) {
+            CloudSettingsSheet()
+        }
         .confirmationDialog(trashTitle, isPresented: Binding(get: { !state.confirmTrash.isEmpty },
                                                              set: { if !$0 { state.confirmTrash = [] } })) {
             Button("Move to Trash", role: .destructive) { state.trashConfirmed() }
@@ -142,6 +145,10 @@ struct SessionSidebar: View {
             if !state.isLive(entry.url) {
                 Button(entry.processed ? "Process Again" : "Process Now", systemImage: "arrow.clockwise") { state.recorder.process(entry.url) }
                     .disabled(!state.recorder.canRecord || state.recorder.processing.contains(entry.url))
+                if entry.processed, CloudState.shared.configured {
+                    Divider()
+                    CloudMenuItems(folder: entry.url)
+                }
             }
         } else if !entries.isEmpty {
             Button("Join into One Session", systemImage: "rectangle.stack.badge.plus") { state.join(entries.map(\.url)) }
@@ -241,6 +248,7 @@ struct SessionRow: View {
                             .help("Narrated: has a transcript")
                             .accessibilityLabel("Narrated")
                     }
+                    if status == .ready { CloudRowBadge(folder: entry.url) }
                     Spacer(minLength: 0)
                     HStack(spacing: -3) {
                         ForEach(entry.appBundleIDs.prefix(4), id: \.self) { AppIcon(bundleID: $0, size: 14) }
