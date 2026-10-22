@@ -47,14 +47,14 @@ struct RecordCard: View {
                     Text(Format.time(recorder.elapsed))
                         .font(.system(size: 17, weight: .semibold).monospacedDigit())
                         .contentTransition(.numericText())
-                    Text(recorder.phase == .starting ? "Starting…" : marksText)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                    MicMeter(recorder: recorder, bars: 14, height: 14)
                     Spacer(minLength: 0)
                     Button { recorder.stop() } label: { Label("Stop", systemImage: "stop.fill") }
                         .buttonStyle(.bordered)
                         .tint(.red)
                         .controlSize(.small)
+                        .fixedSize()
                         .disabled(recorder.phase != .recording)
                         .help("Stop recording (⌃⌥R)")
                 }
@@ -74,11 +74,6 @@ struct RecordCard: View {
         .padding(.bottom, 10)
         .animation(.snappy(duration: 0.25), value: recorder.phase)
     }
-
-    private var marksText: String {
-        let n = recorder.liveMarks.count
-        return n == 0 ? "No marks yet" : (n == 1 ? "1 mark" : "\(n) marks")
-    }
 }
 
 // MARK: Live session
@@ -96,6 +91,8 @@ struct LiveSessionView: View {
                     Text(Format.time(recorder.elapsed))
                         .font(.system(size: 54, weight: .semibold, design: .rounded).monospacedDigit())
                         .contentTransition(.numericText())
+                    MicMeter(recorder: recorder, bars: 40, height: 26)
+                        .padding(.vertical, 2)
                     Text(status)
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
@@ -151,7 +148,7 @@ struct LiveSessionView: View {
         }
         .background(Color.stage)
         .navigationTitle("Recording")
-        .navigationSubtitle(recorder.recordMicrophone ? "Microphone on" : "Microphone off")
+        .navigationSubtitle(recorder.recordingMic ? "Microphone on" : "Microphone off")
     }
 
     private var status: String {
@@ -159,8 +156,7 @@ struct LiveSessionView: View {
         case .starting: return "Starting…"
         case .stopping: return "Saving…"
         default:
-            return [recorder.recordMicrophone ? "Narration on" : "Silent",
-                    recorder.chromeConnected ? "Chrome connected" : "No Chrome extension"].joined(separator: " · ")
+            return recorder.chromeConnected ? "Chrome connected" : "No Chrome extension"
         }
     }
 }

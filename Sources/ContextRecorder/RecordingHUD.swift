@@ -1,32 +1,36 @@
 import AppKit
 import SwiftUI
 
-/// Floating recording controls, shown only while recording. Our own windows are left out of the
-/// capture, so it can stay on screen. Closing it hides it until the next recording (or Recording →
-/// Show Recording Controls).
+/// Floating recording controls, shown only while recording: one slim row with the clock, the microphone
+/// level, the mark count and Mark / Region / Stop. Our own windows are left out of the capture, so it can
+/// stay on screen. Drag it anywhere; hover and click × (or right-click → Hide) to hide it until the next
+/// recording (or Recording → Show Recording Controls).
 @MainActor
 final class RecordingHUDController {
     private let panel: NSPanel
 
     init(recorder: RecorderController, openSessions: @escaping () -> Void) {
-        panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 170),
-                        styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel, .utilityWindow],
-                        backing: .buffered, defer: false)
+        panel = HUDPanel(contentRect: NSRect(x: 0, y: 0, width: 260, height: 34),
+                         styleMask: [.borderless, .nonactivatingPanel],
+                         backing: .buffered, defer: false)
         panel.title = "Recording"
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
-        let host = NSHostingController(rootView: RecordingHUD(recorder: recorder, openSessions: openSessions))
+        let host = NSHostingController(rootView: RecordingHUD(recorder: recorder, openSessions: openSessions,
+                                                              hide: { [weak panel] in panel?.orderOut(nil) }))
         host.sizingOptions = .preferredContentSize
+        host.view.wantsLayer = true
+        host.view.layer?.backgroundColor = .clear
         panel.contentViewController = host
-        panel.setFrameAutosaveName("RecordingHUD")
+        // New name: frames saved for the old, taller panel would place this one oddly.
+        panel.setFrameAutosaveName("RecordingHUD.compact")
 
         // Follow the recorder: appear when a recording starts, leave when it's saved.
         var wasRecording = false
@@ -44,66 +48,194 @@ final class RecordingHUDController {
            let screen = NSScreen.main {
             panel.layoutIfNeeded()
             let f = screen.visibleFrame
-            panel.setFrameTopLeftPoint(NSPoint(x: f.maxX - panel.frame.width - 20, y: f.maxY - 20))
+            panel.setFrameTopLeftPoint(NSPoint(x: f.maxX - panel.frame.width - 16, y: f.maxY - 12))
         }
         panel.orderFrontRegardless()
     }
 }
 
+/// A borderless panel still takes clicks on its buttons without activating the app.
+private final class HUDPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
 struct RecordingHUD: View {
     var recorder: RecorderController
     var openSessions: () -> Void
+    var hide: () -> Void
+    @State private var hovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 10) {
-                RecordingDot(active: recorder.phase == .recording)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(Format.time(recorder.elapsed))
-                        .font(.system(size: 24, weight: .semibold).monospacedDigit())
-                        .contentTransition(.numericText())
-                    Text(caption)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-                ChromeBadge(connected: recorder.chromeConnected)
-            }
-
-            RecordingActions(recorder: recorder, size: .regular)
-
-            Divider()
-
-            HStack(spacing: 8) {
-                LastMarkLine(mark: recorder.liveMarks.last)
-                Spacer(minLength: 0)
-                Button(action: openSessions) {
-                    Image(systemName: "rectangle.stack")
+        HStack(spacing: 8) {
+            ZStack {
+                RecordingDot(active: recorder.phase == .recording, size: 16)
+                    .opacity(hovering ? 0 : 1)
+                Button(action: hide) {
+                    Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 13))
-                        .frame(width: 24, height: 22)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16, height: 16)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Show the Sessions window")
+                .opacity(hovering ? 1 : 0)
+                .help("Hide the controls until the next recording (Recording → Show Recording Controls brings them back)")
             }
+
+            Text(clock)
+                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                .contentTransition(.numericText())
+                .frame(minWidth: 34, alignment: .leading)
+
+            MicMeter(recorder: recorder, bars: 22, height: 14)
+
+            Label {
+                Text("\(recorder.liveMarks.count)").monospacedDigit().contentTransition(.numericText())
+            } icon: {
+                Image(systemName: "flag.fill").font(.system(size: 9))
+            }
+            .labelStyle(TightLabel())
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(recorder.liveMarks.isEmpty ? .tertiary : .secondary)
+            .frame(minWidth: 26, alignment: .leading)
+            .help(lastMarkHelp)
+
+            HStack(spacing: 2) {
+                HUDButton(symbol: "flag.fill", help: "Mark this moment (⌃⌥M)", bounce: recorder.liveMarks.count) {
+                    recorder.mark()
+                }
+                HUDButton(symbol: "viewfinder", help: "Screenshot a region (⌃⌥S)") { recorder.screenshot() }
+                HUDButton(symbol: "stop.fill", help: "Stop recording (⌃⌥R)", tint: .red) { recorder.stop() }
+            }
+            .disabled(recorder.phase != .recording)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 30)
-        .padding(.bottom, 14)
-        .frame(width: 320)
-        .background(VisualEffect(material: .hudWindow).ignoresSafeArea())
+        .padding(.leading, 9)
+        .padding(.trailing, 4)
+        .frame(height: 32)
+        .background(VisualEffect(material: .hudWindow).clipShape(.capsule))
+        .overlay(Capsule().strokeBorder(.separator.opacity(0.5), lineWidth: 0.5))
+        .fixedSize()
+        .onHover { h in withAnimation(.easeOut(duration: 0.14)) { hovering = h } }
+        .animation(.snappy(duration: 0.2), value: recorder.liveMarks.count)
+        .contextMenu {
+            Button("Show Sessions Window", action: openSessions)
+            Button(recorder.chromeConnected ? "Chrome Extension Connected" : "Set Up Chrome Extension…") {
+                NSApp.sendAction(#selector(AppDelegate.showChromeSetup), to: nil, from: nil)
+            }
+            Divider()
+            Button("Hide Controls", action: hide)
+        }
     }
 
-    private var caption: String {
+    private var clock: String {
         switch recorder.phase {
-        case .starting: return "Starting…"
-        case .stopping: return "Saving…"
-        default:
-            let n = recorder.liveMarks.count
-            let marks = n == 0 ? "No marks yet" : (n == 1 ? "1 mark" : "\(n) marks")
-            return marks + (recorder.recordMicrophone ? " · Mic on" : " · Mic off")
+        case .starting: return "0:00"
+        default: return Format.time(recorder.elapsed)
         }
+    }
+
+    private var lastMarkHelp: String {
+        guard let mark = recorder.liveMarks.last else { return "No marks yet. ⌃⌥M marks a moment, ⌃⌥S grabs a region." }
+        let n = recorder.liveMarks.count
+        let app = mark.context.appName.map { " in \($0)" } ?? ""
+        return "\(n == 1 ? "1 mark" : "\(n) marks"). Last: #\(mark.index) at \(Format.time(mark.offsetSeconds))\(app)"
+    }
+}
+
+/// Icon-only control for the slim HUD: a 26×26 hit area with a hover fill.
+private struct HUDButton: View {
+    var symbol: String
+    var help: String
+    var tint: Color = .primary
+    var bounce: Int = 0
+    var action: () -> Void
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(tint.opacity(isEnabled ? 0.9 : 0.35))
+                .symbolEffect(.bounce, value: bounce)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(.primary.opacity(hovering && isEnabled ? 0.1 : 0)))
+                .contentShape(.circle)
+        }
+        .buttonStyle(PressScale())
+        .onHover { h in withAnimation(.easeOut(duration: 0.14)) { hovering = h } }
+        .help(help)
+    }
+}
+
+private struct PressScale: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.9 : 1)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+private struct TightLabel: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 3) { configuration.icon; configuration.title }
+    }
+}
+
+/// Live microphone level as a short scrolling strip, newest on the right, so you can see the mic is
+/// hearing you while you talk. Says "Mic off" for a silent recording and "No audio" when the mic should be
+/// recording but nothing is arriving. Fixed size in every state, so nothing around it moves.
+struct MicMeter: View {
+    var recorder: RecorderController
+    var bars = 18
+    var height: CGFloat = 14
+    private let pitch: CGFloat = 3   // bar 2 pt + gap 1 pt
+
+    var body: some View {
+        Group {
+            if !recorder.recordingMic {
+                status("Mic off", symbol: "mic.slash", color: .secondary)
+                    .help("This recording has no narration. Turn on Mic before recording to capture it.")
+            } else if recorder.micStalled {
+                status("No audio", symbol: "mic.badge.xmark", color: .orange)
+                    .help("The microphone isn't delivering audio. Check the input device and Microphone permission in System Settings.")
+            } else {
+                strip.help("Microphone level")
+            }
+        }
+        .frame(width: CGFloat(bars) * pitch, height: height)
+        .accessibilityElement()
+        .accessibilityLabel(recorder.recordingMic ? (recorder.micStalled ? "Microphone: no audio" : "Microphone level") : "Microphone off")
+    }
+
+    private var strip: some View {
+        let levels = recorder.micLevels.suffix(bars)
+        return Canvas { context, size in
+            let offset = bars - levels.count
+            for (i, level) in levels.enumerated() {
+                let h = max(2, CGFloat(level) * size.height)
+                let rect = CGRect(x: CGFloat(offset + i) * pitch, y: (size.height - h) / 2, width: pitch - 1, height: h)
+                // Green once there's real sound; room tone stays grey so a live but quiet mic still shows.
+                let heard = level > 0.15
+                context.fill(Path(roundedRect: rect, cornerRadius: 1),
+                             with: .color(heard ? Color.green.opacity(0.9) : Color.secondary.opacity(0.6)))
+            }
+            // Empty slots before the first value: a quiet baseline, so the strip has its full width from the start.
+            for i in 0..<offset {
+                context.fill(Path(CGRect(x: CGFloat(i) * pitch, y: size.height / 2 - 0.5, width: pitch - 1, height: 1)),
+                             with: .color(.secondary.opacity(0.35)))
+            }
+        }
+    }
+
+    private func status(_ text: String, symbol: String, color: Color) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol)
+            Text(text).lineLimit(1)
+        }
+        .font(.system(size: 10.5, weight: .medium))
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -185,29 +317,6 @@ struct ChromeBadge: View {
         .padding(.vertical, 3)
         .background(.quaternary.opacity(0.6), in: .capsule)
         .contentShape(.capsule)
-    }
-}
-
-/// "⚑ #3 · 1:17 · Google Chrome", or a hint before the first mark.
-struct LastMarkLine: View {
-    var mark: Mark?
-
-    var body: some View {
-        if let mark {
-            HStack(spacing: 6) {
-                MarkDisc(index: mark.index, isShot: mark.kind == "screenshot", size: 16)
-                Text(Format.time(mark.offsetSeconds)).monospacedDigit().foregroundStyle(.secondary)
-                AppIcon(bundleID: mark.context.bundleID, size: 14)
-                Text(mark.context.appName ?? "")
-                    .lineLimit(1)
-            }
-            .font(.system(size: 11.5))
-            .transition(.opacity)
-        } else {
-            Text("⌃⌥M marks a moment · ⌃⌥S grabs a region")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-        }
     }
 }
 

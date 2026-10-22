@@ -162,8 +162,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         // `--demo recording|processing|failed` fakes that state on the open session, to work on those views.
         if let state = value("--demo"), let open = library.state.model?.folder {
             switch state {
-            case "recording":
-                recorder.demoRecording(in: open)
+            case "recording", "recording-stalled", "recording-mic-off":
+                // `recording-stalled` / `recording-mic-off`: the level meters' warning and silent states.
+                recorder.demoRecording(in: open, mic: state == "recording" ? "live" : (state == "recording-stalled" ? "stalled" : "off"))
                 hud = RecordingHUDController(recorder: recorder) { [weak self] in self?.library.show() }
             case "processing": recorder.demoPending(open, failed: false)
             case "failed": recorder.demoPending(open, failed: true)
