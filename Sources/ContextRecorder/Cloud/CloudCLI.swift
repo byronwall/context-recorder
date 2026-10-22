@@ -5,7 +5,8 @@ import Foundation
 ///   ContextRecorder --cloud-bundle <session> <out-folder>
 ///   ContextRecorder --push <session> [--cloud <url>]
 ///   ContextRecorder --self-test cloud-bundle | cloud-client
-/// Exit codes: 0 ok, 1 failed, 2 bad usage or no cloud configured.
+/// `--push` uses the app's stored sign-in; `CR_CLOUD_TOKEN` (an access token) overrides it.
+/// Exit codes: 0 ok, 1 failed, 2 bad usage, no cloud configured, or signed out.
 @MainActor
 enum CloudCLI {
     static func handles(_ args: [String]) -> Bool {
@@ -79,6 +80,11 @@ enum CloudCLI {
                 fputs("No cloud configured: pass --cloud <url>, set CR_CLOUD_URL, or set it in Cloud Settings.\n", stderr)
                 return 2
             }
+            // A local wrangler dev Worker (DEV_IDENTITY) takes requests without a token.
+            guard config.hasCredentials || CloudAuth.isLocal(config.url) else {
+                fputs("Not signed in to \(config.url.absoluteString). Sign in from Cloud Settings in the app, or set CR_CLOUD_TOKEN.\n", stderr)
+                return 2
+            }
             do {
                 var last = ""
                 let (record, report) = try await CloudPush.run(session: session, config: config) { phase, f in
@@ -91,6 +97,9 @@ enum CloudCLI {
                 print("  manifestSha256 \(record.manifestSha256)")
                 print("  wrote \(CloudRecord.url(session).path)")
                 return 0
+            } catch CloudAuthError.signInRequired {
+                fputs("push failed: Sign in from Cloud Settings in the app.\n", stderr)
+                return 2
             } catch {
                 fputs("push failed: \(error.localizedDescription)\n", stderr)
                 return 1

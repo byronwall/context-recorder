@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Push state shared by the sidebar, the session toolbar and the settings sheet. Everything cloud in the
-/// UI is hidden until a cloud URL is configured.
+/// Push and sign-in state shared by the sidebar, the session toolbar and the settings sheet. Everything cloud
+/// in the UI is hidden until a cloud URL is configured.
 @MainActor @Observable
 final class CloudState {
     static let shared = CloudState()
@@ -11,6 +11,9 @@ final class CloudState {
     enum Status: Equatable { case notPushed, current(CloudRecord), outdated(CloudRecord) }
 
     private(set) var configured = CloudConfig.current() != nil
+    /// The stored sign-in (for whichever cloud URL it was made against).
+    private(set) var stored: CloudCredentials?
+    private(set) var signingIn = false
     private(set) var jobs: [URL: Job] = [:]
     private(set) var errors: [URL: String] = [:]
     var showSettings = false
@@ -18,6 +21,59 @@ final class CloudState {
     private(set) var revision = 0
 
     @ObservationIgnored private var cache: [URL: (key: String, status: Status)] = [:]
+    @ObservationIgnored private var signInTask: Task<CloudCredentials, Error>?
+    @ObservationIgnored private var authenticator: WebAuthenticator?
+
+    private init() {
+        KeychainAuthStore.removeLegacyServiceToken()
+        stored = KeychainAuthStore().load()
+    }
+
+    /// Signed in to the configured cloud.
+    var signedIn: Bool { currentAccount != nil }
+    var email: String? { currentAccount?.email }
+    private var currentAccount: CloudCredentials? { CloudConfig.current().flatMap { account(for: $0.url) } }
+
+    func account(for url: URL) -> CloudCredentials? { stored.flatMap { $0.matches(url) ? $0 : nil } }
+
+    /// Browser sign-in to `url`; a second caller waits for the sign-in already under way.
+    @discardableResult
+    func signIn(to url: URL) async throws -> CloudCredentials {
+        if let signInTask { return try await signInTask.value }
+        let auth = WebAuthenticator()
+        authenticator = auth
+        signingIn = true
+        let task = Task { @MainActor in
+            try await CloudAuth.signIn(url) { authorize in
+                try Task.checkCancellation()
+                return try await auth.open(authorize)
+            }
+        }
+        signInTask = task
+        defer { signingIn = false; signInTask = nil; authenticator = nil }
+        do {
+            let credentials = try await task.value
+            try await CloudTokenProvider.keychain.signedIn(credentials)
+            stored = credentials
+            revision += 1
+            return credentials
+        } catch is CancellationError {
+            throw CloudAuthError.cancelled
+        }
+    }
+
+    func cancelSignIn() {
+        signInTask?.cancel()
+        authenticator?.cancel()
+    }
+
+    /// Forgets the sign-in (the address stays) and asks the cloud to revoke it.
+    func signOut() {
+        stored = nil
+        Task.detached {
+            if let old = await CloudTokenProvider.keychain.signOut() { await CloudAuth.revoke(old) }
+        }
+    }
 
     /// Something the cloud copy is built from changed in the app; statuses are read again.
     func localChange() { if configured { revision += 1 } }
@@ -62,14 +118,20 @@ final class CloudState {
         guard jobs[folder] == nil else { return }
         guard let config = CloudConfig.current() else { showSettings = true; return }
         errors[folder] = nil
-        jobs[folder] = Job(phase: "Preparing", fraction: 0)
+        // Signed out: sign in first, then push. A local dev Worker needs no sign-in.
+        let needsSignIn = !config.hasCredentials && !CloudAuth.isLocal(config.url)
+        jobs[folder] = Job(phase: needsSignIn ? "Signing in…" : "Preparing", fraction: 0)
         Task {
             do {
+                if needsSignIn { try await signIn(to: config.url) }
                 _ = try await CloudPush.run(session: folder, config: config) { [weak self] phase, f in
                     self?.jobs[folder] = Job(phase: phase, fraction: f)
                 }
+            } catch CloudAuthError.cancelled {
             } catch {
                 errors[folder] = error.localizedDescription
+                // A dead sign-in was forgotten by the token provider; show it signed out.
+                if case CloudAuthError.signInRequired = error { stored = KeychainAuthStore().load() }
             }
             jobs[folder] = nil
             revision += 1
@@ -175,13 +237,14 @@ struct CloudRowBadge: View {
     }
 }
 
-/// Cloud URL and the Access service token (kept in the Keychain).
+/// Cloud address and the account signed in to it. Sign-in happens in the browser; no tokens are shown.
 struct CloudSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var url = CloudSettings.urlString ?? ""
-    @State private var clientId = CloudSettings.token()?.id ?? ""
-    @State private var secret = CloudSettings.token()?.secret ?? ""
     @State private var error: String?
+    var cloud = CloudState.shared
+
+    private var address: URL? { CloudSettings.normalized(url) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -193,40 +256,65 @@ struct CloudSettingsSheet: View {
             }
             Form {
                 TextField("Cloud URL", text: $url, prompt: Text("https://sessions.example.com"))
-                TextField("Service token ID", text: $clientId, prompt: Text("CF-Access-Client-Id"))
-                SecureField("Service token secret", text: $secret, prompt: Text("CF-Access-Client-Secret"))
+                LabeledContent("Account") { account }
             }
             .formStyle(.columns)
-            Text("The service token is stored in your Keychain. It isn't needed for a local Worker (wrangler dev).")
+            Text("Signing in opens your browser. A local Worker (wrangler dev) doesn't need it.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let error {
-                Text(error).font(.callout).foregroundStyle(.orange)
+                Text(error).font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Save") { save() }.keyboardShortcut(.defaultAction)
+                Button("Done") { save() }.keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
         .frame(width: 460)
     }
 
+    @ViewBuilder private var account: some View {
+        if cloud.signingIn {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Waiting for the browser…").foregroundStyle(.secondary)
+                Button("Cancel") { cloud.cancelSignIn() }
+            }
+        } else if let address, let signedIn = cloud.account(for: address) {
+            HStack(spacing: 8) {
+                Text("Signed in as \(signedIn.email ?? "you")").lineLimit(1).truncationMode(.middle)
+                    .help(signedIn.email ?? "")
+                Button("Sign Out") { error = nil; cloud.signOut() }
+            }
+        } else {
+            Button("Sign In") { signIn() }.disabled(address == nil)
+        }
+    }
+
+    /// Saves the address, then signs in to it.
+    private func signIn() {
+        guard let address else { return }
+        error = nil
+        CloudSettings.urlString = address.absoluteString
+        cloud.reloadConfig()
+        Task {
+            do { try await cloud.signIn(to: address) } catch CloudAuthError.cancelled {} catch {
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
     private func save() {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty, CloudSettings.normalized(trimmed) == nil {
+        if !trimmed.isEmpty, address == nil {
             error = "That isn't a web address."
             return
         }
-        do {
-            CloudSettings.urlString = trimmed.isEmpty ? nil : CloudSettings.normalized(trimmed)?.absoluteString
-            try CloudSettings.setToken(id: clientId, secret: secret)
-            CloudState.shared.reloadConfig()
-            dismiss()
-        } catch {
-            self.error = error.localizedDescription
-        }
+        CloudSettings.urlString = trimmed.isEmpty ? nil : address?.absoluteString
+        cloud.reloadConfig()
+        dismiss()
     }
 }

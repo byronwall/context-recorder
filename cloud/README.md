@@ -2,17 +2,18 @@
 
 One Worker that stores pushed sessions, serves the shared viewer, and exposes them to agents over MCP.
 The binding spec is [`docs/intent/cloud-sessions/contract.md`](../docs/intent/cloud-sessions/contract.md)
-(§2 HTTP API, §4 MCP). Everything here runs locally on Miniflare; nothing touches a Cloudflare account
+(§2 HTTP API, §4 MCP, §6 sign-in). Everything here runs locally on Miniflare; nothing touches a Cloudflare account
 until you deploy.
 
 ## Layout
 
 | Path | What |
 | --- | --- |
-| `src/index.ts` | Router. Identity on every route except `/f/*`; where the M5 OAuth wrapper goes |
-| `src/identity.ts` | Access JWT (RS256, jose, team certs, `aud`) or `DEV_IDENTITY` |
+| `src/index.ts` | `workers-oauth-provider` in front (`/token`, `/register`, `/.well-known/*`, bearer-only `/mcp`), then the router |
+| `src/identity.ts` | Bearer token, Access JWT header, `CF_Authorization` cookie (same-origin writes), or `DEV_IDENTITY` |
+| `src/authorize.ts` | `/authorize` consent page (Access signs the person in; Allow completes the grant) |
 | `src/store.ts` | R2 blobs (`blobs/<sha256>`), D1 sessions/files/blobs, hash checks, multipart, orphan GC |
-| `src/api.ts` | `/api/*` routes |
+| `src/api.ts` | `/api/*` routes, including `/api/me` and `/api/grants` (signed-in apps, revoke) |
 | `src/files.ts` | `/s/:id/<path>` and `/f/:id/<path>`: Range/206, ETag, viewer at `/s/:id/` |
 | `src/library.ts` | `GET /` |
 | `src/signing.ts` | HMAC-SHA256 signed `/f/*` URLs (≤ 1 h) |
@@ -71,19 +72,17 @@ Then `wrangler d1 migrations apply DB --remote` and `pnpm --dir cloud copy-viewe
 Never set `DEV_IDENTITY` on the deployed Worker: it turns off Access verification.
 
 Access must allow these paths through without a sign-in (Bypass policies), because the Worker checks
-them itself: `/f/*` (signed URLs, also the Media Transformations source) and, from M6, `/share/*`.
+them itself: `/f/*` (signed URLs, also the Media Transformations source), `/api/*`, `/mcp`, `/token`,
+`/register`, `/.well-known/*` (bearer tokens; the browser's `CF_Authorization` cookie still works on
+`/api/*`) and, from M6, `/share/*`. `/authorize`, `/` and `/s/*` stay behind Access: that's where a
+person signs in.
 
 ## What's next
 
-- **M4.** Fill the table above and deploy. For the frames spike, set `FRAMES=media`: `src/frames/media.ts`
-  requests `/cdn-cgi/media/mode=frame,time=<t>s,width=1280/<signed /f/ URL>` from the zone. The signed
-  URL is aligned to 5-minute windows so repeat calls can hit the transformation cache. Until M5, an
-  agent can reach `/mcp` with a service token:
-  `claude mcp add --transport http sessions https://sessions.<domain>/mcp --header "CF-Access-Client-Id: …" --header "CF-Access-Client-Secret: …"`.
-- **M5.** Wrap the Worker in `@cloudflare/workers-oauth-provider` (Cloudflare's `remote-mcp-cf-access`
-  template). The comment at the top of `src/index.ts` sketches the change: `/mcp` becomes the
-  provider's `apiRoute`, `handleMcp` takes its identity from `ctx.props`, and `handleRequest` becomes
-  the `defaultHandler` plus the Access-for-SaaS `/authorize` and `/callback` routes. Tokens go in
-  `OAUTH_KV`. `/mcp`, `/token`, `/register` and `/.well-known/*` then need an Access Bypass, because the
-  provider does the authentication (`/authorize` stays behind Access, which is how the user signs in).
+- **Agents.** `claude mcp add --transport http sessions <origin>/mcp`, then `/mcp` in Claude Code
+  signs in: it registers itself, opens the browser to `/authorize` (Access, then **Allow**), and keeps a
+  refresh token. A Claude.ai custom connector works the same way. Each shows up under **Signed-in apps**
+  on the library page, where **Sign out** revokes it.
+- **Frames.** `FRAMES=media` asks Media Transformations (`src/frames/media.ts`) instead of thumbnails.
+  It needs a zone on Cloudflare, so it waits for a custom domain.
 - **M6.** A `shares` table and `/share/*`, which skip Identity like `/f/*`.

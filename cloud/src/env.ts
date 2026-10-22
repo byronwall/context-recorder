@@ -3,7 +3,7 @@ export interface AppEnv {
   ASSETS: Fetcher;
   BUCKET: R2Bucket;
   DB: D1Database;
-  /** Reserved for workers-oauth-provider (milestone 5). */
+  /** workers-oauth-provider: clients, grants and tokens. */
   OAUTH_KV: KVNamespace;
   ACCESS_TEAM_DOMAIN: string;
   ACCESS_AUD: string;

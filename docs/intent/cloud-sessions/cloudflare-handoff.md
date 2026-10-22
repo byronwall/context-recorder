@@ -133,6 +133,24 @@ From the CLI build (`.build/debug/ContextRecorder --push`, Keychain token, saved
 
 Still open: the phone playback check (needs Byron's email PIN), and installing the app build that has Cloud Settings.
 
+## Switch-over to OAuth sign-in (contract §6)
+
+The service token is replaced by browser sign-in. Live steps, in this order:
+
+1. **Deploy** from `cloud/`: `pnpm run copy-viewer && pnpm exec wrangler deploy`. This changes nothing on its
+   own: Access still guards every path, so the old service token keeps working.
+2. **Access (dashboard → Zero Trust → Access → Applications → "Context Recorder signed files" → Edit).**
+   Add these destinations on `context-recorder-cloud.byron-711.workers.dev`, next to `/f/*`, so its
+   Bypass policy covers them: `/api/*`, `/mcp`, `/token`, `/register`, `/.well-known/*`.
+   Leave `/`, `/s/*` and `/authorize` on the main app (that's where the email PIN sign-in happens).
+   Wrangler's OAuth login has no Access scope, so this is a dashboard edit.
+3. **App:** install the new build (`scripts/build-app.sh`), open **Cloud Settings… (⌘,)**, press **Sign In**,
+   sign in with the email code, press **Allow**. Push a session.
+4. **Clean-up:** in Zero Trust, delete the `Context Recorder Mac` Service Auth policy and the
+   `context-recorder-mac` service token. The app already deleted its Keychain copy.
+5. **Agents:** `claude mcp add --transport http sessions https://context-recorder-cloud.byron-711.workers.dev/mcp`,
+   then `/mcp` in Claude Code to sign in the same way.
+
 ## Cloudflare references
 
 - [Workers on workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)

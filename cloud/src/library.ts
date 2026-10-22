@@ -1,3 +1,4 @@
+import type { GrantRow } from "./api";
 import { escapeHtml as esc } from "./http";
 import { fmt } from "./markdown";
 import { encodePath } from "./signing";
@@ -28,7 +29,15 @@ function row(s: SessionRow): string {
 </tr>`;
 }
 
-export function libraryPage(sessions: SessionRow[], identity: string): string {
+function grantRow(g: GrantRow): string {
+  const iso = new Date(g.createdAt * 1000).toISOString();
+  return `<li><span class="name">${esc(g.name)}</span><span class="sub">signed in ${when(iso)}</span><button type="button" data-revoke="${esc(g.id)}" title="Sign this app out of your cloud">Sign out</button></li>`;
+}
+
+export function libraryPage(sessions: SessionRow[], identity: string, grants: GrantRow[] = []): string {
+  const devices = grants.length
+    ? `<section class="devices"><h2>Signed-in apps</h2><ul>${grants.map(grantRow).join("")}</ul></section>`
+    : "";
   const body = sessions.length
     ? `<table><thead><tr><th></th><th>Session</th><th class="num">Recorded</th><th class="num">Length</th><th class="num">Marks</th><th class="num">Size</th><th></th></tr></thead>
 <tbody>${sessions.map(row).join("")}</tbody></table>`
@@ -62,17 +71,36 @@ button:hover { color:var(--danger); border-color:var(--line); }
 button:active { transform:translateY(1px); }
 button:disabled { opacity:.5; cursor:default; }
 .empty { color:var(--muted); padding:24px 0; }
+.devices { margin-top:28px; }
+.devices h2 { font-size:12px; font-weight:500; color:var(--muted); margin:0; padding:4px 8px; border-bottom:1px solid var(--line); }
+.devices ul { list-style:none; margin:0; padding:0; }
+.devices li { display:flex; align-items:baseline; gap:12px; padding:6px 8px; border-bottom:1px solid var(--line); }
+.devices .name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.devices button { margin-left:auto; }
 @media (prefers-reduced-motion: reduce) { tbody tr, button, .title a { transition:none; } }
 </style></head>
 <body>
 <header><h1>Sessions</h1><span class="sub">${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}</span><span class="who">${esc(identity)}</span></header>
-<main>${body}</main>
+<main>${body}${devices}</main>
 <script>
 for (const t of document.querySelectorAll("time")) {
   const d = new Date(t.dateTime);
   t.textContent = d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 document.addEventListener("click", async (e) => {
+  const out = e.target.closest("[data-revoke]");
+  if (out) {
+    const name = out.parentElement.querySelector(".name").textContent;
+    if (!confirm("Sign " + name + " out? It will need to sign in again to push or read sessions.")) return;
+    out.disabled = true;
+    const res = await fetch("/api/grants/" + encodeURIComponent(out.dataset.revoke) + "/revoke", { method: "POST" });
+    if (res.ok) {
+      const list = out.closest("ul");
+      out.closest("li").remove();
+      if (!list.children.length) list.closest("section").remove();
+    } else { out.disabled = false; alert("Sign out failed: " + res.status); }
+    return;
+  }
   const btn = e.target.closest("[data-delete]");
   if (!btn) return;
   const id = btn.dataset.delete;

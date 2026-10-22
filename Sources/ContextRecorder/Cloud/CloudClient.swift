@@ -1,11 +1,11 @@
 import Foundation
-import Security
 
 /// Talks to the cloud Worker (contract §2 and §5): announce a manifest, upload the blobs it lacks
 /// (one PUT each, or R2 multipart above 90 MB), then commit.
 struct CloudClient {
     var baseURL: URL
-    var headers: [String: String] = [:]
+    /// Supplies `Authorization: Bearer`; nil, or signed out, sends no header (a local dev Worker accepts that).
+    var auth: CloudTokenProvider?
     var session: URLSession = .shared
     /// Files above this go up in parts.
     var multipartThreshold: Int64 = 90 * 1024 * 1024
@@ -20,7 +20,7 @@ struct CloudClient {
         var status: Int; var body: String; var path: String
         var errorDescription: String? {
             let detail = body.trimmingCharacters(in: .whitespacesAndNewlines).prefix(300)
-            if status == 401 || status == 403 { return "The cloud refused the request (\(status)). Check the service token in Cloud Settings." }
+            if status == 401 || status == 403 { return CloudAuthError.signInRequired.errorDescription }
             return "Cloud request \(path) failed (\(status))" + (detail.isEmpty ? "" : ": \(detail)")
         }
     }
@@ -121,11 +121,26 @@ struct CloudClient {
         guard (200..<300).contains(status) else { throw HTTPError(status: status, body: String(decoding: data, as: UTF8.self), path: path) }
     }
 
+    /// Sends with the current token; on a 401 refreshes once and retries.
     func request(_ method: String, _ path: String, body: Data?, contentType: String = "application/json") async throws -> (Data, Int) {
+        let token = try await auth?.token(for: baseURL)
+        let (data, status) = try await attempt(method, path, body: body, contentType: contentType, token: token)
+        guard status == 401, let auth else { return (data, status) }
+        if token == nil, await !auth.isFixed {
+            // Signed out and the cloud wants a sign-in.
+            throw CloudAuthError.signInRequired
+        }
+        let fresh = try await auth.token(for: baseURL, after: token)
+        let retry = try await attempt(method, path, body: body, contentType: contentType, token: fresh)
+        if retry.1 == 401 { throw CloudAuthError.signInRequired }
+        return retry
+    }
+
+    private func attempt(_ method: String, _ path: String, body: Data?, contentType: String, token: String?) async throws -> (Data, Int) {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
         req.httpMethod = method
         req.timeoutInterval = 600
-        for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
+        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body {
             req.httpBody = body
             req.setValue(contentType, forHTTPHeaderField: "Content-Type")
@@ -133,7 +148,7 @@ struct CloudClient {
         let (data, response) = try await session.data(for: req)
         // Access answers an unauthenticated request with a redirect to its login page.
         if let http = response as? HTTPURLResponse, let final = http.url, final.host != baseURL.host || final.path.contains("/cdn-cgi/access/") {
-            throw HTTPError(status: 401, body: "redirected to \(final.host ?? "")", path: path)
+            return (Data("redirected to \(final.host ?? "")".utf8), 401)
         }
         return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
     }
@@ -141,36 +156,40 @@ struct CloudClient {
 
 // MARK: - Configuration
 
-/// Where to push and how to authenticate. The cloud URL lives in UserDefaults (`cloudURL`), the Access
-/// service token in the Keychain (service `ContextRecorder.Cloud`); the CLI also reads `CR_CLOUD_URL`,
-/// `CR_CLOUD_CLIENT_ID` and `CR_CLOUD_CLIENT_SECRET`.
+/// Where to push and how to authenticate. The cloud URL lives in UserDefaults (`cloudURL`); the sign-in lives in
+/// the Keychain (`CloudAuth`). The CLI also reads `CR_CLOUD_URL`, and `CR_CLOUD_TOKEN` (a raw access token)
+/// overrides the stored sign-in.
 struct CloudConfig {
     var url: URL
-    var clientId: String?
-    var clientSecret: String?
+    /// `CR_CLOUD_TOKEN`.
+    var token: String?
+    var store: CloudAuthStore = KeychainAuthStore()
 
-    var headers: [String: String] {
-        guard let clientId, !clientId.isEmpty, let clientSecret, !clientSecret.isEmpty else { return [:] }
-        return ["CF-Access-Client-Id": clientId, "CF-Access-Client-Secret": clientSecret]
+    var auth: CloudTokenProvider {
+        if let token, !token.isEmpty { return CloudTokenProvider(token: token) }
+        return store is KeychainAuthStore ? .keychain : CloudTokenProvider(store: store)
     }
 
-    var client: CloudClient { CloudClient(baseURL: url, headers: headers) }
+    var client: CloudClient { CloudClient(baseURL: url, auth: auth) }
+
+    /// Signed in to this URL, or a token supplied for it.
+    var hasCredentials: Bool {
+        if let token, !token.isEmpty { return true }
+        return store.load()?.matches(url) == true
+    }
 
     /// `override` (`--cloud <url>`) first, then the environment, then the app's settings.
     static func current(override: String? = nil, environment: [String: String] = ProcessInfo.processInfo.environment) -> CloudConfig? {
         let raw = [override, environment["CR_CLOUD_URL"], CloudSettings.urlString]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.first { !$0.isEmpty }
         guard let raw, let url = CloudSettings.normalized(raw) else { return nil }
-        let token = CloudSettings.token()
-        return CloudConfig(url: url,
-                           clientId: environment["CR_CLOUD_CLIENT_ID"] ?? token?.id,
-                           clientSecret: environment["CR_CLOUD_CLIENT_SECRET"] ?? token?.secret)
+        let token = environment["CR_CLOUD_TOKEN"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return CloudConfig(url: url, token: token?.isEmpty == false ? token : nil)
     }
 }
 
 enum CloudSettings {
     static let urlKey = "cloudURL"
-    static let keychainService = "ContextRecorder.Cloud"
     /// The app's defaults domain, so `swift run` (which has its own domain) sees the app's setting too.
     static let appDomain = "com.byronwall.ContextRecorder"
 
@@ -193,36 +212,6 @@ enum CloudSettings {
         if !s.contains("://") { s = (s.hasPrefix("localhost") || s.hasPrefix("127.") ? "http://" : "https://") + s }
         guard let url = URL(string: s), let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme), url.host != nil else { return nil }
         return url
-    }
-
-    /// The service token: the Keychain item's account is the client id, its data the secret.
-    static func token() -> (id: String, secret: String)? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecReturnAttributes as String: true,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let dict = item as? [String: Any],
-              let id = dict[kSecAttrAccount as String] as? String, let data = dict[kSecValueData as String] as? Data,
-              let secret = String(data: data, encoding: .utf8) else { return nil }
-        return (id, secret)
-    }
-
-    /// Replaces the stored token; empty values remove it.
-    static func setToken(id: String, secret: String) throws {
-        let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: keychainService]
-        SecItemDelete(base as CFDictionary)
-        let id = id.trimmingCharacters(in: .whitespacesAndNewlines), secret = secret.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !id.isEmpty, !secret.isEmpty else { return }
-        var add = base
-        add[kSecAttrAccount as String] = id
-        add[kSecValueData as String] = Data(secret.utf8)
-        add[kSecAttrLabel as String] = "Context Recorder cloud service token"
-        let status = SecItemAdd(add as CFDictionary, nil)
-        guard status == errSecSuccess else { throw ReviewError("Couldn't save the service token to the Keychain (\(status))") }
     }
 }
 

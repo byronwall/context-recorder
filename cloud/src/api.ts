@@ -1,3 +1,4 @@
+import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import type { AppEnv } from "./env";
 import { HttpError, json, readJson, sha256Hex } from "./http";
 import type { Identity } from "./identity";
@@ -9,6 +10,19 @@ export async function handleApi(request: Request, env: AppEnv, identity: Identit
   const store = new Store(env);
   const parts = url.pathname.split("/").slice(2).map(decodeURIComponent); // after "/api"
   const method = request.method;
+
+  if (parts[0] === "me" && parts.length === 1 && method === "GET") return json({ id: identity.id, via: identity.via });
+
+  // Signed-in devices and agents (contract §6): one OAuth grant each.
+  if (parts[0] === "grants") {
+    const oauth = (env as AppEnv & { OAUTH_PROVIDER?: OAuthHelpers }).OAUTH_PROVIDER;
+    if (!oauth) throw new HttpError(501, "sign-in is not available here");
+    if (parts.length === 1 && method === "GET") return json(await listGrants(oauth, identity.id));
+    if (parts.length === 3 && parts[2] === "revoke" && method === "POST") {
+      await oauth.revokeGrant(parts[1]!, identity.id);
+      return new Response(null, { status: 204 });
+    }
+  }
 
   if (parts[0] === "sessions") {
     if (parts.length === 1 && method === "GET") return json(await store.listSessions());
@@ -69,4 +83,22 @@ export async function handleApi(request: Request, env: AppEnv, identity: Identit
     }
   }
   return null;
+}
+
+export interface GrantRow {
+  id: string;
+  clientId: string;
+  name: string;
+  createdAt: number;
+}
+
+export async function listGrants(oauth: OAuthHelpers, userId: string): Promise<GrantRow[]> {
+  const rows: GrantRow[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await oauth.listUserGrants(userId, { cursor });
+    for (const g of page.items) rows.push({ id: g.id, clientId: g.clientId, name: g.metadata?.label || g.clientId, createdAt: g.createdAt });
+    cursor = page.cursor;
+  } while (cursor);
+  return rows.sort((a, b) => b.createdAt - a.createdAt);
 }

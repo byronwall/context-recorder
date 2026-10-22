@@ -127,3 +127,35 @@ unchanged.
 - After a commit, write `<session>/exports/cloud.json`:
   `{ "url", "manifestSha256", "inputHash", "pushedAt" }`. "Out of date" = current `inputHash` ≠ recorded one.
 - CLI: `--cloud-bundle <session> <out-folder>` and `--push <session> [--cloud <url>]`.
+
+## 6. Sign-in (replaces the Access service token)
+
+The Worker is an OAuth 2.1 authorization server (`@cloudflare/workers-oauth-provider`). One mechanism serves
+the Mac app and MCP agents.
+
+- **Endpoints:** `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`,
+  `POST /register` (RFC 7591 dynamic registration, public clients allowed), `GET /authorize`, `POST /token`
+  (authorization_code with PKCE S256, refresh_token).
+- **`/authorize`** stays behind Cloudflare Access, so the person is whoever Access says (the email in the Access
+  JWT). It shows a consent page naming the client and its redirect host; **Allow** completes the grant with
+  props `{ "email" }`. Every other OAuth path is bypassed in Access and guarded by the Worker.
+- **Tokens:** access tokens last 1 hour. Refresh tokens last 365 days from sign-in and expire after 90 days
+  unused. Registered clients don't expire.
+- **Who is calling (Identity):** in order — `Authorization: Bearer <access token>` (via
+  `OAUTH_PROVIDER.unwrapToken`); the Access JWT header; the `CF_Authorization` cookie (browser requests to
+  bypassed paths; non-GET requires a same-origin `Origin`); `DEV_IDENTITY` in dev.
+- **`/mcp`** requires a bearer token (the provider answers 401 with `WWW-Authenticate` for discovery).
+- **`GET /api/me`** → `{ "id": "<email>", "via": "oauth" | "access" | "dev" }`.
+- **Devices:** the library page lists your grants (client name, created) with **Sign out** per grant
+  (`POST /api/grants/:id/revoke`, cookie or bearer).
+
+### The Mac app
+
+- Client name `Context Recorder (<host name>)`, redirect URI `contextrecorder://oauth/callback`, public client
+  (`token_endpoint_auth_method: none`). It registers once per cloud URL and keeps the `client_id`.
+- Sign-in uses `ASWebAuthenticationSession` with PKCE. The refresh token, access token, its expiry, the
+  client id and the cloud URL are kept as one Keychain item (service `ContextRecorder.CloudAuth`). Nobody types or
+  sees them.
+- Each request sends `Authorization: Bearer`. On a 401 or within 60 s of expiry it refreshes once; if
+  the refresh fails, it reports "Sign in again" and keeps the address.
+- The CLI uses the same stored sign-in. `CR_CLOUD_TOKEN` (an access token) overrides it for scripts.
