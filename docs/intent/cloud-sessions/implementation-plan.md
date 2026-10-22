@@ -2,11 +2,29 @@
 title: "Cloud sessions — implementation plan"
 slug: "cloud-sessions"
 phase: plan
-status: draft
-last_updated: "2026-10-21"
+status: built
+last_updated: "2026-10-22"
 ---
 
 # Cloud sessions — implementation plan
+
+## Where it landed (2026-10-22)
+
+| Milestone | Status |
+| --- | --- |
+| 1. The cloud copy plays from disk | Built. `--self-test cloud-bundle` checks every exported frame against `EditMap` within one frame |
+| 2. Push to a local cloud and browse it | Built |
+| 3. Agents read sessions locally over MCP | Built |
+| 4. Live on your domain | Live on `workers.dev`, not a custom domain: Byron kept `byroni.us` at Namecheap. The Media Transformations spike waits for a zone, so frames come from thumbnails |
+| 5. Agents from anywhere | Built differently: the Worker is its own OAuth server, with Access guarding `/authorize`. That one sign-in also replaced the Mac's Access service token |
+| 6. Sharing and lifecycle | Not started |
+
+What changed from the plan:
+- **Sign-in:** OAuth sign-in (browser, refresh tokens) replaced the service token. Pasting a token ID and secret into Cloud Settings was too much friction.
+- **Where the sign-in is kept:** a 0600 file, not the Keychain. With a self-signed app, Keychain items are tied to one build, so every rebuild prompted.
+
+The durable reference is [docs/cloud-sessions.md](../../cloud-sessions.md), and operations are in
+[cloud/README.md](../../../cloud/README.md). The plan below is kept as written.
 
 ## Plan at a glance
 

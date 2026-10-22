@@ -1,6 +1,6 @@
 import Foundation
 
-/// Talks to the cloud Worker (contract §2 and §5): announce a manifest, upload the blobs it lacks
+/// Talks to the cloud Worker (docs/cloud-sessions.md §2 and §5): announce a manifest, upload the blobs it lacks
 /// (one PUT each, or R2 multipart above 90 MB), then commit.
 struct CloudClient {
     var baseURL: URL

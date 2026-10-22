@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 /// `--self-test cloud-client`: CloudClient and the sign-in against an in-memory stand-in for the Worker's push
-/// API and OAuth endpoints (contract §2 and §6), plus PKCE, configuration, path and cloud.json helpers.
+/// API and OAuth endpoints (docs/cloud-sessions.md §2 and §6), plus PKCE, configuration, path and cloud.json helpers.
 extension CloudSelfTest {
     static func runClient() async -> [String] {
         var f: [String] = []

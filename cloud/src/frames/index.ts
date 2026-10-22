@@ -5,10 +5,10 @@ import { mediaFrames } from "./media";
 import { thumbFrames } from "./thumbs";
 
 /**
- * Frames port (contract §4): an image of the flattened video at an edited-time moment, without drawings.
+ * Frames port (docs/cloud-sessions.md §4): an image of the flattened video at an edited-time moment, without drawings.
  *  - `thumbs` (default): the nearest pushed thumbnail (480 px wide, every `thumbs.interval` seconds).
  *  - `media`: Cloudflare Media Transformations extracting a frame from a signed recording.mp4 URL.
- *    Needs transformations enabled on the zone and an Access Bypass on /f/* (milestone 4 spike).
+ *    Needs a zone on Cloudflare with transformations enabled, so it waits for a custom domain.
  */
 export interface Frame {
   /** The time the image actually shows (the thumbnail's time for `thumbs`). */

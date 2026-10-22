@@ -2,7 +2,7 @@
 title: "Cloud sessions — shape brief"
 slug: "cloud-sessions"
 phase: shape
-status: draft
+status: built
 last_updated: "2026-10-21"
 ---
 

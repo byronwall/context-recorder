@@ -1,9 +1,9 @@
 # Context Recorder cloud (Cloudflare Worker)
 
-One Worker that stores pushed sessions, serves the shared viewer, and exposes them to agents over MCP.
-The binding spec is [`docs/intent/cloud-sessions/contract.md`](../docs/intent/cloud-sessions/contract.md)
-(§2 HTTP API, §4 MCP, §6 sign-in). Everything here runs locally on Miniflare; nothing touches a Cloudflare account
-until you deploy.
+One Worker that stores pushed sessions, serves the shared viewer, signs in the Mac app and agents, and exposes
+sessions over MCP. The format, API and sign-in are specified in
+[docs/cloud-sessions.md](../docs/cloud-sessions.md) (code comments cite it as "§N"). Everything here runs
+locally on Miniflare until you deploy.
 
 ## Layout
 
@@ -37,52 +37,70 @@ pnpm --dir cloud build                         # bundle check only (wrangler dep
 
 Local R2/D1/KV state lives in `cloud/.wrangler/` (gitignored); delete it to start over.
 
-Push from the Mac: `swift run ContextRecorder --push <session> --cloud http://localhost:8787`.
+Push from the Mac: `swift run ContextRecorder --push <session> --cloud http://localhost:8787`. A local Worker
+needs no sign-in, and `/mcp` without a token runs as `DEV_IDENTITY`.
 
 MCP from Claude Code on this Mac: `claude mcp add --transport http sessions http://localhost:8787/mcp`.
 
-### Notes for clients
+## Live deployment
 
-- `PUT /api/blobs/:sha256` needs `Content-Length` and accepts up to 90 MiB (94,371,840 bytes). Use the
-  multipart routes above that.
-- `POST` bodies must be JSON. `text/plain`, form and multipart content types get `415` (they skip the
-  browser's CORS preflight, so refusing them blocks cross-site writes with the Access cookie).
-- `/s/:id/<path>` responses carry `ETag: "<sha256>"` and `Cache-Control: private, no-cache` (paths keep
-  their URL across pushes while the bytes change). Add `?v=<sha256>` to get immutable caching.
+| Item | Value |
+| --- | --- |
+| URL | https://context-recorder-cloud.byron-711.workers.dev/ (`workers_dev`; no custom domain yet) |
+| Account | `711e96a3534ceef4677e610cb54c12b9`, Workers Paid |
+| Worker | `context-recorder-cloud` |
+| R2 / D1 / KV | `context-recorder-sessions` (`BUCKET`) / `context-recorder` (`DB`) / `OAUTH_KV` — IDs in `wrangler.jsonc` |
+| Zero Trust team | `byronwall.cloudflareaccess.com` (Free; email one-time PIN) |
+| Secret | `SIGNING_SECRET` (Worker secret; never stored locally) |
 
-## Deploy
+Deploy from `cloud/` (wrangler is a dev dependency, signed in with `wrangler login`):
 
-Fill these in before the first `wrangler deploy`; the account setup itself is covered in the separate
-handoff.
+```sh
+pnpm typecheck && pnpm test
+pnpm run copy-viewer && pnpm exec wrangler deploy
+pnpm exec wrangler d1 migrations apply DB --remote   # only when migrations/ changed
+```
 
-| What | Where | How to get it |
+Never set `DEV_IDENTITY` on the deployed Worker: it turns sign-in off.
+
+### Access
+
+Access signs a person in; the Worker checks everything else itself.
+
+| Access app | Destinations | Policy |
 | --- | --- | --- |
-| D1 `database_id` | `wrangler.jsonc` → `d1_databases[0].database_id` | `wrangler d1 create context-recorder` |
-| KV `id` | `wrangler.jsonc` → `kv_namespaces[0].id` (`OAUTH_KV`, used from M5) | `wrangler kv namespace create OAUTH_KV` |
-| R2 bucket | `wrangler.jsonc` → `r2_buckets[0].bucket_name` (`context-recorder-sessions`) | `wrangler r2 bucket create context-recorder-sessions` |
-| `ACCESS_TEAM_DOMAIN` | `wrangler.jsonc` → `vars` | Zero Trust team domain, e.g. `myteam.cloudflareaccess.com` (no scheme) |
-| `ACCESS_AUD` | `wrangler.jsonc` → `vars` | The Access application's Audience (AUD) tag |
-| `FRAMES` | `wrangler.jsonc` → `vars` | `thumbs` (default) or `media` after the M4 spike |
-| `SIGNING_SECRET` | secret | `wrangler secret put SIGNING_SECRET` (long random string) |
-| Route / custom domain | `wrangler.jsonc` → add `"routes": [{ "pattern": "sessions.<domain>", "custom_domain": true }]` | |
+| Main app | the whole host (so `/`, `/s/*`, `/v/*`, `/authorize`) | Allow: `byron@byroni.us` |
+| `Context Recorder signed files` | `/f/*`, `/api/*`, `/mcp`, `/token`, `/register`, `/.well-known/*` | Bypass: Everyone |
 
-Then `wrangler d1 migrations apply DB --remote` and `pnpm --dir cloud copy-viewer && wrangler deploy`
-(from `cloud/`).
+The main app's Audience tag is `ACCESS_AUD` in `wrangler.jsonc`. `/authorize` must stay behind Access: it's
+where a person signs in before approving an app. Share links (`/share/*`) will need a bypass too.
 
-Never set `DEV_IDENTITY` on the deployed Worker: it turns off Access verification.
+### Checks after a deploy or an Access change
 
-Access must allow these paths through without a sign-in (Bypass policies), because the Worker checks
-them itself: `/f/*` (signed URLs, also the Media Transformations source), `/api/*`, `/mcp`, `/token`,
-`/register`, `/.well-known/*` (bearer tokens; the browser's `CF_Authorization` cookie still works on
-`/api/*`) and, from M6, `/share/*`. `/authorize`, `/` and `/s/*` stay behind Access: that's where a
-person signs in.
+```sh
+U=https://context-recorder-cloud.byron-711.workers.dev
+for p in / /s/x/ /authorize /.well-known/oauth-authorization-server /api/me /mcp; do
+  printf '%-42s %s\n' "$p" "$(curl -s -o /dev/null -w '%{http_code}' "$U$p")"
+done
+# expect 302 (Access) for the first three, 200 for the metadata, 401 for /api/me and /mcp
+```
+
+### Signing in
+
+- **The Mac app:** Cloud Settings → **Sign In** (browser, Access email code, **Allow**). The sign-in is kept in
+  `~/Library/Application Support/ContextRecorder/cloud-auth.json` (§6).
+- **Agents:** `claude mcp add --transport http sessions <url>/mcp`, then `/mcp` in Claude Code signs in the same
+  way. A Claude.ai custom connector works the same.
+- **Revoking:** the library page lists **Signed-in apps**; **Sign out** revokes one.
+
+### Cost
+
+Workers Paid ($5/mo) covers Workers, D1 and KV at this use. R2 is free to 10 GB (about 250 sessions), then
+$0.015/GB, with free egress. Zero Trust Free.
 
 ## What's next
 
-- **Agents.** `claude mcp add --transport http sessions <origin>/mcp`, then `/mcp` in Claude Code
-  signs in: it registers itself, opens the browser to `/authorize` (Access, then **Allow**), and keeps a
-  refresh token. A Claude.ai custom connector works the same way. Each shows up under **Signed-in apps**
-  on the library page, where **Sign out** revokes it.
-- **Frames.** `FRAMES=media` asks Media Transformations (`src/frames/media.ts`) instead of thumbnails.
-  It needs a zone on Cloudflare, so it waits for a custom domain.
-- **M6.** A `shares` table and `/share/*`, which skip Identity like `/f/*`.
+- **Share links** (`shares` table, `/share/:token`, revoke), and asking on trash whether to delete the cloud copy.
+- **Frames from Media Transformations** (`FRAMES=media`, `src/frames/media.ts`): needs a zone on Cloudflare,
+  so it waits for a custom domain. Until then `get_frame` returns the nearest 2 s thumbnail.
+- Rewrite `transcript.json` and the logs into edited time in the cloud copy (§1, known gap).

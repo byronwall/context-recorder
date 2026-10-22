@@ -61,7 +61,7 @@ async function signIn() {
   return { clientId, ...t };
 }
 
-describe("OAuth sign-in (contract §6)", () => {
+describe("OAuth sign-in (docs/cloud-sessions.md §6)", () => {
   it("publishes discovery metadata", async () => {
     const as = await hit("/.well-known/oauth-authorization-server");
     const meta = (await as.json()) as Record<string, unknown>;

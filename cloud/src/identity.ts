@@ -4,7 +4,7 @@ import type { AppEnv } from "./env";
 import { HttpError } from "./http";
 
 /**
- * Identity seam (contract §2 and §6). In order:
+ * Identity seam (docs/cloud-sessions.md §2 and §6). In order:
  * - `Authorization: Bearer` — an access token issued by our OAuth provider (the Mac app, MCP agents).
  * - `Cf-Access-Jwt-Assertion` — Access put a signed JWT on a request to a path it guards.
  * - The `CF_Authorization` cookie — a signed-in browser calling a path Access bypasses (the library's

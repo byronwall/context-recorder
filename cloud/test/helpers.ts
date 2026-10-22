@@ -66,7 +66,7 @@ export function sessionJson(id: string) {
   };
 }
 
-/** A small cloud copy (contract §1) for session `id`. `variant` changes the video's bytes. */
+/** A small cloud copy (docs/cloud-sessions.md §1) for session `id`. `variant` changes the video's bytes. */
 export function makeFiles(id: string, variant = 1): FileSet {
   return {
     "session.json": { bytes: enc(JSON.stringify(sessionJson(id))), type: "application/json" },

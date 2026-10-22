@@ -5,7 +5,7 @@ import type { Identity } from "./identity";
 import { assertSessionId, parseManifest, SHA256 } from "./manifest";
 import { Store } from "./store";
 
-/** /api/* routes (contract §2). Returns null when nothing matched. */
+/** /api/* routes (docs/cloud-sessions.md §2). Returns null when nothing matched. */
 export async function handleApi(request: Request, env: AppEnv, identity: Identity, url: URL): Promise<Response | null> {
   const store = new Store(env);
   const parts = url.pathname.split("/").slice(2).map(decodeURIComponent); // after "/api"
@@ -13,7 +13,7 @@ export async function handleApi(request: Request, env: AppEnv, identity: Identit
 
   if (parts[0] === "me" && parts.length === 1 && method === "GET") return json({ id: identity.id, via: identity.via });
 
-  // Signed-in devices and agents (contract §6): one OAuth grant each.
+  // Signed-in devices and agents (docs/cloud-sessions.md §6): one OAuth grant each.
   if (parts[0] === "grants") {
     const oauth = (env as AppEnv & { OAUTH_PROVIDER?: OAuthHelpers }).OAUTH_PROVIDER;
     if (!oauth) throw new HttpError(501, "sign-in is not available here");

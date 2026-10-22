@@ -40,7 +40,6 @@ const securityHeaders = {
 
 export async function serveSessionFile(
   request: Request,
-  env: AppEnv,
   store: Store,
   id: string,
   path: string,

@@ -5,7 +5,7 @@ import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The cloud copy of a session (docs/intent/cloud-sessions/contract.md §1): one folder in edited time.
+/// The cloud copy of a session (docs/cloud-sessions.md §1): one folder in edited time.
 /// Cuts and joins are flattened into one mp4, drawings become transparent PNGs, and session.json is
 /// rewritten for that single video, so nothing downstream needs to know about edits.json.
 struct CloudManifest: Codable, Equatable {

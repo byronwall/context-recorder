@@ -12,10 +12,10 @@ import { verifyFileUrl } from "./signing";
 import { Store } from "./store";
 
 /**
- * One Worker (contract §2 and §6). The OAuth provider in front owns /token, /register and the
+ * One Worker (docs/cloud-sessions.md §2 and §6). The OAuth provider in front owns /token, /register and the
  * /.well-known metadata, and lets only bearer-token requests through to /mcp. Everything else lands in
  * handleRequest, where Identity accepts a bearer token, Access, or (locally) DEV_IDENTITY. /f/* is
- * checked by its signature and, from milestone 6, /share/* against D1.
+ * checked by its signature.
  */
 export async function handleRequest(request: Request, env: AppEnv, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
@@ -29,7 +29,7 @@ export async function handleRequest(request: Request, env: AppEnv, ctx: Executio
       assertSessionId(id);
       if (!isValidPath(filePath)) throw new HttpError(400, "invalid path");
       await verifyFileUrl(env, id, filePath, url);
-      return await serveSessionFile(request, env, new Store(env), id, filePath);
+      return await serveSessionFile(request, new Store(env), id, filePath);
     }
 
     if (path === "/authorize") return await handleAuthorize(request, env as AppEnv & { OAUTH_PROVIDER: OAuthHelpers });
@@ -65,7 +65,7 @@ export async function handleRequest(request: Request, env: AppEnv, ctx: Executio
       const store = new Store(env);
       if (filePath === "" || filePath === "index.html") return await serveViewer(request, env, store, id);
       if (!isValidPath(filePath)) throw new HttpError(400, "invalid path");
-      return await serveSessionFile(request, env, store, id, filePath);
+      return await serveSessionFile(request, store, id, filePath);
     }
 
     return json({ error: "not found" }, { status: 404 });

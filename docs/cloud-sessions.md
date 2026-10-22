@@ -1,15 +1,9 @@
----
-title: "Cloud sessions — build contract"
-slug: "cloud-sessions"
-phase: build
-status: current
-last_updated: "2026-10-22"
----
+# Cloud sessions: format, API and sign-in
 
-# Cloud sessions — build contract
-
-The single source of truth that the Mac app (`Sources/`), the Worker (`cloud/`) and the shared viewer
-(`scripts/viewer.html`) are built against. Change it here first, then in code.
+The reference that the Mac app (`Sources/ContextRecorder/Cloud/`), the Worker (`cloud/`) and the shared viewer
+(`scripts/viewer.html`) are built against. Code comments cite its sections as "§N". Change it here first,
+then in code. Running and deploying the Worker is in [cloud/README.md](../cloud/README.md); why it's built
+this way is in [docs/intent/cloud-sessions/](intent/cloud-sessions/shape-brief.md).
 
 ## 1. The cloud copy (format 1)
 
@@ -63,20 +57,24 @@ Never included: `audio.wav`, `process.log`, `edits.json`, `annotations.json`, th
 
 `sessionId` matches `^[A-Za-z0-9._-]{1,100}$`. `path` is relative, `/`-separated, with no `..` and no leading `/`.
 
+Joined sessions: files a mark takes from a source session (`../<source>/…`) go in `sources/<source>/…`.
+Drawings that a cut splits into separate windows get one `drawings.json` entry per window, sharing a PNG.
+
+Known gap: `transcript.json` and the `.jsonl` logs are copied as recorded, so in an edited session they are
+in original-recording time and include what was cut. `session.json`, which the viewer and MCP read, is in
+edited time.
+
 ## 2. Worker HTTP API
 
-One Worker. Every route passes through `Identity` except `/share/*` (checked against D1, milestone 6).
-
-- **Identity, production:** verify `Cf-Access-Jwt-Assertion` (RS256) against
-  `https://<ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs` with `aud` = `ACCESS_AUD`. Service-token requests carry the
-  same header. **Dev:** if `DEV_IDENTITY` is set, that string is the identity and no JWT is required.
+One Worker. Every route passes through `Identity` (§6) except `/f/*` (signed URLs, §4) and the OAuth
+endpoints the provider owns.
 - **Storage:** content-addressed. R2 key `blobs/<sha256>`. D1 holds each session's current manifest. A file
   is served by looking its path up in the manifest. Blobs no manifest references are deleted at commit/delete.
 
 | Method & path | Body → response |
 | --- | --- |
 | `POST /api/sessions/:id/push` | manifest JSON → `{ "missing": ["<sha256>", …] }` (blobs R2 doesn't have yet) |
-| `PUT /api/blobs/:sha256` | raw bytes (≤ 90 MB) → `204`. The Worker verifies the hash; mismatch → `400` |
+| `PUT /api/blobs/:sha256` | raw bytes (≤ 90 MiB, `Content-Length` required) → `204`. The Worker verifies the hash; mismatch → `400` |
 | `POST /api/blobs/:sha256/uploads` | → `{ "uploadId" }` (R2 multipart, for files > 90 MB) |
 | `PUT /api/blobs/:sha256/uploads/:uploadId/:partNumber` | raw part bytes → `{ "etag" }` |
 | `POST /api/blobs/:sha256/uploads/:uploadId/complete` | `{ "parts": [{ "partNumber", "etag" }] }` → `204` |
@@ -85,16 +83,18 @@ One Worker. Every route passes through `Identity` except `/share/*` (checked aga
 | `GET /api/sessions/:id` | → `{ ...row, manifest }` or `404` |
 | `DELETE /api/sessions/:id` | → `204`; removes the row and orphaned blobs |
 | `GET /s/:id/` | the viewer (`viewer.html` from Worker static assets, no embedded data) |
-| `GET /s/:id/<path>` | the file from the manifest, with `Content-Type` from the manifest, `Range` support (206), `ETag` = sha256, immutable caching. `manifest.json` is served from D1 |
+| `GET /s/:id/<path>` | the file from the manifest, with `Content-Type` from the manifest, `Range` support (206), `ETag` = sha256 and `Cache-Control: private, no-cache` (add `?v=<sha256>` for immutable caching). `manifest.json` is served from D1 |
 | `GET /v/:id` | `302` → `/s/:id/` |
-| `GET /` | library page |
+| `GET /` | library page: sessions, plus signed-in apps with Sign out |
+| `GET /api/me`, `GET /api/grants`, `POST /api/grants/:id/revoke` | sign-in (§6) |
 | `/mcp` | MCP (section 4) |
 
-`manifestSha256` is the sha256 of the manifest JSON exactly as the Mac sent it.
+`manifestSha256` is the sha256 of the manifest JSON exactly as the Mac sent it. `POST` bodies must be JSON:
+`text/plain`, form and multipart bodies get `415`, because those skip the browser's CORS preflight.
 
 ## 3. Viewer modes (`scripts/viewer.html`)
 
-1. **Embedded (today):** `const DATA = /*__SESSION_DATA__*/null;` is replaced with the session JSON. If
+1. **Embedded:** the `/*__SESSION_DATA__*/null` token in `const DATA = …` is replaced with the session JSON. If
    `DATA.cloud` is present it holds `{ "manifest": {…}, "drawings": […] }` — this is what `index.html` in a
    bundle uses on `file://`.
 2. **Fetched:** when `DATA` is `null`, the viewer fetches `session.json`, `manifest.json` and `drawings.json`
@@ -103,8 +103,8 @@ One Worker. Every route passes through `Identity` except `/share/*` (checked aga
 With cloud data present the viewer: plays `recording.mp4` straight through (single segment), overlays each
 drawing PNG between `start` and `end` scaled to the video box, shows thumbnail hover on the timeline from
 `manifest.thumbs`, says "page not uploaded" for marks whose page is in `skippedPages`, and makes
-**Copy as Markdown** use relative/cloud URLs instead of `DATA.folder`. Without cloud data, behaviour is
-unchanged.
+**Copy as Markdown** use absolute URLs built from the page's location instead of `DATA.folder`. Served from
+`/s/:id/`, its eyebrow links to the library. Without cloud data, behaviour is unchanged.
 
 ## 4. MCP tools (`/mcp`, stateless `createMcpHandler`)
 
@@ -127,7 +127,7 @@ unchanged.
   `{ "url", "manifestSha256", "inputHash", "pushedAt" }`. "Out of date" = current `inputHash` ≠ recorded one.
 - CLI: `--cloud-bundle <session> <out-folder>` and `--push <session> [--cloud <url>]`.
 
-## 6. Sign-in (replaces the Access service token)
+## 6. Sign-in
 
 The Worker is an OAuth 2.1 authorization server (`@cloudflare/workers-oauth-provider`). One mechanism serves
 the Mac app and MCP agents.

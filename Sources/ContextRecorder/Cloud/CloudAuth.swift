@@ -4,7 +4,7 @@ import CryptoKit
 import Foundation
 import Security
 
-/// Sign-in to the cloud Worker (contract §6): OAuth 2.1 with discovery, dynamic registration, PKCE S256 and
+/// Sign-in to the cloud Worker (docs/cloud-sessions.md §6): OAuth 2.1 with discovery, dynamic registration, PKCE S256 and
 /// `ASWebAuthenticationSession`. The result is one private file (`FileAuthStore`); nobody types or sees a token.
 struct CloudCredentials: Codable, Equatable {
     var baseURL: String

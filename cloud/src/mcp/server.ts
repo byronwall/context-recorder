@@ -9,7 +9,7 @@ import { MAX_TTL_SECONDS, signFileUrl } from "../signing";
 import type { Store } from "../store";
 
 /**
- * MCP tools (contract §4). One McpServer per request (stateless). Everything an agent gets is read
+ * MCP tools (docs/cloud-sessions.md §4). One McpServer per request (stateless). Everything an agent gets is read
  * from the same Store the viewer uses, so tool output matches what /s/:id/ shows.
  */
 export interface McpDeps {

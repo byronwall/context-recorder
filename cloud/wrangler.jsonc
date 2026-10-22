@@ -26,30 +26,27 @@
     {
       "binding": "DB",
       "database_name": "context-recorder",
-      // FILL AT DEPLOY: `wrangler d1 create context-recorder` prints the id. Local dev ignores it.
       "database_id": "590495b5-15c6-49a3-aef5-f6ec49f61113",
       "migrations_dir": "migrations"
     }
   ],
 
-  // Reserved for workers-oauth-provider token storage (milestone 5). Unused until then.
+  // workers-oauth-provider: registered clients, grants and tokens.
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
-      // FILL AT DEPLOY: `wrangler kv namespace create OAUTH_KV` prints the id. Local dev ignores it.
       "id": "7a959f801b2c491aa0c0c642b094e11f"
     }
   ],
 
   "vars": {
-    // FILL AT DEPLOY: your Zero Trust team domain, e.g. "myteam.cloudflareaccess.com" (no scheme).
+    // Zero Trust team domain (no scheme) and the main Access app's Audience tag; see README "Access".
     "ACCESS_TEAM_DOMAIN": "byronwall.cloudflareaccess.com",
-    // FILL AT DEPLOY: the Access application's Audience (AUD) tag.
     "ACCESS_AUD": "676c1ecca4c802bfba747a42a894ba5a402f67e95175cab45596a094eda88c67",
     // Frames source for MCP get_frame: "thumbs" (nearest thumbnail) or "media" (Media Transformations).
     "FRAMES": "thumbs"
   }
 
   // Secrets (not in this file): SIGNING_SECRET via `wrangler secret put SIGNING_SECRET`.
-  // DEV_IDENTITY only ever in .dev.vars (local); it bypasses Access.
+  // DEV_IDENTITY only ever in .dev.vars (local); it turns sign-in off.
 }
