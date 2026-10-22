@@ -151,6 +151,16 @@ The service token is replaced by browser sign-in. Live steps, in this order:
 5. **Agents:** `claude mcp add --transport http sessions https://context-recorder-cloud.byron-711.workers.dev/mcp`,
    then `/mcp` in Claude Code to sign in the same way.
 
+### Switch-over status (2026-10-22)
+
+- Worker version `a5728b8a` deployed. Access bypass added for `/api/*`, `/mcp`, `/token`, `/register` and
+  `/.well-known/*`; `/authorize`, `/`, `/s/*` and `/v/*` still redirect to Access.
+- Byron signed in from Cloud Settings. `/api/me` → `byron@byroni.us` (via oauth), and the device is listed as
+  `Context Recorder (Byron’s MacBook Pro)`.
+- Pushes with the OAuth sign-in worked: `2026-10-21_23-54-38` (0 new files) and `2026-10-22_00-00-00` (23 files, 15.4 MB).
+- The app deleted the old service-token Keychain item. Still to do: delete the `Context Recorder Mac` policy
+  and the `context-recorder-mac` service token in Zero Trust, and try an agent sign-in on `/mcp`.
+
 ## Cloudflare references
 
 - [Workers on workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
