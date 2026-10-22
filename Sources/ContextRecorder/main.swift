@@ -154,7 +154,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
             library.state.join(urls)
         }
         if let tab = value("--tab") {
-            library.state.model?.tab = SessionModel.Tab.allCases.first { $0.rawValue.lowercased().hasPrefix(tab) } ?? .marks
+            // `page` and `activity` were tabs of their own; both are in Events now.
+            let name = ["page": "events", "activity": "events"][tab] ?? tab
+            library.state.model?.tab = SessionModel.Tab.allCases.first { $0.rawValue.lowercased().hasPrefix(name) } ?? .marks
         }
         if let i = args.firstIndex(of: "--mark"), i + 1 < args.count, let n = Int(args[i + 1]) {
             library.state.model?.select(n)   // `--mark <n>` opens that mark too

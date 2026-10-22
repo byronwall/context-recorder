@@ -10,7 +10,7 @@ python3 scripts/ui-test/harness.py stop
 
 `prepare` rebuilds the debug executable and replaces only the fixture directory created by this harness. It copies these sessions from `~/Movies/ContextRecorder`: `2026-10-13_00-57-10`, `2026-10-13_20-48-53`, and two sessions with empty transcripts, `2026-10-12_22-42-47` and `2026-10-12_22-51-23`. The real library is read-only input. The harness rejects symlinks and refuses to replace an unmarked fixture directory.
 
-The app opens the full fixture library. `--session` selects the initial session. `--tab` accepts `marks`, `transcript`, `page`, or `activity`. `--recording-fixture` selects a fixture that the app treats as the active recording for protection checks.
+The app opens the full fixture library. `--session` selects the initial session. `--tab` accepts `marks`, `transcript`, or `events` (`page` and `activity` still work and open Events). `--recording-fixture` selects a fixture that the app treats as the active recording for protection checks.
 
 For direct SwiftPM launch and development flags, use `run`:
 

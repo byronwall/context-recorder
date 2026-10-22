@@ -99,20 +99,19 @@ struct GroupBlock<Content: View>: View {
     }
 }
 
-/// A section of the mark inspector that folds away. Open or closed is remembered per section, so the
-/// same sections stay open as you move from mark to mark.
+/// A section of the mark inspector that folds away: a small header and its content, with no box.
+/// Open or closed is remembered per section, so the same sections stay open from mark to mark.
 struct InspectorSection<Content: View>: View {
     var title: String
-    var symbol: String
-    var tint: Color
+    var tint: Color?
     var trailing: String?
     @ViewBuilder var content: Content
     @AppStorage private var open: Bool
+    @State private var hovering = false
 
-    init(_ id: String, title: String, symbol: String, tint: Color = .secondary, trailing: String? = nil,
+    init(_ id: String, title: String, tint: Color? = nil, trailing: String? = nil,
          open defaultOpen: Bool = true, @ViewBuilder content: () -> Content) {
         self.title = title
-        self.symbol = symbol
         self.tint = tint
         self.trailing = trailing
         self.content = content()
@@ -120,23 +119,22 @@ struct InspectorSection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 5) {
             Button { withAnimation(.snappy(duration: 0.2)) { open.toggle() } } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(open ? 90 : 0))
-                        .frame(width: 10)
-                    Image(systemName: symbol).foregroundStyle(tint).frame(width: 14)
-                    Text(title).foregroundStyle(.primary)
+                HStack(spacing: 5) {
+                    Text(title).foregroundStyle(tint.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.secondary))
                     if let trailing { Text(trailing).foregroundStyle(.tertiary).monospacedDigit() }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(hovering ? .secondary : .tertiary)
+                        .rotationEffect(.degrees(open ? 90 : 0))
                     Spacer(minLength: 0)
                 }
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
+            .onHover { hovering = $0 }
             .accessibilityAddTraits(.isHeader)
             .accessibilityValue(open ? "Expanded" : "Collapsed")
             if open {

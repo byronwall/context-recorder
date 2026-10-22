@@ -38,12 +38,17 @@ The app has a Dock icon and menus while the Sessions window is open or a recordi
 - **Stage:** the recording, with floating playback controls.
 - **Timeline:** active app, page events and narration on one time axis, with the marks pinned on the time ruler. Click or drag to seek; hover for a preview of the frame at that moment plus the app, window, narration and any mark or page event there.
 - **Now strip:** the app, window and URL at the playhead, and the sentence being spoken.
-- **Inspector:** marks (with the full page context for the selected one), transcript, page events and activity. **Copy as Markdown** is per mark and for the whole session (toolbar).
+- **Inspector:** three tabs, each with one job.
+  - **Marks:** what you flagged. Click a mark to open it in place: title, actions, note, the shot (with the full frame beside a region shot), what was said, the page's problems and the element under the pointer. **Copy as Markdown** is per mark and for the whole session (toolbar).
+  - **Transcript:** what was said. Each mark's number sits beside the sentence it landed in; click it to open the mark.
+  - **Events:** what happened. App and window switches and page events (clicks, navigation, console, requests) in one log, with problems in red and identical events in a row folded into one with a ×N count. The filter menu narrows it to one kind, such as Problems.
+  - **Find** (⌘F) filters all three tabs at once and highlights the matches. Each tab's count shows how many it has. Esc clears it.
 
 | Key | Action |
 | --- | --- |
 | Space | Play / pause |
 | J / K | Next / previous mark |
+| ⌘F | Find in marks, transcript and events |
 | → / ← | Skip 5 s |
 | M | Add a mark at the playhead (on the canvas: at the moment under the pointer) |
 | S | Capture a region of the current frame (drag; click for the whole frame; Esc cancels); on the canvas, drag over an item |
