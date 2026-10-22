@@ -142,6 +142,12 @@ final class CloudState {
         if let url = record(folder).flatMap({ URL(string: $0.url) }) { NSWorkspace.shared.open(url) }
     }
 
+    /// The cloud's home page: every pushed session.
+    func openLibrary() {
+        guard let url = CloudConfig.current()?.url else { showSettings = true; return }
+        NSWorkspace.shared.open(url)
+    }
+
     func copyLink(_ folder: URL) {
         guard let url = record(folder)?.url else { return }
         NSPasteboard.general.clearContents()
@@ -163,6 +169,7 @@ struct CloudMenuItems: View {
                 Button("Open Cloud Copy", systemImage: "globe") { cloud.open(folder) }
                 Button("Copy Cloud Link", systemImage: "link") { cloud.copyLink(folder) }
             }
+            Button("Open Cloud Library", systemImage: "square.grid.2x2") { cloud.openLibrary() }
         }
     }
 }
@@ -178,12 +185,14 @@ struct CloudPushButton: View {
     var body: some View {
         let _ = editToken
         if let job = cloud.jobs[folder] {
+            // A ring and a percentage in a fixed width, so the toolbar doesn't jump; the step is in the tooltip.
             HStack(spacing: 6) {
-                ProgressView(value: job.fraction).frame(width: 64)
-                Text(job.phase).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
-                    .frame(width: 150, alignment: .leading)
+                ProgressView(value: job.fraction).progressViewStyle(.circular).controlSize(.small)
+                Text("Pushing \(Int((job.fraction * 100).rounded()))%").font(.system(size: 12)).monospacedDigit()
+                    .foregroundStyle(.secondary).lineLimit(1)
             }
-            .help("Pushing this session to the cloud")
+            .frame(width: 112, alignment: .leading)
+            .help("Pushing to the cloud: \(job.phase)")
         } else {
             let status = cloud.status(folder)
             let error = cloud.errors[folder]

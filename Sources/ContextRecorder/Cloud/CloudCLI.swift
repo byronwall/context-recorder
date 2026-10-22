@@ -81,7 +81,7 @@ enum CloudCLI {
                 return 2
             }
             // A local wrangler dev Worker (DEV_IDENTITY) takes requests without a token.
-            guard config.hasCredentials || CloudAuth.isLocal(config.url) else {
+            guard CloudAuth.isLocal(config.url) || config.hasCredentials else {
                 fputs("Not signed in to \(config.url.absoluteString). Sign in from Cloud Settings in the app, or set CR_CLOUD_TOKEN.\n", stderr)
                 return 2
             }

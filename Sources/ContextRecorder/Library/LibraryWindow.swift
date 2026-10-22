@@ -280,6 +280,7 @@ enum MainMenu {
         app.addItem(withTitle: "About Context Recorder", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: "Cloud Settings…", action: #selector(AppDelegate.showCloudSettings), keyEquivalent: ",")
+        app.addItem(withTitle: "Open Cloud Library", action: #selector(AppDelegate.openCloudLibrary), keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: "Hide Context Recorder", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         app.addItem(.separator())

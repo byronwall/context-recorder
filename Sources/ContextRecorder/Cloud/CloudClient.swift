@@ -167,6 +167,8 @@ struct CloudConfig {
 
     var auth: CloudTokenProvider {
         if let token, !token.isEmpty { return CloudTokenProvider(token: token) }
+        // A local dev Worker needs no sign-in, so it never touches the Keychain (no prompt).
+        if store is KeychainAuthStore, CloudAuth.isLocal(url) { return CloudTokenProvider(store: MemoryAuthStore()) }
         return store is KeychainAuthStore ? .keychain : CloudTokenProvider(store: store)
     }
 

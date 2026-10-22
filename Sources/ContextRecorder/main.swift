@@ -489,6 +489,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         library.show()
         library.state.showShortcuts = true
     }
+    @objc func openCloudLibrary() {
+        if CloudConfig.current() == nil { library.show() }
+        CloudState.shared.openLibrary()
+    }
     @objc func showCloudSettings() {
         library.show()
         CloudState.shared.showSettings = true
