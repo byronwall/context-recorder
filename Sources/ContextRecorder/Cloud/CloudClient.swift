@@ -157,19 +157,19 @@ struct CloudClient {
 // MARK: - Configuration
 
 /// Where to push and how to authenticate. The cloud URL lives in UserDefaults (`cloudURL`); the sign-in lives in
-/// the Keychain (`CloudAuth`). The CLI also reads `CR_CLOUD_URL`, and `CR_CLOUD_TOKEN` (a raw access token)
+/// a private file (`FileAuthStore`). The CLI also reads `CR_CLOUD_URL`, and `CR_CLOUD_TOKEN` (a raw access token)
 /// overrides the stored sign-in.
 struct CloudConfig {
     var url: URL
     /// `CR_CLOUD_TOKEN`.
     var token: String?
-    var store: CloudAuthStore = KeychainAuthStore()
+    var store: CloudAuthStore = FileAuthStore()
 
     var auth: CloudTokenProvider {
         if let token, !token.isEmpty { return CloudTokenProvider(token: token) }
-        // A local dev Worker needs no sign-in, so it never touches the Keychain (no prompt).
-        if store is KeychainAuthStore, CloudAuth.isLocal(url) { return CloudTokenProvider(store: MemoryAuthStore()) }
-        return store is KeychainAuthStore ? .keychain : CloudTokenProvider(store: store)
+        // A local dev Worker needs no sign-in, so it never sends the saved one.
+        if store is FileAuthStore, CloudAuth.isLocal(url) { return CloudTokenProvider(store: MemoryAuthStore()) }
+        return store is FileAuthStore ? .saved : CloudTokenProvider(store: store)
     }
 
     var client: CloudClient { CloudClient(baseURL: url, auth: auth) }

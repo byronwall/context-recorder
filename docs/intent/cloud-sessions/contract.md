@@ -120,10 +120,9 @@ unchanged.
 
 ## 5. Mac push
 
-- `CloudClient(baseURL, headers)`: `push` → upload each missing blob (PUT, or multipart above 90 MB) → `commit`.
-  Headers carry `CF-Access-Client-Id` / `CF-Access-Client-Secret` when configured.
-- Configuration: cloud URL in `UserDefaults` (`cloudURL`); service token id/secret in the Keychain
-  (service `ContextRecorder.Cloud`). The CLI also reads `CR_CLOUD_URL`, `CR_CLOUD_CLIENT_ID`, `CR_CLOUD_CLIENT_SECRET`.
+- `CloudClient(baseURL, auth)`: `push` → upload each missing blob (PUT, or multipart above 90 MB) → `commit`.
+  Every request carries `Authorization: Bearer` from the saved sign-in (§6).
+- Configuration: cloud URL in `UserDefaults` (`cloudURL`). The CLI also reads `CR_CLOUD_URL` and `CR_CLOUD_TOKEN`.
 - After a commit, write `<session>/exports/cloud.json`:
   `{ "url", "manifestSha256", "inputHash", "pushedAt" }`. "Out of date" = current `inputHash` ≠ recorded one.
 - CLI: `--cloud-bundle <session> <out-folder>` and `--push <session> [--cloud <url>]`.
@@ -154,10 +153,10 @@ the Mac app and MCP agents.
 - Client name `Context Recorder (<host name>)`, redirect URI `contextrecorder://oauth/callback`, public client
   (`token_endpoint_auth_method: none`). It registers once per cloud URL and keeps the `client_id`.
 - Sign-in uses `ASWebAuthenticationSession` with PKCE. The refresh token, access token, its expiry, the
-  client id and the cloud URL are kept as one Keychain item (service `ContextRecorder.CloudAuth`). Nobody types or
-  sees them.
+  client id and the cloud URL are kept as JSON in `~/Library/Application Support/ContextRecorder/cloud-auth.json`
+  (0600, folder 0700). Not the Keychain: an app signed without an Apple team gets a Keychain item tied to one
+  build, so every rebuild prompted. Nobody types or sees the tokens.
+- Signing in again on the same Mac replaces that Mac's previous grant (`revokeExistingGrants`).
 - Each request sends `Authorization: Bearer`. On a 401 or within 60 s of expiry it refreshes once; if
   the refresh fails, it reports "Sign in again" and keeps the address.
-- The CLI uses the same stored sign-in. Sign the `swift build` binary like the app
-  (`scripts/sign-dev-binary.sh`), or macOS asks for Keychain access on every run. The Keychain item is read
-  once per process. `CR_CLOUD_TOKEN` (an access token) overrides it for scripts.
+- The CLI uses the same saved sign-in. A local dev Worker never gets it. `CR_CLOUD_TOKEN` (an access token) overrides it for scripts.

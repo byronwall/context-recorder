@@ -5,7 +5,7 @@ import Foundation
 import Security
 
 /// Sign-in to the cloud Worker (contract §6): OAuth 2.1 with discovery, dynamic registration, PKCE S256 and
-/// `ASWebAuthenticationSession`. The result is one Keychain item; nobody types or sees a token.
+/// `ASWebAuthenticationSession`. The result is one private file (`FileAuthStore`); nobody types or sees a token.
 struct CloudCredentials: Codable, Equatable {
     var baseURL: String
     var clientId: String
@@ -17,71 +17,43 @@ struct CloudCredentials: Codable, Equatable {
     func matches(_ url: URL) -> Bool { CloudAuth.key(baseURL) == CloudAuth.key(url.absoluteString) }
 }
 
-/// Where the sign-in is kept. The app uses the Keychain; tests use memory.
+/// Where the sign-in is kept. The app uses a private file; tests use memory.
 protocol CloudAuthStore: Sendable {
     func load() -> CloudCredentials?
     func save(_ credentials: CloudCredentials) throws
     func delete()
 }
 
-/// One generic-password item, service `ContextRecorder.CloudAuth`, holding the credentials as JSON.
-/// Read at most once per process: every Keychain read from a binary macOS doesn't trust is a prompt.
-struct KeychainAuthStore: CloudAuthStore {
-    static let service = "ContextRecorder.CloudAuth"
-    private static let memo = MemoryAuthStore()
-    private static let lock = NSLock()
-    nonisolated(unsafe) private static var loaded = false
-    private var base: [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Self.service, kSecAttrAccount as String: "default"]
+/// `~/Library/Application Support/ContextRecorder/cloud-auth.json`, readable only by you (0600 in a 0700
+/// folder). Not the Keychain: for an app signed without an Apple team, a Keychain item is tied to one build,
+/// so every rebuild asked for access again. The refresh token only reaches your sessions cloud, and the
+/// library page's Signed-in apps list revokes it.
+struct FileAuthStore: CloudAuthStore {
+    var url: URL = FileAuthStore.defaultURL
+
+    static var defaultURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ContextRecorder/cloud-auth.json")
     }
 
     func load() -> CloudCredentials? {
-        Self.lock.withLock {
-            if !Self.loaded {
-                Self.loaded = true
-                if let creds = read() { try? Self.memo.save(creds) }
-            }
-        }
-        return Self.memo.load()
-    }
-
-    private func read() -> CloudCredentials? {
-        var query = base
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let data = item as? Data else { return nil }
+        guard let data = try? Data(contentsOf: url) else { return nil }
         return try? CloudAuth.decoder.decode(CloudCredentials.self, from: data)
     }
 
     func save(_ credentials: CloudCredentials) throws {
-        let data = try CloudAuth.encoder.encode(credentials)
-        let update: [String: Any] = [kSecValueData as String: data]
-        var status = SecItemUpdate(base as CFDictionary, update as CFDictionary)
-        if status == errSecItemNotFound {
-            var add = base
-            add[kSecValueData as String] = data
-            add[kSecAttrLabel as String] = "Context Recorder cloud sign-in"
-            status = SecItemAdd(add as CFDictionary, nil)
+        let fm = FileManager.default
+        let folder = url.deletingLastPathComponent()
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        // Written to a private temp file first, so the token is never readable by others, even briefly.
+        let temp = folder.appendingPathComponent(".cloud-auth-\(UUID().uuidString).json")
+        guard fm.createFile(atPath: temp.path, contents: try CloudAuth.encoder.encode(credentials), attributes: [.posixPermissions: 0o600]) else {
+            throw ReviewError("Couldn't save the cloud sign-in to \(url.path)")
         }
-        guard status == errSecSuccess else { throw ReviewError("Couldn't save the cloud sign-in to the Keychain (\(status))") }
-        Self.lock.withLock { Self.loaded = true }
-        try Self.memo.save(credentials)
+        _ = try fm.replaceItemAt(url, withItemAt: temp)
     }
 
-    func delete() {
-        SecItemDelete(base as CFDictionary)
-        Self.lock.withLock { Self.loaded = true }
-        Self.memo.delete()
-    }
-
-    /// The service token item older builds kept (service `ContextRecorder.Cloud`). Removed once, silently.
-    static func removeLegacyServiceToken() {
-        let flag = "cloudLegacyTokenRemoved"
-        guard !UserDefaults.standard.bool(forKey: flag) else { return }
-        SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "ContextRecorder.Cloud"] as CFDictionary)
-        UserDefaults.standard.set(true, forKey: flag)
-    }
+    func delete() { try? FileManager.default.removeItem(at: url) }
 }
 
 final class MemoryAuthStore: CloudAuthStore, @unchecked Sendable {
@@ -243,7 +215,7 @@ enum CloudAuth {
             .joined(separator: "&")
     }
 
-    /// Whole seconds, so the Keychain JSON (seconds since 1970) reads back as the same date.
+    /// Whole seconds, so the saved JSON (seconds since 1970) reads back as the same date.
     static func expiry(_ reply: TokenReply) -> Date {
         Date(timeIntervalSince1970: (Date().timeIntervalSince1970 + (reply.expires_in ?? 3600)).rounded(.down))
     }
@@ -372,7 +344,7 @@ final class WebAuthenticator: NSObject, ASWebAuthenticationPresentationContextPr
 /// Hands out the access token for requests, refreshing it once on a 401 or within 60 s of expiry. An actor, and
 /// one in-flight refresh at a time, so parallel uploads don't race to spend the same refresh token.
 actor CloudTokenProvider {
-    static let keychain = CloudTokenProvider(store: KeychainAuthStore())
+    static let saved = CloudTokenProvider(store: FileAuthStore())
 
     private let store: CloudAuthStore?
     private let fixed: String?

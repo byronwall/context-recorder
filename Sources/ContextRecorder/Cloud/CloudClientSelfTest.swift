@@ -59,7 +59,18 @@ extension CloudSelfTest {
                 _ = try await CloudAuth.signIn(base, session: fake) { _ in URL(string: "\(CloudAuth.redirectURI)?code=code-1&state=nope")! }
                 f.append("mismatched state accepted")
             } catch {}
-            // Keychain-format round trip.
+            // The saved file: private, round-trips, and deletes.
+            let fileStore = FileAuthStore(url: FileManager.default.temporaryDirectory
+                .appendingPathComponent("cr-auth-\(UUID().uuidString)/ContextRecorder/cloud-auth.json"))
+            try fileStore.save(signedIn)
+            try fileStore.save(signedIn)   // replacing keeps it private too
+            let perms = { (u: URL) in (try? FileManager.default.attributesOfItem(atPath: u.path)[.posixPermissions] as? Int) ?? -1 }
+            if perms(fileStore.url) != 0o600 { f.append("auth file mode \(String(perms(fileStore.url), radix: 8))") }
+            if perms(fileStore.url.deletingLastPathComponent()) != 0o700 { f.append("auth folder mode") }
+            if fileStore.load() != signedIn { f.append("auth file round trip") }
+            fileStore.delete()
+            if fileStore.load() != nil { f.append("auth file not deleted") }
+            // Saved-file format round trip.
             let encoded = try CloudAuth.encoder.encode(signedIn)
             if try CloudAuth.decoder.decode(CloudCredentials.self, from: encoded) != signedIn { f.append("credentials JSON round trip") }
             let keys = Set(((try JSONSerialization.jsonObject(with: encoded)) as? [String: Any] ?? [:]).keys)

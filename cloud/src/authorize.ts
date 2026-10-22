@@ -60,6 +60,8 @@ export async function handleAuthorize(request: Request, env: Env): Promise<Respo
       metadata: { label: client?.clientName || "Unnamed app" },
       scope: req.scope,
       props,
+      // Each Mac or agent registers its own client, so signing in again replaces that device's old grant.
+      revokeExistingGrants: true,
     });
     return Response.redirect(redirectTo, 302);
   }

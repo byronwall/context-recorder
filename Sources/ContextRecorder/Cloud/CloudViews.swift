@@ -25,8 +25,7 @@ final class CloudState {
     @ObservationIgnored private var authenticator: WebAuthenticator?
 
     private init() {
-        KeychainAuthStore.removeLegacyServiceToken()
-        stored = KeychainAuthStore().load()
+        stored = FileAuthStore().load()
     }
 
     /// Signed in to the configured cloud.
@@ -53,7 +52,7 @@ final class CloudState {
         defer { signingIn = false; signInTask = nil; authenticator = nil }
         do {
             let credentials = try await task.value
-            try await CloudTokenProvider.keychain.signedIn(credentials)
+            try await CloudTokenProvider.saved.signedIn(credentials)
             stored = credentials
             revision += 1
             return credentials
@@ -71,7 +70,7 @@ final class CloudState {
     func signOut() {
         stored = nil
         Task.detached {
-            if let old = await CloudTokenProvider.keychain.signOut() { await CloudAuth.revoke(old) }
+            if let old = await CloudTokenProvider.saved.signOut() { await CloudAuth.revoke(old) }
         }
     }
 
@@ -131,7 +130,7 @@ final class CloudState {
             } catch {
                 errors[folder] = error.localizedDescription
                 // A dead sign-in was forgotten by the token provider; show it signed out.
-                if case CloudAuthError.signInRequired = error { stored = KeychainAuthStore().load() }
+                if case CloudAuthError.signInRequired = error { stored = FileAuthStore().load() }
             }
             jobs[folder] = nil
             revision += 1
