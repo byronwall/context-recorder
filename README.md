@@ -21,7 +21,7 @@ If the installed Swift Command Line Tools have a `PackageDescription` linker mis
 The app has one home, the **Sessions** window, and everything else mirrors it:
 
 - **Sessions window:** opens at launch and whenever you open the app again. Press **Record** at the bottom of the sidebar (or ⌃⌥R anywhere). The window steps aside so you're back in the app you were using.
-- **Recording controls:** a small floating panel that appears only while recording, with the timer, mark count, the latest mark and **Mark / Region / Stop**. It's left out of the video. Close it if it's in the way; **Recording → Show Recording Controls** brings it back.
+- **Recording controls:** a slim floating bar that appears only while recording, with the timer, a live microphone level, the mark count and **Mark / Region / Stop**. If the mic is on but no audio is arriving, the meter says **No audio**. It's left out of the video. Drag it anywhere. Hover and click × (or right-click → Hide Controls) if it's in the way; **Recording → Show Recording Controls** brings it back. Hover the mark count for the latest mark.
 - **Menu bar:** a red dot with `3:42  ⚑5` (elapsed time and marks) while recording, plus the same actions and your five most recent sessions.
 
 While a recording runs, it sits at the top of the sidebar and shows live in the window: the clock and each mark as you make it. **Stop** always brings the Sessions window forward on the new session. It shows processing progress (transcribing, pulling frames) and turns into the full session when it's done. If processing fails, the window shows the end of the log and a **Try Again** button.

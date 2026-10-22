@@ -30,6 +30,16 @@ final class RecorderController {
     var recordMicrophone: Bool = UserDefaults.standard.object(forKey: "recordMicrophone") as? Bool ?? true {
         didSet { UserDefaults.standard.set(recordMicrophone, forKey: "recordMicrophone") }
     }
+    /// Whether the recording in progress captures the microphone (fixed when it starts).
+    private(set) var recordingMic = false
+    /// Recent microphone loudness, 0…1, oldest first: `Recorder.levelsPerSecond` values a second, the last
+    /// few seconds. Only the level meters read it, so it can change often without redrawing anything else.
+    private(set) var micLevels: [Float] = []
+    static let micHistory = 48
+    /// The mic should be recording but no audio has arrived for a couple of seconds (permission, a
+    /// disconnected device): the meters say so instead of looking like a quiet room.
+    private(set) var micStalled = false
+    @ObservationIgnored private var lastAudio = Date.distantPast
     /// false for `--library` dev runs: the UI shows, but nothing records.
     let canRecord: Bool
     /// `--library … --capture`: sessions go here instead of ~/Movies, with no microphone or Chrome bridge.
@@ -62,6 +72,8 @@ final class RecorderController {
         self.isolatedRoot = isolatedRoot
         guard canRecord else { return }
         recorder.onError = { [weak self] error in self?.handleError(error) }
+        recorder.onAudioLevel = { [weak self] level in
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.addMicLevel(level) } } }
         guard isolatedRoot == nil else { return }
         bridge.onEvent = { [weak self] event in
             guard let self, let session = self.session, let offset = self.recorder.currentOffset() else { return }
@@ -111,11 +123,15 @@ final class RecorderController {
             liveMarks = []
             capturedShots = []
             elapsed = 0
+            recordingMic = recordMicrophone && isolatedRoot == nil
+            micLevels = []
+            micStalled = false
+            lastAudio = Date()
             phase = .starting
             Task { @MainActor in
                 do {
                     recorder.recordedOwnWindows = recordedWindows()
-                    try await recorder.start(outputURL: session.videoURL, recordMicrophone: recordMicrophone && isolatedRoot == nil)
+                    try await recorder.start(outputURL: session.videoURL, recordMicrophone: recordingMic)
                     let activity = ActivityLog(url: session.folder.appendingPathComponent("activity.jsonl")) { [weak self] in
                         self?.recorder.currentOffset()
                     }
@@ -142,6 +158,7 @@ final class RecorderController {
         self.session = nil
         timer?.invalidate()
         timer = nil
+        micStalled = false
         activity?.stop()
         activity = nil
         Task { @MainActor in
@@ -172,8 +189,18 @@ final class RecorderController {
     }
 
     private func tick() {
+        let stalled = recordingMic && Date().timeIntervalSince(lastAudio) > 2
+        if stalled != micStalled { micStalled = stalled }
         guard let offset = recorder.currentOffset() else { return }
         elapsed = offset
+    }
+
+    private func addMicLevel(_ level: Float) {
+        guard isRecording else { return }
+        lastAudio = Date()
+        micLevels.append(level)
+        if micLevels.count > Self.micHistory { micLevels.removeFirst(micLevels.count - Self.micHistory) }
+        if micStalled { micStalled = false }
     }
 
     // MARK: Marks
@@ -383,10 +410,23 @@ final class RecorderController {
     // MARK: Demo (dev runs only)
 
     /// `--demo recording` in a `--library` dev run fakes a recording so the live views can be worked on.
-    func demoRecording(in folder: URL) {
+    /// `mic`: "live" fakes narration on the level meters, "stalled" a mic that delivers nothing, "off" a silent recording.
+    func demoRecording(in folder: URL, mic: String = "live") {
         recordingFolder = folder
         phase = .recording
         elapsed = 83
+        recordingMic = mic != "off"
+        micStalled = mic == "stalled"
+        if mic == "live" {
+            // Speech-like: words of rising and falling loudness with short pauses between them.
+            var t = 0.0
+            timer = Timer.scheduledTimer(withTimeInterval: 1 / Recorder.levelsPerSecond, repeats: true) { [weak self] _ in
+                t += 1 / Recorder.levelsPerSecond
+                let word = max(0, sin(t * 5.3)) * (0.55 + 0.35 * sin(t * 1.7)) * (sin(t * 0.6) > -0.6 ? 1 : 0.1)
+                let level = Float(min(0.9, 0.08 + word * 0.85 + Double.random(in: 0...0.1)))
+                MainActor.assumeIsolated { self?.addMicLevel(level) }
+            }
+        }
         let ctx = MarkContext(appName: "Google Chrome", bundleID: "com.google.Chrome", windowTitle: "Pull request #42 · Checkout flow")
         liveMarks = [
             Mark(index: 1, kind: "mark", offsetSeconds: 12.4, wallTime: "", context: ctx),

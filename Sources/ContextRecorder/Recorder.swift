@@ -70,6 +70,8 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         self.videoInput = videoInput
         self.audioInput = recordMicrophone ? audioInput : nil
         self.startPTS = nil
+        levelSliceStart = nil
+        levelPeak = 0
 
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: queue)
@@ -157,6 +159,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
             }
             if let videoInput, videoInput.isReadyForMoreMediaData { videoInput.append(sampleBuffer) }
         case .microphone:
+            meterLevel(sampleBuffer)
             guard let startPTS, writer.status == .writing else { return }
             let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
             guard CMTimeCompare(pts, startPTS) >= 0 else { return }
@@ -166,6 +169,51 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         }
         if writer.status == .failed, let error = writer.error {
             DispatchQueue.main.async { self.onError?(error) }
+        }
+    }
+
+    // MARK: Microphone level
+
+    /// Called on the capture queue about `levelsPerSecond` times a second while the microphone delivers
+    /// audio: the loudest moment of that slice, 0 (silence, -54 dBFS or quieter) … 1 (full scale).
+    var onAudioLevel: ((Float) -> Void)?
+    static let levelsPerSecond = 15.0
+    private var levelPeak: Float = 0
+    private var levelSliceStart: CMTime?
+
+    private func meterLevel(_ sampleBuffer: CMSampleBuffer) {
+        guard let onAudioLevel,
+              let format = sampleBuffer.formatDescription?.audioStreamBasicDescription else { return }
+        let isFloat = format.mFormatFlags & kAudioFormatFlagIsFloat != 0
+        guard isFloat ? format.mBitsPerChannel == 32 : format.mBitsPerChannel == 16 else { return }
+        var sum: Double = 0
+        var count = 0
+        try? sampleBuffer.withAudioBufferList { list, _ in
+            for buffer in list {
+                guard let data = buffer.mData else { continue }
+                if isFloat {
+                    let samples = UnsafeBufferPointer(start: data.assumingMemoryBound(to: Float.self),
+                                                      count: Int(buffer.mDataByteSize) / 4)
+                    for s in samples { sum += Double(s * s) }
+                    count += samples.count
+                } else {
+                    let samples = UnsafeBufferPointer(start: data.assumingMemoryBound(to: Int16.self),
+                                                      count: Int(buffer.mDataByteSize) / 2)
+                    for s in samples { let f = Double(s) / 32768; sum += f * f }
+                    count += samples.count
+                }
+            }
+        }
+        guard count > 0 else { return }
+        let db = 10 * log10(max(sum / Double(count), 1e-10))   // RMS in dBFS
+        levelPeak = max(levelPeak, Float(min(1, max(0, (db + 54) / 54))))
+
+        let pts = sampleBuffer.presentationTimeStamp
+        guard let start = levelSliceStart else { levelSliceStart = pts; return }
+        if CMTimeGetSeconds(CMTimeSubtract(pts, start)) >= 1 / Self.levelsPerSecond {
+            onAudioLevel(levelPeak)
+            levelPeak = 0
+            levelSliceStart = pts
         }
     }
 
