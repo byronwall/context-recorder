@@ -1,0 +1,65 @@
+{
+  "about": "Cases for `ContextRecorder --self-test cloud-bundle`. Each source is a synthetic recording whose frames carry a barcode (source id + frame number) and a tone track. Each case is a processed session (cuts and/or a join) with marks and drawings; the bundle's exported video, mark times and drawing windows must match these expected edited times, and the frame shown at each of them must be the source frame at that source time, all within one frame. A mark with edited null is inside a cut. Drawing windows are [start, end) in edited time; pieces that meet across a cut merge.",
+  "fps": 10,
+  "sources": [
+    { "name": "src-a", "id": 1, "seconds": 20, "width": 320, "height": 200 },
+    { "name": "src-b", "id": 2, "seconds": 10, "width": 480, "height": 300 }
+  ],
+  "cases": [
+    {
+      "name": "unedited",
+      "copyOf": "src-a",
+      "edits": null,
+      "duration": 20,
+      "marks": [
+        { "source": ".", "time": 3.0, "edited": 3.0 },
+        { "source": ".", "time": 12.5, "edited": 12.5 }
+      ],
+      "drawings": [
+        { "kind": "rectangle", "source": ".", "start": 4.0, "end": 7.0, "points": [[0.1, 0.4], [0.5, 0.8]], "windows": [[4.0, 7.0]] }
+      ]
+    },
+    {
+      "name": "cuts",
+      "copyOf": "src-a",
+      "edits": [
+        { "source": ".", "start": 0, "end": 5 },
+        { "source": ".", "start": 8, "end": 12 },
+        { "source": ".", "start": 15, "end": 20 }
+      ],
+      "duration": 14,
+      "marks": [
+        { "source": ".", "time": 2.0, "edited": 2.0, "page": "small" },
+        { "source": ".", "time": 9.5, "edited": 6.5, "page": "big", "annotated": true },
+        { "source": ".", "time": 17.0, "edited": 11.0 },
+        { "source": ".", "time": 6.0, "edited": null }
+      ],
+      "drawings": [
+        { "kind": "rectangle", "source": ".", "start": 4.0, "end": 9.0, "points": [[0.2, 0.4], [0.6, 0.9]], "windows": [[4.0, 6.0]] },
+        { "kind": "arrow", "source": ".", "start": 10.0, "end": 16.5, "points": [[0.1, 0.9], [0.7, 0.5]], "windows": [[7.0, 10.5]] },
+        { "kind": "text", "source": ".", "start": 18.0, "end": 19.0, "points": [[0.05, 0.5], [0.6, 0.5]], "text": "Look here", "windows": [[12.0, 13.0]] },
+        { "kind": "pen", "source": ".", "start": 5.5, "end": 7.5, "points": [[0.1, 0.5], [0.3, 0.7]], "windows": [] }
+      ]
+    },
+    {
+      "name": "joined",
+      "copyOf": null,
+      "edits": [
+        { "source": "../src-a", "start": 0, "end": 4 },
+        { "source": "../src-b", "start": 2, "end": 8 },
+        { "source": "../src-a", "start": 14, "end": 18 }
+      ],
+      "duration": 14,
+      "marks": [
+        { "source": "../src-a", "time": 3.0, "edited": 3.0 },
+        { "source": "../src-b", "time": 5.0, "edited": 7.0 },
+        { "source": "../src-a", "time": 16.0, "edited": 12.0 },
+        { "source": "../src-a", "time": 10.0, "edited": null }
+      ],
+      "drawings": [
+        { "kind": "highlight", "source": "../src-a", "start": 3.0, "end": 15.0, "points": [[0.3, 0.5], [0.9, 0.9]], "windows": [[3.0, 4.0], [10.0, 11.0]] },
+        { "kind": "rectangle", "source": "../src-b", "start": 1.0, "end": 3.0, "points": [[0.4, 0.4], [0.8, 0.8]], "windows": [[4.0, 5.0]] }
+      ]
+    }
+  ]
+}

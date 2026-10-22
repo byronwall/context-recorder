@@ -1,0 +1,4 @@
+# Copy to .dev.vars for `pnpm dev`. Never set DEV_IDENTITY in production: it turns sign-in off.
+DEV_IDENTITY=dev@localhost
+# Any long random string locally; in production set with `wrangler secret put SIGNING_SECRET`.
+SIGNING_SECRET=dev-signing-secret-change-me

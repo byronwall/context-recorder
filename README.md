@@ -133,6 +133,18 @@ Building runs only when you ask, takes a few seconds for a few minutes of video,
 
 Requires the `pgm` CLI (`npm install -g @byronwallrus/product-grid-cli`). `viewer.html` is still written to every session folder as a portable copy (**Session → Open in Browser**).
 
+### Cloud
+
+Push a session to your own Cloudflare Worker to watch it from any browser and let agents read it, without the recording Mac. Nothing uploads until you push.
+
+- **Cloud Settings… (⌘,)**: the cloud's address and **Sign In**. Sign-in opens the browser: enter the emailed code, then **Allow**. There are no tokens to paste, and the sign-in renews while you use it.
+- **Push to Cloud** (toolbar, a session's menu, or right-click in the sidebar) uploads the session as you see it: cuts and joins flattened into one video, drawings at their moments, marks, transcript, logs, and saved pages up to a size budget (half the video, at least 10 MB). `audio.wav` never uploads. Only changed files go up, so **Push Again** is quick.
+- The toolbar and the sidebar row say when the cloud copy is **out of date** because you cut or drew after pushing.
+- **Open Cloud Copy**, **Copy Cloud Link** and **Open Cloud Library** open the session or the list of every pushed session. The cloud viewer's **‹ All sessions** goes back to the list, and the list shows **Signed-in apps** with **Sign out** for each.
+- **Agents:** `claude mcp add --transport http sessions <cloud-url>/mcp`, then sign in the same way. They can list sessions, read marks as Markdown with their screenshots, and get the frame at any moment.
+
+The cloud copy is read-only and your Mac's folder stays the source of truth. A push records `<session>/exports/cloud.json`. Format, API and sign-in: [docs/cloud-sessions.md](docs/cloud-sessions.md). Running and deploying the Worker: [cloud/README.md](cloud/README.md).
+
 To work on the window without touching an installed copy of the app, run the debug build on a folder of sessions: `swift run ContextRecorder --library tmp/` (add `--mark 2` to open a mark, `--chrome-setup` to open the Chrome extension sheet, `--demo recording|processing|failed` to fake those states on the newest session, or `--export <project-folder>` to open the export sheet; `--export-run` also starts the export). This skips recording, hotkeys and permission prompts. Set `CR_APPEARANCE=dark` to check dark mode.
 
 First run asks for **Screen Recording**, **Microphone** and (the first time you mark in Chrome) **Automation → Chrome** permissions. The build is signed with a stable local identity, so macOS keeps these permissions across rebuilds.
@@ -218,8 +230,10 @@ Delete `transcript.json` first if you want the audio transcribed again.
 - `Sources/ContextRecorder/Library/`: the Sessions window (SwiftUI, macOS 26). `SessionLibrary` scans the folders, `SessionModel` owns one open session and its player, `SessionData` decodes `session.json`, `MarkText` builds titles and the Markdown.
 - `Sources/CanvasKit/`: video → canvas analysis. `FrameSource` decodes with exact presentation times (AVFoundation, so they match the player), `Segmenter` splits it into runs, `Joiner` and `RowProfileEstimator` find and verify scrolling, and `CanvasAnalyzer` composes the columns and writes `canvas.json`.
 - `Sources/CanvasTool/`: `canvas-tool`, the fast loop for canvas work. `swift run -c release canvas-tool check` generates synthetic scrolling clips with known answers (a barcode below the content encodes each frame number), analyzes them and checks the result, including that every seek shows the right frame. `canvas-tool analyze <session> --box x,y,w,h` builds a session's canvas from the command line.
+- `Sources/ContextRecorder/Cloud/`: the cloud copy (`CloudBundle`), push (`CloudClient`), sign-in (`CloudAuth`), the push and settings UI (`CloudViews`), and `--cloud-bundle` / `--push` (`CloudCLI`). `--self-test cloud-bundle` checks every exported frame against the edit map; `--self-test cloud-client` runs push and sign-in against a fake Worker.
+- `cloud/`: the Cloudflare Worker (TypeScript): storage, viewer, sign-in and MCP. See [cloud/README.md](cloud/README.md).
 - `scripts/process_session.py`: post-processing (ffmpeg, parakeet-mlx). Standard library only.
-- `scripts/viewer.html`: viewer template. The session data gets embedded in it.
+- `scripts/viewer.html`: viewer template. The session data gets embedded in it, or, served from the cloud, it fetches `session.json` beside it.
 - `scripts/make-icon.swift`: draws the app icon and writes `Resources/AppIcon.icns` (`swift scripts/make-icon.swift`).
 
 Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `parakeet-mlx` on the login-shell `PATH`.
@@ -228,3 +242,4 @@ Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `p
 
 - rrweb DOM recording, to replay the DOM over time alongside the video.
 - [Video to canvas](docs/intent/video-to-canvas/shape-brief.md): built (see Canvas above).
+- [Cloud sessions](docs/intent/cloud-sessions/shape-brief.md): built (see Cloud above). Share links and frames from Media Transformations are next.

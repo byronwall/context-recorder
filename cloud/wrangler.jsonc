@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "context-recorder-cloud",
+  "account_id": "711e96a3534ceef4677e610cb54c12b9",
+  "workers_dev": true,
+  "preview_urls": false,
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // The viewer (copied from ../scripts/viewer.html by `pnpm copy-viewer`). run_worker_first keeps every
+  // request behind Identity; the Worker fetches /viewer.html from ASSETS for GET /s/:id/.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none"
+  },
+
+  // Content-addressed blobs: blobs/<sha256>.
+  "r2_buckets": [
+    { "binding": "BUCKET", "bucket_name": "context-recorder-sessions" }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "context-recorder",
+      "database_id": "590495b5-15c6-49a3-aef5-f6ec49f61113",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // workers-oauth-provider: registered clients, grants and tokens.
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "7a959f801b2c491aa0c0c642b094e11f"
+    }
+  ],
+
+  "vars": {
+    // Zero Trust team domain (no scheme) and the main Access app's Audience tag; see README "Access".
+    "ACCESS_TEAM_DOMAIN": "byronwall.cloudflareaccess.com",
+    "ACCESS_AUD": "676c1ecca4c802bfba747a42a894ba5a402f67e95175cab45596a094eda88c67",
+    // Frames source for MCP get_frame: "thumbs" (nearest thumbnail) or "media" (Media Transformations).
+    "FRAMES": "thumbs"
+  }
+
+  // Secrets (not in this file): SIGNING_SECRET via `wrangler secret put SIGNING_SECRET`.
+  // DEV_IDENTITY only ever in .dev.vars (local); it turns sign-in off.
+}

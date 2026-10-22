@@ -491,6 +491,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         library.show()
         library.state.showShortcuts = true
     }
+    @objc func openCloudLibrary() {
+        if CloudConfig.current() == nil { library.show() }
+        CloudState.shared.openLibrary()
+    }
+    @objc func showCloudSettings() {
+        library.show()
+        CloudState.shared.showSettings = true
+    }
     @objc func showChromeSetup() {
         library.show()
         library.state.showChromeSetup = true
@@ -504,6 +512,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         NSWorkspace.shared.open(folder)
     }
+}
+
+// `--cloud-bundle`, `--push` and the cloud self-tests run headless and exit (see CloudCLI).
+if MainActor.assumeIsolated({ CloudCLI.handles(CommandLine.arguments) }) {
+    MainActor.assumeIsolated { CloudCLI.start(CommandLine.arguments) }
+    dispatchMain()
 }
 
 MainActor.assumeIsolated {
