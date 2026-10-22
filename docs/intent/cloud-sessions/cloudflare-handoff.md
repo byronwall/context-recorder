@@ -119,6 +119,20 @@ pnpm exec wrangler deploy
 Do not claim the full milestone 4 acceptance check is complete until a real session plays on the phone.
 No application source was changed by this setup. The local changes were deployment configuration, generated build output, this handoff, and app preferences.
 
+## Live checks (2026-10-22, after setup)
+
+From the CLI build (`.build/debug/ContextRecorder --push`, Keychain token, saved `cloudURL`):
+
+- First push of the edited test session `2026-10-21_23-54-38` (3 cuts, drawings): 39 files, 13.6 MB.
+- Re-push: 0 files uploaded.
+- Unauthenticated `GET /s/<id>/recording.mp4`: `302` to Access.
+- With the service token: viewer `200`, `Range: bytes=0-999` on the mp4 → `206`, 1000 bytes.
+- MCP `get_file_url` → signed `/f/` URL, fetched with no credentials and a Range → `206`. A tampered signature → `403`.
+  Expiry is covered by the vitest suite but wasn't checked live.
+- MCP `get_frame` at 15.5 s → text plus a JPEG; `list_sessions` returns the session.
+
+Still open: the phone playback check (needs Byron's email PIN), and installing the app build that has Cloud Settings.
+
 ## Cloudflare references
 
 - [Workers on workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
