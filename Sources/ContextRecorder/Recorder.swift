@@ -46,6 +46,8 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         let filter = contentFilter(content, display: display)
 
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+        // Fast start: the moov index goes before the media, so a browser can play it without a tail request.
+        writer.shouldOptimizeForNetworkUse = true
         let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: width,

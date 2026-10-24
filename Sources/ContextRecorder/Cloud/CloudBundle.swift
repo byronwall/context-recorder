@@ -83,7 +83,12 @@ enum CloudBundle {
         } else {
             let source = session.appendingPathComponent("recording.mp4")
             guard fm.fileExists(atPath: source.path) else { throw ReviewError("recording.mp4 is missing") }
-            try fm.copyItem(at: source, to: video)
+            if isFastStart(source) {
+                try fm.copyItem(at: source, to: video)
+            } else {
+                progress?("Optimizing the video for streaming", 0.05)
+                try await remuxFastStart(source, session: session, to: video)
+            }
         }
         let asset = AVURLAsset(url: video)
         let measured = try await asset.load(.duration).seconds
@@ -207,14 +212,36 @@ enum CloudBundle {
     /// Exports are cached outside the session (keyed by the cut list and the source recordings), because
     /// AVAssetExportSession stamps each file differently: re-exporting would re-upload an unchanged video.
     private static func exportEdited(_ map: EditMap, session: URL, to url: URL, progress: @escaping (Double) -> Void) async throws {
-        let fm = FileManager.default
         var parts = ["format \(format)"]
         for s in map.segments {
             let rec = EditMap.folder(of: s.source, in: session).appendingPathComponent("recording.mp4")
-            let a = try? fm.attributesOfItem(atPath: rec.path)
-            let stamp = "\((a?[.size] as? Int64) ?? 0)@\(((a?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0))"
-            parts.append("\(rec.standardizedFileURL.path) \(s.start) \(s.end) \(stamp)")
+            parts.append("\(rec.standardizedFileURL.path) \(s.start) \(s.end) \(fileStamp(rec))")
         }
+        try await cachedVideo(session: session, key: parts, to: url) { try await exportComposition(map, session: session, to: $0, progress: progress) }
+    }
+
+    /// An unedited recording with `moov` at the end, rewritten fast start. Cached like edited exports:
+    /// the remux is lossless, but its file differs on every run.
+    private static func remuxFastStart(_ source: URL, session: URL, to url: URL) async throws {
+        let parts = ["format \(format)", "fast-start \(source.standardizedFileURL.path) \(fileStamp(source))"]
+        try await cachedVideo(session: session, key: parts, to: url) { out in
+            guard let export = AVAssetExportSession(asset: AVURLAsset(url: source), presetName: AVAssetExportPresetPassthrough) else {
+                throw ReviewError("Couldn't start optimizing the video")
+            }
+            // Passthrough copies the samples as they are: no re-encode.
+            export.shouldOptimizeForNetworkUse = true
+            try await export.export(to: out, as: .mp4)
+        }
+    }
+
+    private static func fileStamp(_ url: URL) -> String {
+        let a = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return "\((a?[.size] as? Int64) ?? 0)@\(((a?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0))"
+    }
+
+    /// Copies the cached video for `key` to `url`, or makes it with `make` and caches it (one per session).
+    private static func cachedVideo(session: URL, key parts: [String], to url: URL, make: (URL) async throws -> Void) async throws {
+        let fm = FileManager.default
         let key = SHA256.hash(data: Data(parts.joined(separator: "\n").utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
         let id = sessionID(for: session)
         let cache = (fm.urls(for: .cachesDirectory, in: .userDomainMask).first ?? fm.temporaryDirectory)
@@ -224,7 +251,7 @@ enum CloudBundle {
             try fm.copyItem(at: cached, to: url)
             return
         }
-        try await exportComposition(map, session: session, to: url, progress: progress)
+        try await make(url)
         try? fm.createDirectory(at: cache, withIntermediateDirectories: true)
         // Keep one export per session.
         for old in (try? fm.contentsOfDirectory(atPath: cache.path)) ?? [] where old.hasPrefix(id + "-") {
@@ -247,6 +274,38 @@ enum CloudBundle {
         }
         defer { watch.cancel() }
         try await export.export(to: url, as: .mp4)
+    }
+
+    /// The top-level box types of an MP4, in file order (`ftyp`, `moov`, `mdat`, …); nil when unreadable.
+    nonisolated static func topLevelAtoms(_ url: URL) -> [String]? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let end = try? handle.seekToEnd() else { return nil }
+        var atoms: [String] = [], offset: UInt64 = 0
+        while offset + 8 <= end {
+            guard (try? handle.seek(toOffset: offset)) != nil,
+                  let header = try? handle.read(upToCount: 16), header.count >= 8 else { return nil }
+            let bytes = [UInt8](header)
+            func be(_ range: Range<Int>) -> UInt64 { bytes[range].reduce(0) { $0 << 8 | UInt64($1) } }
+            var size = be(0..<4)
+            let type = String(decoding: bytes[4..<8], as: UTF8.self)
+            if size == 1 {   // 64-bit size follows the type
+                guard bytes.count >= 16 else { return nil }
+                size = be(8..<16)
+            } else if size == 0 {   // runs to the end of the file
+                size = end - offset
+            }
+            guard size >= 8 else { return nil }
+            atoms.append(type)
+            offset += size
+        }
+        return atoms
+    }
+
+    /// True when `moov` comes before `mdat`, so a player needs only the start of the file to begin.
+    nonisolated static func isFastStart(_ url: URL) -> Bool {
+        guard let atoms = topLevelAtoms(url), let moov = atoms.firstIndex(of: "moov") else { return false }
+        return atoms.firstIndex(of: "mdat").map { moov < $0 } ?? true
     }
 
     /// The video's size as displayed (rotation applied).
@@ -378,7 +437,9 @@ enum CloudBundle {
     /// What the cloud copy is built from. A different hash means the pushed copy is out of date.
     nonisolated static func inputHash(session: URL) throws -> String {
         let fm = FileManager.default
-        var lines = ["format \(format)"]
+        // Bump "bundle-format" when the bundle's output changes for the same inputs, so copies already
+        // pushed show as outdated and rebuild. 2: unedited videos are remuxed to fast start (moov first).
+        var lines = ["format \(format)", "bundle-format 2"]
         func stamp(_ url: URL) -> String {
             guard let a = try? fm.attributesOfItem(atPath: url.path) else { return "-" }
             let size = (a[.size] as? Int64) ?? 0

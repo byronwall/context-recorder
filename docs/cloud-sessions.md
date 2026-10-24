@@ -15,7 +15,7 @@ already flattened into one video, so nothing downstream knows about `edits.json`
   manifest.json          described below; never listed in its own `files`
   index.html             viewer.html with session + cloud data embedded, for file:// playback; NOT in `files`
   session.json           the processed session.json, rewritten for the flattened video (see below)
-  recording.mp4          H.264 + AAC. Unedited sessions: copied as is. Edited/joined: EditMap.composition export
+  recording.mp4          H.264 + AAC, always fast start (moov before mdat). Unedited: copied as is, or remuxed losslessly (passthrough) when moov is at the end. Edited/joined: EditMap.composition export
   drawings.json          [{ "id": "<uuid>", "file": "drawings/<uuid>.png", "start": 12.0, "end": 15.0 }]
   drawings/<uuid>.png    transparent PNG at the video's pixel size, one per drawing (Annotation.Renderer)
   thumbs/0000.jpg …      480 px wide JPEG every `thumbs.interval` seconds; thumb i is at time i * interval
@@ -48,7 +48,7 @@ Never included: `audio.wav`, `process.log`, `edits.json`, `annotations.json`, th
   "thumbs": { "interval": 2, "count": 21, "pattern": "thumbs/%04d.jpg", "width": 480 },
   "poster": "thumbs/0000.jpg",
   "skippedPages": [{ "path": "pages/m3-24.mhtml", "size": 12345678 }],
-  "inputHash": "<sha256 hex of the local inputs: session.json, edits.json, annotations.json, recording.mp4 size+mtime, …>",
+  "inputHash": "<sha256 hex of a bundle-format version and the local inputs: session.json, edits.json, annotations.json, recording.mp4 size+mtime, …>",
   "files": [
     { "path": "recording.mp4", "size": 31234567, "sha256": "<hex>", "type": "video/mp4" }
   ]
