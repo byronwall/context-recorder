@@ -63,6 +63,9 @@ const toRow = (r: SessionDbRow): SessionRow => ({
   machine: r.machine,
 });
 
+/** The session row (?1) holds manifest ?2: the commit's upsert went through. */
+const HOLDS_NEW = "EXISTS (SELECT 1 FROM sessions WHERE id = ?1 AND manifest_sha256 = ?2)";
+
 const ROW_COLUMNS = "id, title, recorded_at, duration, mark_count, size, poster, pushed_at, json_extract(manifest, '$.machine') AS machine";
 
 export class Store {
@@ -247,7 +250,12 @@ export class Store {
    * Swaps in a session's manifest. Throws 409 + { missing } when a blob is absent, and 400 when a
    * file's size disagrees with the stored blob. Returns the blobs garbage-collected afterwards.
    */
-  async commit(manifest: Manifest, manifestText: string, manifestSha256: string, identity: string): Promise<string[]> {
+  /**
+   * `expected` (the If-Match of docs/cloud-sessions.md §2) is the manifest the pusher last saw. When given and
+   * the stored session has another one, nothing changes and it throws 412 with the current row. The check and
+   * the write are one batch: the file rows are replaced only if the session row now holds this manifest.
+   */
+  async commit(manifest: Manifest, manifestText: string, manifestSha256: string, identity: string, expected?: string): Promise<string[]> {
     const shas = manifest.files.map((f) => f.sha256);
     const sizes = await this.blobSizes(shas);
     const missing = [...new Set(shas.filter((s) => !sizes.has(s)))];
@@ -267,7 +275,8 @@ export class Store {
            ON CONFLICT (id) DO UPDATE SET title = excluded.title, recorded_at = excluded.recorded_at,
              duration = excluded.duration, mark_count = excluded.mark_count, size = excluded.size,
              poster = excluded.poster, manifest = excluded.manifest, manifest_sha256 = excluded.manifest_sha256,
-             pushed_at = excluded.pushed_at, pushed_by = excluded.pushed_by`,
+             pushed_at = excluded.pushed_at, pushed_by = excluded.pushed_by
+           WHERE ?12 IS NULL OR sessions.manifest_sha256 = ?12`,
         )
         .bind(
           manifest.sessionId,
@@ -281,17 +290,27 @@ export class Store {
           manifestSha256,
           new Date().toISOString(),
           identity,
+          expected ?? null,
         ),
-      db.prepare("DELETE FROM session_files WHERE session_id = ?1").bind(manifest.sessionId),
+      db
+        .prepare(`DELETE FROM session_files WHERE session_id = ?1 AND ${HOLDS_NEW}`)
+        .bind(manifest.sessionId, manifestSha256),
       db
         .prepare(
           `INSERT INTO session_files (session_id, path, sha256, size, type)
            SELECT ?1, json_extract(value, '$.path'), json_extract(value, '$.sha256'),
                   json_extract(value, '$.size'), json_extract(value, '$.type')
-             FROM json_each(?2)`,
+             FROM json_each(?3) WHERE ${HOLDS_NEW}`,
         )
-        .bind(manifest.sessionId, JSON.stringify(files)),
+        .bind(manifest.sessionId, manifestSha256, JSON.stringify(files)),
     ]);
+    if (expected !== undefined) {
+      const now = await this.getSession(manifest.sessionId);
+      if (now && now.manifestSha256 !== manifestSha256) {
+        const { manifestText: _m, ...current } = now;
+        throw new HttpError(412, "the cloud copy changed since you last pushed or downloaded it", { current });
+      }
+    }
     return this.collectGarbage(previous);
   }
 

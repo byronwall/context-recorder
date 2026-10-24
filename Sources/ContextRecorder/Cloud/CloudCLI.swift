@@ -3,7 +3,7 @@ import Foundation
 
 /// Headless commands (no window, no menu-bar item):
 ///   ContextRecorder --cloud-bundle <session> <out-folder>
-///   ContextRecorder --push <session> [--cloud <url>]
+///   ContextRecorder --push <session> [--cloud <url>] [--force]   (--force replaces a cloud copy another Mac pushed)
 ///   ContextRecorder --cloud-list [--cloud <url>]
 ///   ContextRecorder --pull <session-id> [--cloud <url>] [--into <library-folder>]
 ///   ContextRecorder --self-test cloud-bundle | cloud-client
@@ -148,7 +148,7 @@ enum CloudCLI {
             guard let config = cloudConfig() else { return 2 }
             do {
                 var last = ""
-                let (record, report) = try await CloudPush.run(session: session, config: config) { phase, f in
+                let (record, report) = try await CloudPush.run(session: session, config: config, force: args.contains("--force")) { phase, f in
                     let line = String(format: "  %3.0f%%  %@", f * 100, phase)
                     if line != last { fputs(line + "\n", stderr); last = line }
                 }

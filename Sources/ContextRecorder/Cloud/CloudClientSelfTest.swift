@@ -132,6 +132,20 @@ extension CloudSelfTest {
             // Pull: the list shows it with its machine; it downloads into the library, intact, recorded as current.
             try await checkPull(client: client, bundle: bundle, manifest: manifest, manifestSha: manifestSha, root: root, f: &f)
 
+            // If-Match: a push over the version this Mac saw goes through; over another Mac's newer push it's refused.
+            _ = try await client.push(bundle: bundle, expected: manifestSha)
+            FakeWorker.lock.withLock { FakeWorker.state.sessions[manifest.sessionId] = Data("{\"other\":1}".utf8) }
+            do {
+                _ = try await client.push(bundle: bundle, expected: manifestSha)
+                f.append("stale If-Match push succeeded")
+            } catch let conflict as CloudClient.Conflict {
+                if conflict.machine != "Studio" || !conflict.when.contains("2026") { f.append("conflict \(conflict)") }
+            }
+            _ = try await client.push(bundle: bundle)   // no If-Match: replaces it
+            if FakeWorker.state.sessions[manifest.sessionId] != (try? Data(contentsOf: bundle.appendingPathComponent("manifest.json"))) {
+                f.append("forced push didn't replace the cloud copy")
+            }
+
             // A blob that disappears before commit: 409, re-upload, commit again.
             FakeWorker.state.dropBeforeCommit = manifest.files.first { $0.path == "a.json" }?.sha256
             let third = try await client.push(bundle: bundle)
@@ -485,6 +499,11 @@ final class FakeWorker: URLProtocol {
             if let drop = state.dropBeforeCommit { state.blobs[drop] = nil; state.dropBeforeCommit = nil }
             let missing = Array(Set(manifestHashes().filter { state.blobs[$0] == nil })).sorted()
             if !missing.isEmpty { state.commits409 += 1; return (409, json(["missing": missing])) }
+            if let match = r.value(forHTTPHeaderField: "If-Match")?.trimmingCharacters(in: CharacterSet(charactersIn: "\"")),
+               let current = state.sessions[parts[2]], sha(current) != match, sha(current) != sha(data) {
+                return (412, json(["error": "changed", "current": ["machine": "Studio", "pushedAt": "2026-10-20T12:00:00.000Z",
+                                                                    "manifestSha256": sha(current)]]))
+            }
             state.sessions[parts[2]] = data
             return (200, json(["url": "http://cloud.test/s/\(parts[2])/", "manifestSha256": sha(data)]))
         case ("GET", 2, "sessions"):

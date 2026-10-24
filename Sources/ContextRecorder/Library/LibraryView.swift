@@ -46,12 +46,13 @@ struct LibraryView: View {
         }
         .confirmationDialog("Replace the cloud copy?", isPresented: Binding(get: { CloudState.shared.confirmPush != nil },
                                                                              set: { if !$0 { CloudState.shared.confirmPush = nil } })) {
-            Button("Push and Replace") {
-                if let folder = CloudState.shared.confirmPush { CloudState.shared.push(folder, confirmed: true) }
+            Button("Replace Cloud Copy", role: .destructive) {
+                if let folder = CloudState.shared.confirmPush?.folder { CloudState.shared.push(folder, force: true) }
             }
         } message: {
-            let from = CloudState.shared.confirmPush.flatMap(SessionInfo.downloaded)?.machine ?? "another Mac"
-            Text("This session was downloaded from \(from). Pushing your changes replaces the copy in the cloud, including on that Mac's next download.")
+            let conflict = CloudState.shared.confirmPush?.conflict
+            let by = conflict?.machine ?? "Another Mac"
+            Text("\(by) pushed a newer copy of this session (\(conflict?.when ?? "recently")) since this Mac last pushed or downloaded it. Replacing it keeps only this Mac's version.")
         }
     }
 

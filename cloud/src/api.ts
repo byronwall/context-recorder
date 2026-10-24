@@ -37,7 +37,9 @@ export async function handleApi(request: Request, env: AppEnv, identity: Identit
       const { text, value } = await readJson(request);
       const manifest = parseManifest(value, id);
       const manifestSha256 = await sha256Hex(text);
-      await store.commit(manifest, text, manifestSha256, identity.id);
+      // If-Match: "<manifestSha256>" commits only over that version (412 otherwise); absent, it always replaces.
+      const ifMatch = request.headers.get("if-match")?.trim().replace(/^W\//, "").replace(/^"|"$/g, "");
+      await store.commit(manifest, text, manifestSha256, identity.id, ifMatch || undefined);
       return json({ url: `${url.origin}/s/${encodeURIComponent(id)}/`, manifestSha256 });
     }
     if (parts.length === 2 && method === "GET") {

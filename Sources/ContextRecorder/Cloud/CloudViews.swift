@@ -29,8 +29,8 @@ final class CloudState {
     private(set) var downloadErrors: [String: String] = [:]
     /// Posters of cloud-only sessions, fetched with the sign-in.
     private(set) var posters: [String: NSImage] = [:]
-    /// A push that replaces a copy another Mac pushed, waiting for a yes.
-    var confirmPush: URL?
+    /// A push the cloud refused because its copy changed since this Mac last saw it, waiting for "replace it anyway".
+    var confirmPush: (folder: URL, conflict: CloudClient.Conflict)?
 
     @ObservationIgnored private var cache: [URL: (key: String, status: Status)] = [:]
     @ObservationIgnored private var signInTask: Task<CloudCredentials, Error>?
@@ -128,14 +128,11 @@ final class CloudState {
 
     func isPushing(_ folder: URL) -> Bool { jobs[folder] != nil }
 
-    /// Pushing a session that came down from another Mac replaces that Mac's copy, so it asks first once it changed.
-    func push(_ folder: URL, confirmed: Bool = false) {
+    /// Replaces only the cloud copy this Mac last pushed or downloaded; if another Mac pushed since, it asks
+    /// (`confirmPush`) and `force` replaces it anyway.
+    func push(_ folder: URL, force: Bool = false) {
         guard jobs[folder] == nil else { return }
         guard let config = CloudConfig.current() else { showSettings = true; return }
-        if !confirmed, SessionInfo.downloaded(folder) != nil, status(folder).isOutdated {
-            confirmPush = folder
-            return
-        }
         errors[folder] = nil
         // Signed out: sign in first, then push. A local dev Worker needs no sign-in.
         let needsSignIn = account(for: config.url) == nil && config.token == nil && !CloudAuth.isLocal(config.url)
@@ -143,13 +140,15 @@ final class CloudState {
         Task {
             do {
                 if needsSignIn { try await signIn(to: config.url) }
-                let (_, report) = try await CloudPush.run(session: folder, config: config) { [weak self] phase, f in
+                let (_, report) = try await CloudPush.run(session: folder, config: config, force: force) { [weak self] phase, f in
                     self?.jobs[folder] = Job(phase: phase, fraction: f)
                 }
                 NSLog("ContextRecorder: pushed %@ (%@ in %d files): %@", folder.lastPathComponent,
                       ByteCountFormatter.string(fromByteCount: report.uploadedBytes, countStyle: .file), report.uploaded.count,
                       CloudClient.Timing.summary(report.timings))
             } catch CloudAuthError.cancelled {
+            } catch let conflict as CloudClient.Conflict {
+                confirmPush = (folder, conflict)
             } catch {
                 errors[folder] = error.localizedDescription
                 // A dead sign-in was forgotten by the token provider; show it signed out.
