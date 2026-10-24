@@ -26,6 +26,8 @@ export interface SessionRow {
   size: number;
   poster: string | null;
   pushedAt: string;
+  /** The Mac that pushed it (manifest `machine`); null for older pushes. */
+  machine: string | null;
 }
 
 interface SessionDbRow {
@@ -37,6 +39,7 @@ interface SessionDbRow {
   size: number;
   poster: string | null;
   pushed_at: string;
+  machine: string | null;
   manifest?: string;
   manifest_sha256?: string;
 }
@@ -57,9 +60,10 @@ const toRow = (r: SessionDbRow): SessionRow => ({
   size: r.size,
   poster: r.poster,
   pushedAt: r.pushed_at,
+  machine: r.machine,
 });
 
-const ROW_COLUMNS = "id, title, recorded_at, duration, mark_count, size, poster, pushed_at";
+const ROW_COLUMNS = "id, title, recorded_at, duration, mark_count, size, poster, pushed_at, json_extract(manifest, '$.machine') AS machine";
 
 export class Store {
   constructor(private readonly env: AppEnv) {}

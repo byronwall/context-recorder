@@ -84,7 +84,7 @@ export function buildMcpServer(deps: McpDeps): McpServer {
     "list_sessions",
     {
       title: "List sessions",
-      description: "All pushed Context Recorder sessions, newest recording first: id, title, recordedAt, duration (s), markCount, size (bytes), poster, pushedAt.",
+      description: "All pushed Context Recorder sessions, newest recording first: id, title, recordedAt, duration (s), markCount, size (bytes), poster, pushedAt, machine (the Mac that pushed it).",
       annotations: { readOnlyHint: true },
     },
     () =>

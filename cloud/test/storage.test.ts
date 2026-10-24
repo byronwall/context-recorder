@@ -133,12 +133,14 @@ describe("sessions", () => {
     const older = makeFiles("s-old");
     await pushSession(await makeManifest("s-old", older, { recordedAt: "2020-01-01T00:00:00Z" }), older);
     const newer = makeFiles("s-new");
-    await pushSession(await makeManifest("s-new", newer, { recordedAt: "2030-01-01T00:00:00Z" }), newer);
+    await pushSession(await makeManifest("s-new", newer, { recordedAt: "2030-01-01T00:00:00Z", machine: "Studio" }), newer);
     const list = (await (await call("/api/sessions")).json()) as { id: string }[];
     const ids = list.map((r) => r.id);
     expect(ids.indexOf("s-new")).toBeLessThan(ids.indexOf("s-old"));
     const row = list.find((r) => r.id === "s-new") as Record<string, unknown>;
-    expect(Object.keys(row).sort()).toEqual(["duration", "id", "markCount", "poster", "pushedAt", "recordedAt", "size", "title"]);
+    expect(Object.keys(row).sort()).toEqual(["duration", "id", "machine", "markCount", "poster", "pushedAt", "recordedAt", "size", "title"]);
+    expect(row.machine).toBe("Studio");
+    expect((list.find((r) => r.id === "s-old") as Record<string, unknown>).machine).toBeNull();
 
     const got = (await (await call("/api/sessions/s-new")).json()) as { manifest: { sessionId: string } };
     expect(got.manifest.sessionId).toBe("s-new");

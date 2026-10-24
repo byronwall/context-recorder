@@ -25,6 +25,8 @@ struct CloudManifest: Codable, Equatable {
     var poster: String?
     var skippedPages: [SkippedPage]
     var inputHash: String
+    /// The Mac that pushed it, so another Mac can say where a cloud-only session came from. Absent in older pushes.
+    var machine: String?
     var files: [File]
 
     func encoded() throws -> Data {
@@ -97,8 +99,11 @@ enum CloudBundle {
 
         // 2. Drawings, each a transparent PNG at the video's size, shown over its edited-time window.
         progress?("Rendering drawings", 0.68)
-        let drawings = try renderDrawings(AnnotationsFile.load(session), map: map, size: size, out: out)
+        let annotations = AnnotationsFile.load(session)
+        let drawings = try renderDrawings(annotations, map: map, size: size, out: out)
         try writeJSON(drawings, to: out.appendingPathComponent("drawings.json"))
+        // The same drawings as shapes, so a Mac that downloads this copy can show and edit them.
+        try AnnotationsFile.save(flattened(annotations, map: map), to: out)
 
         // 3. Thumbnails every couple of seconds, for timeline hover and the frames fallback.
         progress?("Making thumbnails", 0.72)
@@ -185,6 +190,7 @@ enum CloudBundle {
             poster: thumbCount > 0 ? "thumbs/0000.jpg" : nil,
             skippedPages: skipped,
             inputHash: inputHash,
+            machine: Host.current().localizedName,
             files: files)
         try manifest.encoded().write(to: out.appendingPathComponent("manifest.json"), options: .atomic)
         try writeIndex(session: data, manifest: manifest, drawings: drawings, to: out.appendingPathComponent("index.html"))
@@ -347,6 +353,32 @@ enum CloudBundle {
             }
         }
         return list.sorted { ($0.start, $0.id) < ($1.start, $1.id) }
+    }
+
+    /// The annotations moved onto the flattened video: source ".", edited-time windows. A drawing split by a
+    /// cut becomes one annotation per window; the first keeps its id.
+    static func flattened(_ annotations: [Annotation], map: EditMap) -> [Annotation] {
+        var out: [Annotation] = []
+        for a in annotations {
+            for (i, span) in windows(a, map: map).enumerated() {
+                var piece = a
+                if i > 0 { piece.id = derivedID(a.id, i) }
+                piece.source = "."
+                piece.start = round3(span.lowerBound)
+                piece.end = round3(span.upperBound)
+                out.append(piece)
+            }
+        }
+        return out.sorted { ($0.start, $0.id.uuidString) < ($1.start, $1.id.uuidString) }
+    }
+
+    /// A stable id for the nth extra piece of a split drawing, so pushing again doesn't change the file.
+    private static func derivedID(_ id: UUID, _ n: Int) -> UUID {
+        var bytes = Array(SHA256.hash(data: Data("\(id.uuidString)-\(n)".utf8)).prefix(16))
+        bytes[6] = (bytes[6] & 0x0F) | 0x50   // version 5-style, variant RFC 4122
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+        return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                           bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
     }
 
     /// The drawing alone on a transparent canvas the size of the video, drawn by the same renderer the

@@ -186,7 +186,20 @@ enum CloudSelfTest {
             if file.path.split(separator: "/").contains("..") || file.path.contains("..") || file.path.hasPrefix("/") { f.append("bad path \(file.path)") }
             if (try? CloudBundle.sha256(of: url)) != file.sha256 { f.append("sha256 of \(file.path) doesn't match") }
         }
-        for banned in ["audio.wav", "process.log", "edits.json", "annotations.json", "viewer.html", "manifest.json", "index.html"]
+        // annotations.json: one shape per drawing window, in edited time on the flat video.
+        let shapes = AnnotationsFile.load(out)
+        if shapes.count != wanted.count { f.append("\(shapes.count) annotations in annotations.json, want \(wanted.count)") }
+        for (got, (d, w)) in zip(shapes, wanted) {
+            if got.source != "." || abs(got.start - w[0]) > frame || abs(got.end - w[1]) > frame || got.kind.rawValue != d.kind {
+                f.append("annotation \(got.kind) \(got.source) \(got.start)–\(got.end), want \(d.kind) . \(w)")
+            }
+        }
+        if Set(shapes.map(\.id)).count != shapes.count { f.append("annotation ids repeat") }
+        if c.drawings.contains(where: { !$0.windows.isEmpty }), !manifest.files.contains(where: { $0.path == "annotations.json" }) {
+            f.append("annotations.json not listed in files")
+        }
+        if manifest.machine?.isEmpty != false { f.append("manifest has no machine") }
+        for banned in ["audio.wav", "process.log", "edits.json", "viewer.html", "manifest.json", "index.html"]
         where manifest.files.contains(where: { $0.path == banned }) { f.append("\(banned) listed in files") }
         if (try? CloudBundle.inputHash(session: folder)) != manifest.inputHash { f.append("inputHash isn't stable") }
         let index = (try? String(contentsOf: out.appendingPathComponent("index.html"), encoding: .utf8)) ?? ""

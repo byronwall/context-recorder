@@ -19,6 +19,7 @@ export interface Manifest {
   poster?: string;
   skippedPages?: { path: string; size: number }[];
   inputHash?: string;
+  machine?: string;
   files: ManifestFile[];
   [key: string]: unknown;
 }
@@ -49,6 +50,7 @@ export function parseManifest(value: unknown, id: string): Manifest {
   if (typeof m.recordedAt !== "string") bad("recordedAt must be a string");
   if (typeof m.duration !== "number" || !Number.isFinite(m.duration) || m.duration < 0) bad("duration must be a number ≥ 0");
   if (!Number.isInteger(m.markCount) || (m.markCount as number) < 0) bad("markCount must be an integer ≥ 0");
+  if (m.machine !== undefined && (typeof m.machine !== "string" || m.machine.length > 200)) bad("machine must be a short string");
   if (m.poster !== undefined && !isValidPath(m.poster)) bad("poster must be a relative path");
   if (!Array.isArray(m.files)) bad("files must be an array");
   const seen = new Set<string>();
