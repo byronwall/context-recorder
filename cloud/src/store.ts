@@ -98,14 +98,12 @@ export class Store {
 
   /**
    * Single-request upload. The bytes stream through crypto.DigestStream on their way into R2 and R2 is
-   * also given the expected sha256, so a mismatch is rejected by R2 itself in production; the
-   * DigestStream check covers local R2 and deletes anything that slipped through.
+   * also given the expected sha256, so R2 rejects a mismatch before it replaces anything; the DigestStream
+   * check is a backstop that deletes anything that slipped through, index row included, so a later push
+   * uploads it again. There is no "already stored" lookup first: the client only sends what `push`
+   * reported missing, and that extra D1 query on every blob made long pushes slower.
    */
   async putBlob(sha: string, request: Request): Promise<void> {
-    if ((await this.missing([sha])).length === 0) {
-      await request.body?.cancel();
-      return; // already have it: content-addressed, so nothing to do
-    }
     const lengthHeader = request.headers.get("content-length");
     if (lengthHeader === null) throw new HttpError(411, "content-length required");
     const length = Number(lengthHeader);
@@ -140,7 +138,7 @@ export class Store {
       /* stream aborted before finishing */
     }
     if (actual !== undefined && actual !== sha) {
-      if (!putError) await this.env.BUCKET.delete(key);
+      if (!putError) await this.forgetBlob(sha);
       throw new HttpError(400, "sha256 mismatch", { expected: sha, actual });
     }
     if (putError) {
@@ -151,6 +149,11 @@ export class Store {
       throw putError;
     }
     await this.recordBlob(sha, length);
+  }
+
+  private async forgetBlob(sha: string): Promise<void> {
+    await this.env.BUCKET.delete(blobKey(sha));
+    await this.env.DB.prepare("DELETE FROM blobs WHERE sha256 = ?1").bind(sha).run();
   }
 
   async createUpload(sha: string): Promise<string> {
@@ -176,7 +179,7 @@ export class Store {
     await stored.body.pipeTo(digest);
     const actual = toHex(await digest.digest);
     if (actual !== sha) {
-      await this.env.BUCKET.delete(key);
+      await this.forgetBlob(sha);
       throw new HttpError(400, "sha256 mismatch", { expected: sha, actual });
     }
     await this.recordBlob(sha, object.size);
