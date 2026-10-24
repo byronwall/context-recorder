@@ -36,8 +36,9 @@ Cloud sessions
 ├── EVALUATE BEFORE COMMITTING
 │   └── Frames from Cloudflare Media Transformations vs. frames pre-cut on the Mac at push
 └── LATER POSSIBILITIES
-    ├── Canvas view; "Download as ZIP" for agents; search across sessions
-    └── A second Mac pulling cloud sessions into its own library
+    └── Canvas view; "Download as ZIP" for agents; search across sessions
+
+A second Mac pulling cloud sessions into its own library moved up and shipped: docs/cloud-sessions.md §7.
 ```
 
 ## Behavior

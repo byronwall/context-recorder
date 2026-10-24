@@ -48,7 +48,7 @@ You finish and edit a session, then press **Push to Cloud**. On another machine 
 ## Possibilities, not decisions
 
 - An MCP server or a ZIP download as the agent route. Both agent homes need something that works without the Mac.
-- A second Mac pulling cloud sessions into its own app (later).
+- A second Mac pulling cloud sessions into its own app (later; since shipped, docs/cloud-sessions.md §7).
 - Searching across sessions and "what happened" questions (later).
 
 ## Current reality that matters

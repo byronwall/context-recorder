@@ -8,7 +8,9 @@ this way is in [docs/intent/cloud-sessions/](intent/cloud-sessions/shape-brief.m
 ## 1. The cloud copy (format 1)
 
 A folder written by `CloudBundle` on the Mac. Everything in it is in **edited time**: cuts and joins are
-already flattened into one video, so nothing downstream knows about `edits.json`.
+already flattened into one video, so nothing downstream knows about `edits.json`. It is laid out as a session
+recorded **without edits**, so a Mac that downloads it (§7) has an ordinary session that it can edit and process
+again (`process_session.py`) and get the same marks back.
 
 ```text
 <bundle>/
@@ -18,19 +20,35 @@ already flattened into one video, so nothing downstream knows about `edits.json`
   recording.mp4          H.264 + AAC, always fast start (moov before mdat). Unedited: copied as is, or remuxed losslessly (passthrough) when moov is at the end. Edited/joined: EditMap.composition export
   drawings.json          [{ "id": "<uuid>", "file": "drawings/<uuid>.png", "start": 12.0, "end": 15.0 }]
   drawings/<uuid>.png    transparent PNG at the video's pixel size, one per drawing (Annotation.Renderer)
+  annotations.json       the same drawings as editable shapes: one per drawing window, source ".", edited time
   thumbs/0000.jpg …      480 px wide JPEG every `thumbs.interval` seconds; thumb i is at time i * interval
-  marks/*.md  frames/*.jpg  screenshots/*.png (annotated copy where one exists)
-  transcript.json  session.md  activity.jsonl  browser.jsonl  marks.jsonl
+  frames/NNN.jpg  screenshots/NNN.png   each mark's frame and screenshot, NNN = its play-order index
+  annotations/frames-NNN.png|json …     a marked-up image and its drawing, under the name processing uses
+  marks/*.md  session.md
+  marks.jsonl  activity.jsonl  browser.jsonl  transcript.json   the raw logs, rewritten in edited time
   pages/*.mhtml          saved pages within budget max(10 MB, video size / 2), smallest first
+  pages/*.error.txt      for each page left out: "Left out of the cloud copy (12 MB)"
 ```
 
-Never included: `audio.wav`, `process.log`, `edits.json`, `annotations.json`, the local `viewer.html`, `exports/`.
+Never included: `audio.wav`, `process.log`, `edits.json`, the local `viewer.html`, `exports/`, `session-info.json`,
+cut marks.
+
+- `marks.jsonl` is `session.json`'s marks without the fields processing derives (`frame`, `image`, `sourceFrame`,
+  `sourceImage`, `narration`) or adds for edits (`sourceOffsetSeconds`, `sourceSession`, `rawSession`, `rawIndex`).
+- `activity.jsonl` and `browser.jsonl` are `session.json`'s mapped lists. `transcript.json` is each source's
+  transcript mapped like `process_session.py`'s `map_sentences` (a sentence survives when more than half of it is
+  kept; word times are mapped, words inside cuts dropped). An unedited session's transcript is copied as is.
+- `annotations.json`: a drawing that a cut splits gets one shape per window. The first keeps its id, the others
+  get ids derived from it, so pushing again doesn't change the file.
 
 ### `session.json` rewrite
 
 - `segments` becomes `[{ "source": ".", "start": 0, "end": <duration>, "editedStart": 0 }]`.
 - `sourceDurations` becomes `{ ".": <duration> }`, `duration` is the flattened video's duration.
-- `folder` becomes `""` (the viewer uses relative paths). Mark `image`/`frame`/`pageFile` stay relative.
+- `folder` becomes `""` (the viewer uses relative paths). `hiddenMarks` becomes `[]`.
+- Each mark's `frame`, `image`, `sourceFrame`, `sourceImage` and `screenshot` point at the play-order files above
+  (`image`/`frame` at the marked-up copy where one exists). The edit fields listed above are dropped. `pageFile`
+  stays relative; a joined session's pages go in `sources/<source>/…`.
 - Mark, transcript, activity and browser times are already edited time from processing; keep them.
 - Marks whose `browser.pageFile` was skipped keep the field; `manifest.skippedPages` tells readers it's absent.
 
@@ -49,6 +67,7 @@ Never included: `audio.wav`, `process.log`, `edits.json`, `annotations.json`, th
   "poster": "thumbs/0000.jpg",
   "skippedPages": [{ "path": "pages/m3-24.mhtml", "size": 12345678 }],
   "inputHash": "<sha256 hex of a bundle-format version and the local inputs: session.json, edits.json, annotations.json, recording.mp4 size+mtime, …>",
+  "machine": "Studio",
   "files": [
     { "path": "recording.mp4", "size": 31234567, "sha256": "<hex>", "type": "video/mp4" }
   ]
@@ -56,13 +75,10 @@ Never included: `audio.wav`, `process.log`, `edits.json`, `annotations.json`, th
 ```
 
 `sessionId` matches `^[A-Za-z0-9._-]{1,100}$`. `path` is relative, `/`-separated, with no `..` and no leading `/`.
+`machine` (optional, ≤ 200 characters) is the pushing Mac's name (`Host.current().localizedName`); older pushes
+don't have it.
 
-Joined sessions: files a mark takes from a source session (`../<source>/…`) go in `sources/<source>/…`.
 Drawings that a cut splits into separate windows get one `drawings.json` entry per window, sharing a PNG.
-
-Known gap: `transcript.json` and the `.jsonl` logs are copied as recorded, so in an edited session they are
-in original-recording time and include what was cut. `session.json`, which the viewer and MCP read, is in
-edited time.
 
 ## 2. Worker HTTP API
 
@@ -78,8 +94,8 @@ endpoints the provider owns.
 | `POST /api/blobs/:sha256/uploads` | → `{ "uploadId" }` (R2 multipart, for files > 90 MB) |
 | `PUT /api/blobs/:sha256/uploads/:uploadId/:partNumber` | raw part bytes → `{ "etag" }` |
 | `POST /api/blobs/:sha256/uploads/:uploadId/complete` | `{ "parts": [{ "partNumber", "etag" }] }` → `204` |
-| `POST /api/sessions/:id/commit` | manifest JSON → `{ "url": "<origin>/s/<id>/", "manifestSha256" }`. `409` + `{ missing }` if any blob is absent. Upserts D1, then GCs orphan blobs |
-| `GET /api/sessions` | → `[{ id, title, recordedAt, duration, markCount, size, poster, pushedAt }]`, newest recording first |
+| `POST /api/sessions/:id/commit` | manifest JSON → `{ "url": "<origin>/s/<id>/", "manifestSha256" }`. `409` + `{ missing }` if any blob is absent. Optional `If-Match: "<manifestSha256>"`: replace only that version, else `412` + `{ current: <session row + manifestSha256> }` and nothing changes. Upserts D1, then GCs orphan blobs |
+| `GET /api/sessions` | → `[{ id, title, recordedAt, duration, markCount, size, poster, pushedAt, machine }]`, newest recording first; `machine` is the manifest's, or `null` |
 | `GET /api/sessions/:id` | → `{ ...row, manifest }` or `404` |
 | `DELETE /api/sessions/:id` | → `204`; removes the row and orphaned blobs |
 | `GET /s/:id/` | the viewer (`viewer.html` from Worker static assets, no embedded data) |
@@ -133,7 +149,14 @@ drawing PNG between `start` and `end` scaled to the video box, shows thumbnail h
 - Configuration: cloud URL in `UserDefaults` (`cloudURL`). The CLI also reads `CR_CLOUD_URL` and `CR_CLOUD_TOKEN`.
 - After a commit, write `<session>/exports/cloud.json`:
   `{ "url", "manifestSha256", "inputHash", "pushedAt" }`. "Out of date" = current `inputHash` ≠ recorded one.
-- CLI: `--cloud-bundle <session> <out-folder>` and `--push <session> [--cloud <url>]`.
+- Every commit sends `If-Match` with the recorded `manifestSha256` (from the last push or a download, §7). A `412`
+  means another Mac pushed since: the app asks **Replace the cloud copy?** (naming that Mac and when) and
+  **Replace Cloud Copy** commits again without `If-Match`.
+- CLI: `--cloud-bundle <session> <out-folder>`, `--push <session> [--cloud <url>] [--force]` (`--force` skips
+  `If-Match`), `--cloud-list`, `--pull <id> [--into <library-folder>]`, and
+  `CR_CLOUD_URL=… --cloud-snapshot <library-folder> <out-folder>` (§7).
+- Headless commands run the app's run loop with activation prohibited, so nothing shows or takes focus and SwiftUI's
+  `ImageRenderer` (drawings, snapshots) has a real main thread.
 
 ## 6. Sign-in
 
@@ -168,3 +191,29 @@ the Mac app and MCP agents.
 - Each request sends `Authorization: Bearer`. On a 401 or within 60 s of expiry it refreshes once; if
   the refresh fails, it reports "Sign in again" and keeps the address.
 - The CLI uses the same saved sign-in. A local dev Worker never gets it. `CR_CLOUD_TOKEN` (an access token) overrides it for scripts.
+
+## 7. Mac pull (sessions from another Mac)
+
+Same account, another Mac: the app lists what's in the cloud and downloads a session on request. No new routes:
+it reads `GET /api/sessions` and the session's files with the saved sign-in (§6).
+
+- **Listing:** the sidebar's **In the Cloud** section shows each cloud session with no library folder named its
+  `id`: poster (`GET /s/:id/<poster>`), title, `machine` and mark count, with Download in a fixed slot that turns into
+  a progress ring. It is hidden when there's no cloud, signed out, or nothing to show. It refreshes when the sidebar
+  appears, when the app becomes active, after sign-in and when the cloud address changes.
+- **Download (`CloudPull`):** read `GET /s/:id/manifest.json` (exactly as pushed, so its sha256 is the cloud's
+  `manifestSha256`), then fetch every file in `files` with `Range` requests of 32 MB into
+  `<library>/.<id>.partial/` (hidden, so the library scan skips it). A file already there with the right size and
+  sha256 is skipped, a short one is continued, and every file is checked against its sha256. Paths with `..`, and
+  `exports/…` or `session-info.json`, are refused. When all are in, the folder is renamed to `<library>/<id>`.
+  A server that ignores `Range` (200) still works: the file starts over whole.
+- **Afterwards:** `session-info.json` gets the manifest's `title` (when it isn't the id) and
+  `"downloaded": { "machine", "cloud", "at" }`, and `exports/cloud.json` records the downloaded `manifestSha256`
+  with the local `inputHash`, so the session shows as current (badge: *Downloaded from <machine>*). Because the
+  copy is laid out as an unedited session (§1), editing it, adding marks and processing it again all work. Pushing
+  it replaces the cloud copy only if no other Mac pushed since (`If-Match`, §5).
+- **Library folder:** `~/Movies/ContextRecorder`, or the `--library` folder in dev runs.
+- **Checking the UI without a window:** `CR_CLOUD_URL=<url> ContextRecorder --cloud-snapshot <library> <out>` draws
+  the section's rows with `ImageRenderer` before, during and after a real download of the first cloud-only session,
+  through the same path as the button. AppKit-backed controls can't be drawn that way, so the Download button shows
+  as its icon.
