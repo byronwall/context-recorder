@@ -573,7 +573,8 @@ enum CloudBundle {
         let fm = FileManager.default
         // Bump "bundle-format" when the bundle's output changes for the same inputs, so copies already
         // pushed show as outdated and rebuild. 2: unedited videos are remuxed to fast start (moov first).
-        var lines = ["format \(format)", "bundle-format 2"]
+        // 3: laid out as an unedited session (play-order images, logs in edited time, annotations.json, machine).
+        var lines = ["format \(format)", "bundle-format 3"]
         func stamp(_ url: URL) -> String {
             guard let a = try? fm.attributesOfItem(atPath: url.path) else { return "-" }
             let size = (a[.size] as? Int64) ?? 0
