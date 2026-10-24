@@ -20,6 +20,18 @@ final class CloudState {
     /// Bumped after each push so statuses are read again.
     private(set) var revision = 0
 
+    /// Every session in the cloud (docs/cloud-sessions.md §7); the sidebar lists the ones this Mac doesn't have.
+    private(set) var remote: [CloudSessionRow] = []
+    private(set) var remoteError: String?
+    private(set) var loadingRemote = false
+    /// Downloads under way and failed ones, by session id.
+    private(set) var downloads: [String: Job] = [:]
+    private(set) var downloadErrors: [String: String] = [:]
+    /// Posters of cloud-only sessions, fetched with the sign-in.
+    private(set) var posters: [String: NSImage] = [:]
+    /// A push that replaces a copy another Mac pushed, waiting for a yes.
+    var confirmPush: URL?
+
     @ObservationIgnored private var cache: [URL: (key: String, status: Status)] = [:]
     @ObservationIgnored private var signInTask: Task<CloudCredentials, Error>?
     @ObservationIgnored private var authenticator: WebAuthenticator?
@@ -55,6 +67,7 @@ final class CloudState {
             try await CloudTokenProvider.saved.signedIn(credentials)
             stored = credentials
             revision += 1
+            Task { await refreshRemote() }
             return credentials
         } catch is CancellationError {
             throw CloudAuthError.cancelled
@@ -69,6 +82,7 @@ final class CloudState {
     /// Forgets the sign-in (the address stays) and asks the cloud to revoke it.
     func signOut() {
         stored = nil
+        remote = []
         Task.detached {
             if let old = await CloudTokenProvider.saved.signOut() { await CloudAuth.revoke(old) }
         }
@@ -80,6 +94,7 @@ final class CloudState {
     func reloadConfig() {
         configured = CloudConfig.current() != nil
         revision += 1
+        Task { await refreshRemote() }
     }
 
     /// Pushed or not, and whether the local session changed since. Cheap when nothing changed: the
@@ -113,9 +128,14 @@ final class CloudState {
 
     func isPushing(_ folder: URL) -> Bool { jobs[folder] != nil }
 
-    func push(_ folder: URL) {
+    /// Pushing a session that came down from another Mac replaces that Mac's copy, so it asks first once it changed.
+    func push(_ folder: URL, confirmed: Bool = false) {
         guard jobs[folder] == nil else { return }
         guard let config = CloudConfig.current() else { showSettings = true; return }
+        if !confirmed, SessionInfo.downloaded(folder) != nil, status(folder).isOutdated {
+            confirmPush = folder
+            return
+        }
         errors[folder] = nil
         // Signed out: sign in first, then push. A local dev Worker needs no sign-in.
         let needsSignIn = account(for: config.url) == nil && config.token == nil && !CloudAuth.isLocal(config.url)
@@ -154,6 +174,67 @@ final class CloudState {
         guard let url = record(folder)?.url else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(url, forType: .string)
+    }
+
+    // MARK: Sessions from other Macs
+
+    /// Signed in (or a local dev Worker), so the cloud's list can be read without a browser sign-in.
+    var canListRemote: Bool {
+        guard let config = CloudConfig.current() else { return false }
+        return account(for: config.url) != nil || config.token != nil || CloudAuth.isLocal(config.url)
+    }
+
+    /// Cloud sessions with no folder of that name in the library, newest recording first (as the cloud lists them).
+    func cloudOnly(localIDs: Set<String>) -> [CloudSessionRow] {
+        remote.filter { !localIDs.contains($0.id) || downloads[$0.id] != nil }
+    }
+
+    func refreshRemote() async {
+        guard let config = CloudConfig.current(), canListRemote, !loadingRemote else {
+            if !canListRemote { remote = []; remoteError = nil }
+            return
+        }
+        loadingRemote = true
+        defer { loadingRemote = false }
+        do {
+            remote = try await config.client.listSessions()
+            remoteError = nil
+            for row in remote where posters[row.id] == nil { Task { await loadPoster(row, config: config) } }
+        } catch {
+            remoteError = error.localizedDescription
+            if case CloudAuthError.signInRequired = error { stored = FileAuthStore().load() }
+        }
+    }
+
+    private func loadPoster(_ row: CloudSessionRow, config: CloudConfig) async {
+        guard let poster = row.poster,
+              let (data, status) = try? await config.client.request("GET", "s/\(row.id)/\(poster)", body: nil),
+              (200..<300).contains(status), let image = NSImage(data: data) else { return }
+        posters[row.id] = image
+    }
+
+    /// Downloads into the library; returns the new folder so the caller can open it.
+    func download(_ row: CloudSessionRow, into root: URL) async -> URL? {
+        guard downloads[row.id] == nil, let config = CloudConfig.current() else { return nil }
+        downloadErrors[row.id] = nil
+        downloads[row.id] = Job(phase: "Starting", fraction: 0)
+        defer { downloads[row.id] = nil }
+        do {
+            let folder = try await CloudPull.run(id: row.id, config: config, into: root) { [weak self] phase, f in
+                self?.downloads[row.id] = Job(phase: phase, fraction: f)
+            }
+            revision += 1
+            return folder
+        } catch {
+            downloadErrors[row.id] = error.localizedDescription
+            if case CloudAuthError.signInRequired = error { stored = FileAuthStore().load() }
+            return nil
+        }
+    }
+
+    func openRemote(_ row: CloudSessionRow) {
+        guard let base = CloudConfig.current()?.url else { return }
+        NSWorkspace.shared.open(base.appendingPathComponent("s/\(row.id)/"))
     }
 }
 
@@ -237,8 +318,14 @@ struct CloudRowBadge: View {
                 switch cloud.status(folder) {
                 case .notPushed: EmptyView()
                 case .current:
-                    Image(systemName: "checkmark.icloud").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
-                        .help("In the cloud").accessibilityLabel("In the cloud")
+                    if let from = SessionInfo.downloaded(folder) {
+                        let help = "Downloaded from " + (from.machine ?? "another Mac")
+                        Image(systemName: "icloud.and.arrow.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                            .help(help).accessibilityLabel(help)
+                    } else {
+                        Image(systemName: "checkmark.icloud").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                            .help("In the cloud").accessibilityLabel("In the cloud")
+                    }
                 case .outdated:
                     Image(systemName: "exclamationmark.icloud").font(.system(size: 10, weight: .semibold)).foregroundStyle(.orange)
                         .help("Cloud copy out of date").accessibilityLabel("Cloud copy out of date")

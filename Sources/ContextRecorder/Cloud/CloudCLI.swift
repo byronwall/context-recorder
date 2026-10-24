@@ -7,15 +7,17 @@ import Foundation
 ///   ContextRecorder --cloud-list [--cloud <url>]
 ///   ContextRecorder --pull <session-id> [--cloud <url>] [--into <library-folder>]
 ///   ContextRecorder --self-test cloud-bundle | cloud-client
+///   ContextRecorder --cloud-snapshot <library-folder> <out-folder>   (CR_CLOUD_URL; draws the sidebar's
+///     "In the Cloud" rows off screen before, during and after downloading the first one, no window shown)
 /// `--push`, `--cloud-list` and `--pull` use the app's stored sign-in; `CR_CLOUD_TOKEN` (an access token) overrides it.
 /// Exit codes: 0 ok, 1 failed, 2 bad usage, no cloud configured, or signed out.
 @MainActor
 enum CloudCLI {
     static func handles(_ args: [String]) -> Bool {
-        ["--cloud-bundle", "--push", "--cloud-list", "--pull"].contains(where: args.contains) || ["cloud-bundle", "cloud-client"].contains(value(args, "--self-test") ?? "")
+        ["--cloud-bundle", "--push", "--cloud-list", "--pull", "--cloud-snapshot"].contains(where: args.contains) || ["cloud-bundle", "cloud-client"].contains(value(args, "--self-test") ?? "")
     }
 
-    /// Runs the command on the main actor and exits; the caller then parks the main thread in dispatchMain().
+    /// Runs the command on the main actor and exits; the caller then runs the (prohibited, windowless) app's run loop.
     static func start(_ args: [String]) {
         // ImageRenderer and AppKit text measuring want an NSApplication, but it never shows anything.
         _ = NSApplication.shared
@@ -84,6 +86,20 @@ enum CloudCLI {
                 return nil
             }
             return config
+        }
+
+        if let i = args.firstIndex(of: "--cloud-snapshot") {
+            guard i + 2 < args.count, cloudConfig() != nil else {
+                fputs("usage: CR_CLOUD_URL=<url> ContextRecorder --cloud-snapshot <library-folder> <out-folder>\n", stderr)
+                return 2
+            }
+            do {
+                try await CloudSnapshot.run(library: path(args[i + 1]), out: path(args[i + 2]))
+                return 0
+            } catch {
+                fputs("cloud-snapshot failed: \(error.localizedDescription)\n", stderr)
+                return 1
+            }
         }
 
         if args.contains("--cloud-list") {
