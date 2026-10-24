@@ -54,6 +54,16 @@ describe("GET /s/:id/<path>", () => {
     expect(pinned.headers.get("cache-control")).toContain("immutable");
   });
 
+  it("revalidates a stale ?v= and keeps ranges on a pinned URL", async () => {
+    const stale = await call(`/s/f-1/session.json?v=${"0".repeat(64)}`);
+    expect(stale.status).toBe(200);
+    expect(stale.headers.get("cache-control")).toBe("private, no-cache");
+    const pinned = await call(`/s/f-1/recording.mp4?v=${shaOf(manifest, "recording.mp4")}`, { headers: { range: "bytes=0-9" } });
+    expect(pinned.status).toBe(206);
+    expect(pinned.headers.get("cache-control")).toBe("private, max-age=31536000, immutable");
+    expect(new Uint8Array(await pinned.arrayBuffer())).toEqual(video().slice(0, 10));
+  });
+
   it("answers HEAD with headers only", async () => {
     const res = await call("/s/f-1/recording.mp4", { method: "HEAD" });
     expect(res.status).toBe(200);
