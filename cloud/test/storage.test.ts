@@ -82,6 +82,17 @@ describe("PUT /api/blobs/:sha256", () => {
     expect(await inR2(sha)).toBe(true);
   });
 
+  it("keeps a stored blob when a re-upload of it has the wrong bytes", async () => {
+    const data = bytes(3000, 11);
+    const sha = await sha256Hex(data);
+    expect((await putBlob(sha, data)).status).toBe(204);
+    expect((await putBlob(sha, bytes(3000, 12))).status).toBe(400);
+    const stored = await env.BUCKET.get(`blobs/${sha}`);
+    expect(stored && (await sha256Hex(new Uint8Array(await stored.arrayBuffer())))).toBe(sha);
+    const res = await postJson("/api/sessions/s-keep/push", await makeManifest("s-keep", { "a.bin": { bytes: data, type: "application/octet-stream" } }));
+    expect(((await res.json()) as { missing: string[] }).missing).toEqual([]);
+  });
+
   it("rejects a malformed sha", async () => {
     expect((await putBlob("abc", bytes(10))).status).toBe(400);
   });

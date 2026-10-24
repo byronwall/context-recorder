@@ -122,6 +122,11 @@ drawing PNG between `start` and `end` scaled to the video box, shows thumbnail h
 
 - `CloudClient(baseURL, auth)`: `push` → upload each missing blob (PUT, or multipart above 90 MB) → `commit`.
   Every request carries `Authorization: Bearer` from the saved sign-in (§6).
+- Uploads share one pool of 8 requests in flight, at most 3 of them multipart parts (64 MB each in memory).
+  Each request waits a round trip through the Worker (token, D1, R2), so a long session's hundreds of
+  thumbnails sent one at a time can take minutes; parts complete once all of a file's parts are in.
+- Each push times its phases (the bundle's build phases, then Checking, Uploading, Committing). The CLI
+  prints them on a `took` line and the app logs them with `NSLog` (`log show --predicate 'process == "ContextRecorder"'`).
 - Configuration: cloud URL in `UserDefaults` (`cloudURL`). The CLI also reads `CR_CLOUD_URL` and `CR_CLOUD_TOKEN`.
 - After a commit, write `<session>/exports/cloud.json`:
   `{ "url", "manifestSha256", "inputHash", "pushedAt" }`. "Out of date" = current `inputHash` ≠ recorded one.

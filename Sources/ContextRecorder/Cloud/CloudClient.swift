@@ -1,7 +1,7 @@
 import Foundation
 
 /// Talks to the cloud Worker (docs/cloud-sessions.md §2 and §5): announce a manifest, upload the blobs it lacks
-/// (one PUT each, or R2 multipart above 90 MB), then commit.
+/// (one PUT each, or R2 multipart above 90 MB) several at a time, then commit.
 struct CloudClient {
     var baseURL: URL
     /// Supplies `Authorization: Bearer`; nil, or signed out, sends no header (a local dev Worker accepts that).
@@ -11,10 +11,31 @@ struct CloudClient {
     var multipartThreshold: Int64 = 90 * 1024 * 1024
     /// R2 wants equal parts of at least 5 MB (all but the last).
     var partSize: Int64 = 64 * 1024 * 1024
+    /// Requests in flight at once. A long session has hundreds of thumbnails, and one at a time each waits a
+    /// full round trip through the Worker (token, D1, R2), which dominates the push.
+    var concurrency = 8
+    /// Of those, multipart parts in flight at once (each holds `partSize` bytes in memory).
+    var partConcurrency = 3
 
     struct CommitResult: Codable, Equatable { var url: String; var manifestSha256: String }
+    /// How long one step of a push took.
+    struct Timing: Equatable {
+        var phase: String; var seconds: Double
+        /// `Preparing 0.1 s · Making thumbnails 3.5 s · …`, repeated phases added together.
+        static func summary(_ timings: [Timing]) -> String {
+            var order: [String] = [], sums: [String: Double] = [:]
+            for t in timings {
+                if sums[t.phase] == nil { order.append(t.phase) }
+                sums[t.phase, default: 0] += t.seconds
+            }
+            return order.map { String(format: "%@ %.1f s", $0, sums[$0]!) }.joined(separator: " · ")
+        }
+    }
     /// What a push did, for tests and the CLI.
-    struct Report { var result: CommitResult; var uploaded: [String]; var uploadedBytes: Int64; var multipart: [String] }
+    struct Report {
+        var result: CommitResult; var uploaded: [String]; var uploadedBytes: Int64; var multipart: [String]
+        var timings: [Timing] = []
+    }
 
     struct HTTPError: LocalizedError {
         var status: Int; var body: String; var path: String
@@ -33,73 +54,124 @@ struct CloudClient {
         let manifest = try JSONDecoder().decode(CloudManifest.self, from: manifestData)
         let id = manifest.sessionId
         struct Missing: Decodable { var missing: [String] }
+        var timings: [Timing] = []
+        func timed<T>(_ phase: String, _ work: () async throws -> T) async rethrows -> T {
+            let start = Date()
+            defer { timings.append(Timing(phase: phase, seconds: Date().timeIntervalSince(start))) }
+            return try await work()
+        }
 
-        let first: Missing = try await json("POST", "api/sessions/\(id)/push", body: manifestData)
+        let first: Missing = try await timed("Checking") { try await json("POST", "api/sessions/\(id)/push", body: manifestData) }
         var uploaded: [String] = [], multipart: [String] = []
         var bytes: Int64 = 0
         func upload(_ hashes: [String]) async throws {
             // A hash can appear on several paths; one copy of the bytes is enough.
             let files = Dictionary(manifest.files.map { ($0.sha256, $0) }, uniquingKeysWith: { a, _ in a })
-            let wanted = hashes.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.compactMap { files[$0] }
-            let total = wanted.reduce(Int64(0)) { $0 + $1.size }
-            var done: Int64 = 0
-            progress?(0, total)
-            for file in wanted {
-                let url = bundle.appendingPathComponent(file.path)
-                if file.size > multipartThreshold {
-                    try await uploadParts(url, sha: file.sha256, size: file.size) { done += $0; progress?(done, total) }
-                    multipart.append(file.path)
-                } else {
-                    try await send("PUT", "api/blobs/\(file.sha256)", body: try Data(contentsOf: url),
-                                   contentType: "application/octet-stream")
-                    done += file.size
-                    progress?(done, total)
-                }
-                uploaded.append(file.path)
-                bytes += file.size
-            }
             let unknown = hashes.filter { files[$0] == nil }
             if !unknown.isEmpty { throw ReviewError("The cloud asked for blobs that aren't in this bundle: \(unknown.prefix(3).joined(separator: ", "))") }
+            let wanted = hashes.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.compactMap { files[$0] }
+            try await uploadAll(wanted, in: bundle, progress: progress)
+            for file in wanted {
+                uploaded.append(file.path)
+                if file.size > multipartThreshold { multipart.append(file.path) }
+                bytes += file.size
+            }
         }
-        try await upload(first.missing)
+        try await timed("Uploading") { try await upload(first.missing) }
 
         // Commit; if blobs vanished in between (409), upload them and try once more.
         for attempt in 0..<2 {
-            let (data, status) = try await request("POST", "api/sessions/\(id)/commit", body: manifestData)
+            let (data, status) = try await timed("Committing") { try await request("POST", "api/sessions/\(id)/commit", body: manifestData) }
             if status == 409, attempt == 0, let missing = try? JSONDecoder().decode(Missing.self, from: data) {
-                try await upload(missing.missing)
+                try await timed("Uploading") { try await upload(missing.missing) }
                 continue
             }
             try check(status, data, "commit")
             let result = try JSONDecoder().decode(CommitResult.self, from: data)
-            return Report(result: result, uploaded: uploaded, uploadedBytes: bytes, multipart: multipart)
+            return Report(result: result, uploaded: uploaded, uploadedBytes: bytes, multipart: multipart, timings: timings)
         }
         throw ReviewError("The cloud kept reporting missing files on commit")
     }
 
-    private func uploadParts(_ url: URL, sha: String, size: Int64, sent: (Int64) -> Void) async throws {
+    /// Uploads `files`: small ones as single PUTs and big ones in parts, all from one pool of `concurrency`
+    /// requests (at most `partConcurrency` of them parts). Progress is reported as each request finishes.
+    private func uploadAll(_ files: [CloudManifest.File], in bundle: URL, progress: Progress?) async throws {
         struct Upload: Decodable { var uploadId: String }
         struct Part: Codable { var partNumber: Int; var etag: String }
-        let upload: Upload = try await json("POST", "api/blobs/\(sha)/uploads", body: Data("{}".utf8))
-        let handle = try FileHandle(forReadingFrom: url)
-        defer { try? handle.close() }
-        var parts: [Part] = []
-        var offset: Int64 = 0
-        var number = 1
-        while offset < size {
-            try handle.seek(toOffset: UInt64(offset))
-            let chunk = try handle.read(upToCount: Int(min(partSize, size - offset))) ?? Data()
-            guard !chunk.isEmpty else { break }
-            struct ETag: Decodable { var etag: String }
-            let tag: ETag = try await json("PUT", "api/blobs/\(sha)/uploads/\(upload.uploadId)/\(number)", body: chunk,
-                                           contentType: "application/octet-stream")
-            parts.append(Part(partNumber: number, etag: tag.etag))
-            offset += Int64(chunk.count)
-            number += 1
-            sent(Int64(chunk.count))
+        struct PartJob { var file: Int; var number: Int; var offset: Int64; var length: Int64 }
+        enum Done { case blob(Int64); case part(file: Int, Part, Int64) }
+
+        let total = files.reduce(Int64(0)) { $0 + $1.size }
+        var done: Int64 = 0
+        progress?(0, total)
+
+        // Start each multipart upload first, so its parts can share the pool with the small files.
+        var small: [Int] = [], parts: [PartJob] = []
+        var uploadIds: [Int: String] = [:], etags: [Int: [Part]] = [:]
+        for (i, file) in files.enumerated() {
+            guard file.size > multipartThreshold else { small.append(i); continue }
+            let upload: Upload = try await json("POST", "api/blobs/\(file.sha256)/uploads", body: Data("{}".utf8))
+            uploadIds[i] = upload.uploadId
+            var offset: Int64 = 0, number = 1
+            while offset < file.size {
+                let length = min(partSize, file.size - offset)
+                parts.append(PartJob(file: i, number: number, offset: offset, length: length))
+                offset += length
+                number += 1
+            }
         }
-        let body = try JSONEncoder().encode(["parts": parts])
-        try await send("POST", "api/blobs/\(sha)/uploads/\(upload.uploadId)/complete", body: body)
+
+        try await withThrowingTaskGroup(of: Done.self) { group in
+            var running = 0, runningParts = 0
+            func fill() {
+                while runningParts < max(1, partConcurrency), running < max(1, concurrency), !parts.isEmpty {
+                    let job = parts.removeFirst(), file = files[job.file], uploadId = uploadIds[job.file]!
+                    let url = bundle.appendingPathComponent(file.path)
+                    running += 1; runningParts += 1
+                    group.addTask {
+                        let handle = try FileHandle(forReadingFrom: url)
+                        defer { try? handle.close() }
+                        try handle.seek(toOffset: UInt64(job.offset))
+                        let chunk = try handle.read(upToCount: Int(job.length)) ?? Data()
+                        guard chunk.count == job.length else { throw ReviewError("\(file.path) changed while uploading") }
+                        struct ETag: Decodable { var etag: String }
+                        let tag: ETag = try await json("PUT", "api/blobs/\(file.sha256)/uploads/\(uploadId)/\(job.number)",
+                                                       body: chunk, contentType: "application/octet-stream")
+                        return .part(file: job.file, Part(partNumber: job.number, etag: tag.etag), job.length)
+                    }
+                }
+                while running < max(1, concurrency), !small.isEmpty {
+                    let file = files[small.removeFirst()]
+                    let url = bundle.appendingPathComponent(file.path)
+                    running += 1
+                    group.addTask {
+                        try await send("PUT", "api/blobs/\(file.sha256)", body: try Data(contentsOf: url),
+                                       contentType: "application/octet-stream")
+                        return .blob(file.size)
+                    }
+                }
+            }
+            fill()
+            while let result = try await group.next() {
+                running -= 1
+                switch result {
+                case .blob(let size):
+                    done += size
+                case .part(let i, let part, let size):
+                    runningParts -= 1
+                    done += size
+                    etags[i, default: []].append(part)
+                }
+                progress?(done, total)
+                fill()
+            }
+        }
+
+        for (i, uploadId) in uploadIds.sorted(by: { $0.key < $1.key }) {
+            let list = (etags[i] ?? []).sorted { $0.partNumber < $1.partNumber }
+            let body = try JSONEncoder().encode(["parts": list])
+            try await send("POST", "api/blobs/\(files[i].sha256)/uploads/\(uploadId)/complete", body: body)
+        }
     }
 
     // MARK: HTTP
@@ -251,11 +323,23 @@ enum CloudPush {
         let temp = FileManager.default.temporaryDirectory
             .appendingPathComponent("ContextRecorder-cloud/\(CloudBundle.sessionID(for: session))-\(UUID().uuidString.prefix(8))")
         defer { try? FileManager.default.removeItem(at: temp) }
-        let manifest = try await CloudBundle.build(session: session, to: temp) { phase, f in progress?(phase == "Done" ? "Uploading" : phase, f * 0.5) }
-        let report = try await config.client.push(bundle: temp) { done, total in
+        // Each build phase lasts until the next one starts.
+        var timings: [CloudClient.Timing] = []
+        var phase: (name: String, start: Date)?
+        func enter(_ name: String?) {
+            if let phase { timings.append(.init(phase: phase.name, seconds: Date().timeIntervalSince(phase.start))) }
+            phase = name.map { ($0, Date()) }
+        }
+        let manifest = try await CloudBundle.build(session: session, to: temp) { name, f in
+            if name != "Done", name != phase?.name { enter(name) }
+            progress?(name == "Done" ? "Uploading" : name, f * 0.5)
+        }
+        enter(nil)
+        var report = try await config.client.push(bundle: temp) { done, total in
             let f = total > 0 ? Double(done) / Double(total) : 1
             progress?("Uploading \(ByteCountFormatter.string(fromByteCount: done, countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: total, countStyle: .file))", 0.5 + 0.48 * f)
         }
+        report.timings = timings + report.timings
         let iso = ISO8601DateFormatter()
         iso.timeZone = .current
         let record = CloudRecord(url: report.result.url, manifestSha256: report.result.manifestSha256,
