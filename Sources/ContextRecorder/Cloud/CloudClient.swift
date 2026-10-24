@@ -176,7 +176,7 @@ struct CloudClient {
 
     // MARK: HTTP
 
-    private func json<T: Decodable>(_ method: String, _ path: String, body: Data?, contentType: String = "application/json") async throws -> T {
+    func json<T: Decodable>(_ method: String, _ path: String, body: Data?, contentType: String = "application/json") async throws -> T {
         let (data, status) = try await request(method, path, body: body, contentType: contentType)
         try check(status, data, path)
         do { return try JSONDecoder().decode(T.self, from: data) } catch {
@@ -189,29 +189,32 @@ struct CloudClient {
         try check(status, data, path)
     }
 
-    private func check(_ status: Int, _ data: Data, _ path: String) throws {
+    func check(_ status: Int, _ data: Data, _ path: String) throws {
         guard (200..<300).contains(status) else { throw HTTPError(status: status, body: String(decoding: data, as: UTF8.self), path: path) }
     }
 
     /// Sends with the current token; on a 401 refreshes once and retries.
-    func request(_ method: String, _ path: String, body: Data?, contentType: String = "application/json") async throws -> (Data, Int) {
+    func request(_ method: String, _ path: String, body: Data?, contentType: String = "application/json",
+                 headers: [String: String] = [:]) async throws -> (Data, Int) {
         let token = try await auth?.token(for: baseURL)
-        let (data, status) = try await attempt(method, path, body: body, contentType: contentType, token: token)
+        let (data, status) = try await attempt(method, path, body: body, contentType: contentType, headers: headers, token: token)
         guard status == 401, let auth else { return (data, status) }
         if token == nil, await !auth.isFixed {
             // Signed out and the cloud wants a sign-in.
             throw CloudAuthError.signInRequired
         }
         let fresh = try await auth.token(for: baseURL, after: token)
-        let retry = try await attempt(method, path, body: body, contentType: contentType, token: fresh)
+        let retry = try await attempt(method, path, body: body, contentType: contentType, headers: headers, token: fresh)
         if retry.1 == 401 { throw CloudAuthError.signInRequired }
         return retry
     }
 
-    private func attempt(_ method: String, _ path: String, body: Data?, contentType: String, token: String?) async throws -> (Data, Int) {
+    private func attempt(_ method: String, _ path: String, body: Data?, contentType: String, headers: [String: String],
+                         token: String?) async throws -> (Data, Int) {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
         req.httpMethod = method
         req.timeoutInterval = 600
+        for (name, value) in headers { req.setValue(value, forHTTPHeaderField: name) }
         if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body {
             req.httpBody = body

@@ -20,7 +20,7 @@ extension CloudSelfTest {
             let manifest = CloudManifest(sessionId: "2026-01-01_00-00-00", title: "t", recordedAt: nil, duration: 1, markCount: 0,
                                          video: .init(path: "recording.mp4", width: 2, height: 2),
                                          thumbs: .init(interval: 2, count: 1, pattern: "thumbs/%04d.jpg", width: 480),
-                                         poster: "thumbs/0000.jpg", skippedPages: [], inputHash: "x",
+                                         poster: "thumbs/0000.jpg", skippedPages: [], inputHash: "x", machine: "Test Mac",
                                          files: try CloudBundle.listFiles(in: bundle))
             try manifest.encoded().write(to: bundle.appendingPathComponent("manifest.json"))
             let manifestSha = try CloudBundle.sha256(of: bundle.appendingPathComponent("manifest.json"))
@@ -128,6 +128,9 @@ extension CloudSelfTest {
 
             let second = try await client.push(bundle: bundle)
             if !second.uploaded.isEmpty { f.append("unchanged re-push uploaded \(second.uploaded)") }
+
+            // Pull: the list shows it with its machine; it downloads into the library, intact, recorded as current.
+            try await checkPull(client: client, bundle: bundle, manifest: manifest, manifestSha: manifestSha, root: root, f: &f)
 
             // A blob that disappears before commit: 409, re-upload, commit again.
             FakeWorker.state.dropBeforeCommit = manifest.files.first { $0.path == "a.json" }?.sha256
@@ -250,6 +253,67 @@ extension CloudSelfTest {
     }
 }
 
+extension CloudSelfTest {
+    fileprivate static func checkPull(client: CloudClient, bundle: URL, manifest: CloudManifest, manifestSha: String,
+                                      root: URL, f: inout [String]) async throws {
+        let fm = FileManager.default
+        let library = root.appendingPathComponent("library")
+        try fm.createDirectory(at: library, withIntermediateDirectories: true)
+        let config = CloudConfig(url: client.baseURL, token: nil, store: MemoryAuthStore())
+
+        let rows = try await client.listSessions()
+        if rows.map(\.id) != [manifest.sessionId] || rows.first?.machine != manifest.machine || rows.first?.title != manifest.title {
+            f.append("listSessions \(rows)")
+        }
+
+        // Half the video already down from an interrupted attempt: only the rest is fetched.
+        let id = manifest.sessionId
+        let partial = CloudPull.partialFolder(id, in: library)
+        try fm.createDirectory(at: partial, withIntermediateDirectories: true)
+        let video = try Data(contentsOf: bundle.appendingPathComponent("recording.mp4"))
+        try video.prefix(video.count / 2).write(to: partial.appendingPathComponent("recording.mp4"))
+        FakeWorker.lock.withLock { FakeWorker.state.bytesServed = 0; FakeWorker.state.rangeRequests = 0 }
+        var phases: [Double] = []
+        let folder = try await CloudPull.run(id: id, config: config, client: client, into: library) { _, p in phases.append(p) }
+        let served = FakeWorker.state.bytesServed
+        let total = manifest.files.reduce(0) { $0 + Int($1.size) }
+        if served >= total || served < total - video.count / 2 - 1 { f.append("resumed pull fetched \(served) bytes of \(total)") }
+        if FakeWorker.state.rangeRequests < 2 { f.append("\(FakeWorker.state.rangeRequests) range requests") }
+        if phases.last != 1 || zip(phases, phases.dropFirst()).contains(where: { $0 > $1 + 1e-9 }) { f.append("pull progress \(phases)") }
+        if fm.fileExists(atPath: partial.path) { f.append("partial folder left behind") }
+        if folder.standardizedFileURL.path != library.appendingPathComponent(id).standardizedFileURL.path { f.append("pulled into \(folder.path)") }
+        for file in manifest.files where (try? CloudBundle.sha256(of: folder.appendingPathComponent(file.path))) != file.sha256 {
+            f.append("pulled \(file.path) doesn't match")
+        }
+        if SessionInfo.title(folder) != manifest.title { f.append("pulled title \(String(describing: SessionInfo.title(folder)))") }
+        if SessionInfo.downloaded(folder)?.machine != manifest.machine || SessionInfo.downloaded(folder)?.cloud != "http://cloud.test/" {
+            f.append("downloaded info \(String(describing: SessionInfo.downloaded(folder)))")
+        }
+        if let record = CloudRecord.load(folder) {
+            if record.manifestSha256 != manifestSha { f.append("pulled cloud.json manifestSha256 \(record.manifestSha256)") }
+            if record.url != "http://cloud.test/s/\(id)/" { f.append("pulled cloud.json url \(record.url)") }
+            if (try? CloudBundle.inputHash(session: folder)) != record.inputHash { f.append("pulled copy isn't current") }
+        } else { f.append("no cloud.json after pull") }
+
+        // Already here: refused, and nothing is touched.
+        do { try await CloudPull.run(id: id, config: config, client: client, into: library); f.append("second pull succeeded") } catch {}
+
+        // A server that ignores Range still works (whole files), and unsafe manifest paths are refused.
+        try fm.removeItem(at: folder)
+        FakeWorker.lock.withLock { FakeWorker.state.ignoreRanges = true }
+        try await CloudPull.run(id: id, config: config, client: client, into: library)
+        FakeWorker.lock.withLock { FakeWorker.state.ignoreRanges = false }
+        if (try? CloudBundle.sha256(of: folder.appendingPathComponent("recording.mp4"))) != manifest.files.first(where: { $0.path == "recording.mp4" })?.sha256 {
+            f.append("pull without range support")
+        }
+        try fm.removeItem(at: folder)
+        for (path, safe) in [("a/b.json", true), ("../x", false), ("/x", false), ("a//b", false), ("exports/cloud.json", false),
+                             ("session-info.json", false), ("a\\b", false)] where CloudPull.isSafe(path) != safe {
+            f.append("isSafe(\(path)) = \(!safe)")
+        }
+    }
+}
+
 /// The Worker in memory: OAuth (discovery, registration, PKCE code exchange, refresh with rotation, revocation),
 /// `/api/me`, and the push API (content-addressed blobs with hash checks, multipart, push/commit).
 final class FakeWorker: URLProtocol {
@@ -277,8 +341,14 @@ final class FakeWorker: URLProtocol {
         /// Blob uploads wait this long, so concurrent ones overlap; the most seen at once is recorded.
         var blobDelay: TimeInterval = 0
         var blobsInFlight = 0, partsInFlight = 0, maxBlobsInFlight = 0, maxPartsInFlight = 0
+        /// Committed sessions: id → manifest exactly as sent.
+        var sessions: [String: Data] = [:]
+        var rangeRequests = 0
+        var bytesServed = 0
+        var ignoreRanges = false
     }
     nonisolated(unsafe) static var state = State()
+
     static let lock = NSLock()
     /// Keeps the refresh tokens and registrations unless `tokens` is given (a fresh server).
     static func reset(tokens: Set<String>? = nil) {
@@ -415,7 +485,32 @@ final class FakeWorker: URLProtocol {
             if let drop = state.dropBeforeCommit { state.blobs[drop] = nil; state.dropBeforeCommit = nil }
             let missing = Array(Set(manifestHashes().filter { state.blobs[$0] == nil })).sorted()
             if !missing.isEmpty { state.commits409 += 1; return (409, json(["missing": missing])) }
+            state.sessions[parts[2]] = data
             return (200, json(["url": "http://cloud.test/s/\(parts[2])/", "manifestSha256": sha(data)]))
+        case ("GET", 2, "sessions"):
+            let rows: [[String: Any]] = state.sessions.keys.sorted().compactMap { id in
+                guard let m = try? JSONDecoder().decode(CloudManifest.self, from: state.sessions[id]!) else { return nil }
+                return ["id": id, "title": m.title, "recordedAt": m.recordedAt ?? "", "duration": m.duration, "markCount": m.markCount,
+                        "size": m.files.reduce(0) { $0 + $1.size }, "poster": m.poster ?? NSNull(), "pushedAt": "2026-01-01T00:00:00Z",
+                        "machine": m.machine ?? NSNull()]
+            }
+            return (200, json(rows))
+        case ("GET", _, _) where parts.first == "s" && parts.count >= 3:
+            guard let manifestData = state.sessions[parts[1]] else { return (404, Data()) }
+            let path = parts.dropFirst(2).joined(separator: "/")
+            if path == "manifest.json" { return (200, manifestData) }
+            guard let m = try? JSONDecoder().decode(CloudManifest.self, from: manifestData),
+                  let file = m.files.first(where: { $0.path == path }), let blob = state.blobs[file.sha256] else { return (404, Data()) }
+            if !state.ignoreRanges, let range = r.value(forHTTPHeaderField: "Range"), range.hasPrefix("bytes=") {
+                let ends = range.dropFirst(6).split(separator: "-").compactMap { Int($0) }
+                guard ends.count == 2, ends[0] <= ends[1], ends[0] < blob.count else { return (416, Data()) }
+                state.rangeRequests += 1
+                let slice = blob.subdata(in: ends[0]..<min(blob.count, ends[1] + 1))
+                state.bytesServed += slice.count
+                return (206, slice)
+            }
+            state.bytesServed += blob.count
+            return (200, blob)
         case ("PUT", 3, "blobs"):
             let bytes = state.corruptUploads ? data + Data([0]) : data
             guard sha(bytes) == parts[2] else { return (400, Data("hash mismatch".utf8)) }
