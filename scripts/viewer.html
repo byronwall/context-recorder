@@ -308,6 +308,14 @@ const cloudURL = (path) => {
   return u.protocol === "file:" ? decodeURIComponent(u.pathname) : u.href;
 };
 const videoPath = manifest?.video?.path || "recording.mp4";
+// Timeline thumbnails (thumb i is at i * interval): hover previews, and the small list image for frame marks.
+const th = manifest?.thumbs;
+const hasThumbs = !!(th && th.count > 0 && th.interval > 0 && th.pattern);
+const thumbPath = (i) => th.pattern.replace(/%(0?)(\d*)d/, (_, z, w) => String(i).padStart(+w || 0, z ? "0" : " "));
+const thumbAt = (t) => thumbPath(Math.min(th.count - 1, Math.max(0, Math.round(t / th.interval))));
+// A frame mark's list image is the nearby thumbnail, not the full-size frame. Screenshots keep their own
+// image: the crop is what identifies them.
+const previewOf = (m) => hasThumbs && m.kind !== "screenshot" ? thumbAt(m.offsetSeconds) : m.image;
 
 let tab = "marks", filter = "all", selected = null;
 const marks = DATA.marks || [];
@@ -448,6 +456,10 @@ function renderTimeline() {
   $("#ruler").innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${fmt((duration * i) / n)}</span>`).join("");
 }
 
+// Full-size detail images load on first selection. A hidden .detail still fetches a plain src.
+const detailImg = (m, path, alt) => `<img ${selected === m.index ? "src" : "data-src"}="${esc(path)}" alt="${esc(alt)}" data-zoom>`;
+const loadDetail = (el) => el?.querySelectorAll(".detail img[data-src]").forEach((img) => { img.src = img.dataset.src; img.removeAttribute("data-src"); });
+
 function renderList() {
   const list = $("#list");
   if (tab === "marks") {
@@ -455,7 +467,7 @@ function renderList() {
     list.innerHTML = shown.length ? shown.map((m) => {
       const c = m.context || {};
       return `<div class="item ${selected === m.index ? "sel" : ""}" data-mark="${m.index}">
-        <img src="${esc(m.image)}" alt="" loading="lazy">
+        <img src="${esc(previewOf(m))}" alt="" loading="lazy">
         <div class="meta">
           <div class="top"><span class="badge ${m.kind}">${m.kind === "screenshot" ? "Shot" : "Mark"}</span><span>#${m.index}</span><span>${fmt(m.offsetSeconds)}</span></div>
           <div class="title">${esc(titleOf(m))}</div>
@@ -464,8 +476,8 @@ function renderList() {
           ${(m.browser?.recent || []).some(isProblem) ? `<div class="sub warn">${icon("alert")}${(m.browser.recent || []).filter(isProblem).length} recent errors</div>` : ""}
         </div>
         <div class="detail">
-          <img src="${esc(m.image)}" alt="Mark ${m.index}" data-zoom>
-          ${m.frame && m.frame !== m.image ? `<div class="caption">Full screen at this moment</div><img src="${esc(m.frame)}" alt="Full frame ${m.index}" data-zoom>` : ""}
+          ${detailImg(m, m.image, `Mark ${m.index}`)}
+          ${m.frame && m.frame !== m.image ? `<div class="caption">Full screen at this moment</div>${detailImg(m, m.frame, `Full frame ${m.index}`)}` : ""}
           ${m.narration ? `<blockquote>${esc(m.narration)}</blockquote>` : ""}
           <dl class="kv">${kv(c)}</dl>
           ${pageHtml(m.browser)}
@@ -511,7 +523,9 @@ function select(index, { seek = true, scroll = true } = {}) {
   renderTimeline(); renderNow();
   // Toggle classes rather than re-rendering so images don't reload and flicker.
   document.querySelectorAll(".item[data-mark]").forEach((el) => el.classList.toggle("sel", +el.dataset.mark === index));
-  if (scroll) document.querySelector(`.item[data-mark="${index}"]`)?.scrollIntoView({ block: "nearest" });
+  const item = document.querySelector(`.item[data-mark="${index}"]`);
+  loadDetail(item);
+  if (scroll) item?.scrollIntoView({ block: "nearest" });
 }
 
 function step(dir) {
@@ -727,11 +741,9 @@ function setupCloud() {
     place(); show();
   }
 
-  // Timeline hover: the thumbnail nearest the pointer's time (thumb i is at i * interval).
-  const th = manifest?.thumbs;
-  if (th && th.count > 0 && th.interval > 0 && th.pattern) {
+  // Timeline hover: the thumbnail nearest the pointer's time.
+  if (hasThumbs) {
     const tip = $("#thumbtip"), tipImg = tip.querySelector("img"), tipTime = tip.querySelector("span");
-    const thumbPath = (i) => th.pattern.replace(/%(0?)(\d*)d/, (_, z, w) => String(i).padStart(+w || 0, z ? "0" : " "));
     const timeline = $("#timeline");
     const vw = manifest.video?.width, vh = manifest.video?.height;
     if (vw && vh) tipImg.style.aspectRatio = `${vw} / ${vh}`; // stable size before the JPEG decodes
@@ -740,7 +752,7 @@ function setupCloud() {
       if (!lane) return tip.classList.remove("on");
       const r = lane.getBoundingClientRect();
       const t = Math.min(duration, Math.max(0, ((e.clientX - r.left) / r.width) * duration));
-      const src = thumbPath(Math.min(th.count - 1, Math.max(0, Math.round(t / th.interval))));
+      const src = thumbAt(t);
       if (tipImg.getAttribute("src") !== src) tipImg.src = src;
       tipTime.textContent = fmt(t);
       tip.classList.add("on");
