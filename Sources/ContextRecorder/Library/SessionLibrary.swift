@@ -120,6 +120,9 @@ final class SessionLibrary {
         return failed
     }
 
+    /// Where sessions downloaded from the cloud go: the default root, or the `--library` folder in dev runs.
+    var downloadRoot: URL { includeDefaultRoot ? Session.root : (extraFolders.first ?? Session.root) }
+
     func isExternal(_ entry: SessionEntry) -> Bool { !entry.url.path.hasPrefix(Session.root.path + "/") }
 
     func refresh() {

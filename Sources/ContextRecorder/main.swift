@@ -514,10 +514,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
     }
 }
 
-// `--cloud-bundle`, `--push` and the cloud self-tests run headless and exit (see CloudCLI).
+// `--cloud-bundle`, `--push` and the cloud self-tests run headless and exit (see CloudCLI). The app's run loop
+// (activation prohibited, so nothing shows or takes focus) keeps the main queue on the main thread, which
+// SwiftUI's ImageRenderer waits on for anything AppKit-backed.
 if MainActor.assumeIsolated({ CloudCLI.handles(CommandLine.arguments) }) {
-    MainActor.assumeIsolated { CloudCLI.start(CommandLine.arguments) }
-    dispatchMain()
+    MainActor.assumeIsolated {
+        CloudCLI.start(CommandLine.arguments)
+        NSApplication.shared.run()
+    }
 }
 
 MainActor.assumeIsolated {

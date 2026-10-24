@@ -44,6 +44,16 @@ struct LibraryView: View {
         } message: {
             Text("The recording, screenshots and notes go to the Trash. You can put them back from there.")
         }
+        .confirmationDialog("Replace the cloud copy?", isPresented: Binding(get: { CloudState.shared.confirmPush != nil },
+                                                                             set: { if !$0 { CloudState.shared.confirmPush = nil } })) {
+            Button("Replace Cloud Copy", role: .destructive) {
+                if let folder = CloudState.shared.confirmPush?.folder { CloudState.shared.push(folder, force: true) }
+            }
+        } message: {
+            let conflict = CloudState.shared.confirmPush?.conflict
+            let by = conflict?.machine ?? "Another Mac"
+            Text("\(by) pushed a newer copy of this session (\(conflict?.when ?? "recently")) since this Mac last pushed or downloaded it. Replacing it keeps only this Mac's version.")
+        }
     }
 
     private var trashTitle: String {
@@ -97,6 +107,7 @@ struct SessionSidebar: View {
                     }
                 }
             }
+            CloudOnlySection(state: state)
         }
         .listStyle(.sidebar)
         .contextMenu(forSelectionType: URL.self) { urls in
@@ -109,7 +120,7 @@ struct SessionSidebar: View {
             return .handled
         }
         .overlay {
-            if state.library.entries.isEmpty {
+            if state.library.entries.isEmpty && CloudState.shared.remote.isEmpty {
                 ContentUnavailableView("No Sessions", systemImage: "record.circle",
                                        description: Text("Recordings are saved to ~/Movies/ContextRecorder."))
             }

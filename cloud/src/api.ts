@@ -1,8 +1,9 @@
 import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import type { AppEnv } from "./env";
+import { serveSessionFile } from "./files";
 import { HttpError, json, readJson, sha256Hex } from "./http";
 import type { Identity } from "./identity";
-import { assertSessionId, parseManifest, SHA256 } from "./manifest";
+import { assertSessionId, isValidPath, parseManifest, SHA256 } from "./manifest";
 import { Store } from "./store";
 
 /** /api/* routes (docs/cloud-sessions.md §2). Returns null when nothing matched. */
@@ -37,8 +38,17 @@ export async function handleApi(request: Request, env: AppEnv, identity: Identit
       const { text, value } = await readJson(request);
       const manifest = parseManifest(value, id);
       const manifestSha256 = await sha256Hex(text);
-      await store.commit(manifest, text, manifestSha256, identity.id);
+      // If-Match: "<manifestSha256>" commits only over that version (412 otherwise); absent, it always replaces.
+      const ifMatch = request.headers.get("if-match")?.trim().replace(/^W\//, "").replace(/^"|"$/g, "");
+      await store.commit(manifest, text, manifestSha256, identity.id, ifMatch || undefined);
       return json({ url: `${url.origin}/s/${encodeURIComponent(id)}/`, manifestSha256 });
+    }
+    // A session's files for apps (the Mac's download): the same as /s/:id/<path>, but under /api, which Access lets
+    // through to the Worker's own bearer check. /s/* stays behind Access for the browser viewer.
+    if (parts.length >= 4 && parts[2] === "files" && (method === "GET" || method === "HEAD")) {
+      const filePath = parts.slice(3).join("/");
+      if (filePath !== "manifest.json" && !isValidPath(filePath)) throw new HttpError(400, "invalid path");
+      return await serveSessionFile(request, store, id, filePath);
     }
     if (parts.length === 2 && method === "GET") {
       const row = await store.getSession(id);

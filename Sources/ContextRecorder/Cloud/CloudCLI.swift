@@ -3,17 +3,21 @@ import Foundation
 
 /// Headless commands (no window, no menu-bar item):
 ///   ContextRecorder --cloud-bundle <session> <out-folder>
-///   ContextRecorder --push <session> [--cloud <url>]
+///   ContextRecorder --push <session> [--cloud <url>] [--force]   (--force replaces a cloud copy another Mac pushed)
+///   ContextRecorder --cloud-list [--cloud <url>]
+///   ContextRecorder --pull <session-id> [--cloud <url>] [--into <library-folder>]
 ///   ContextRecorder --self-test cloud-bundle | cloud-client
-/// `--push` uses the app's stored sign-in; `CR_CLOUD_TOKEN` (an access token) overrides it.
+///   ContextRecorder --cloud-snapshot <library-folder> <out-folder>   (CR_CLOUD_URL; draws the sidebar's
+///     "In the Cloud" rows off screen before, during and after downloading the first one, no window shown)
+/// `--push`, `--cloud-list` and `--pull` use the app's stored sign-in; `CR_CLOUD_TOKEN` (an access token) overrides it.
 /// Exit codes: 0 ok, 1 failed, 2 bad usage, no cloud configured, or signed out.
 @MainActor
 enum CloudCLI {
     static func handles(_ args: [String]) -> Bool {
-        args.contains("--cloud-bundle") || args.contains("--push") || ["cloud-bundle", "cloud-client"].contains(value(args, "--self-test") ?? "")
+        ["--cloud-bundle", "--push", "--cloud-list", "--pull", "--cloud-snapshot"].contains(where: args.contains) || ["cloud-bundle", "cloud-client"].contains(value(args, "--self-test") ?? "")
     }
 
-    /// Runs the command on the main actor and exits; the caller then parks the main thread in dispatchMain().
+    /// Runs the command on the main actor and exits; the caller then runs the (prohibited, windowless) app's run loop.
     static func start(_ args: [String]) {
         // ImageRenderer and AppKit text measuring want an NSApplication, but it never shows anything.
         _ = NSApplication.shared
@@ -70,24 +74,81 @@ enum CloudCLI {
             }
         }
 
+        // Every remaining command talks to the cloud.
+        func cloudConfig() -> CloudConfig? {
+            guard let config = CloudConfig.current(override: value(args, "--cloud")) else {
+                fputs("No cloud configured: pass --cloud <url>, set CR_CLOUD_URL, or set it in Cloud Settings.\n", stderr)
+                return nil
+            }
+            // A local wrangler dev Worker (DEV_IDENTITY) takes requests without a token.
+            guard CloudAuth.isLocal(config.url) || config.hasCredentials else {
+                fputs("Not signed in to \(config.url.absoluteString). Sign in from Cloud Settings in the app, or set CR_CLOUD_TOKEN.\n", stderr)
+                return nil
+            }
+            return config
+        }
+
+        if let i = args.firstIndex(of: "--cloud-snapshot") {
+            guard i + 2 < args.count, cloudConfig() != nil else {
+                fputs("usage: CR_CLOUD_URL=<url> ContextRecorder --cloud-snapshot <library-folder> <out-folder>\n", stderr)
+                return 2
+            }
+            do {
+                try await CloudSnapshot.run(library: path(args[i + 1]), out: path(args[i + 2]))
+                return 0
+            } catch {
+                fputs("cloud-snapshot failed: \(error.localizedDescription)\n", stderr)
+                return 1
+            }
+        }
+
+        if args.contains("--cloud-list") {
+            guard let config = cloudConfig() else { return 2 }
+            do {
+                let rows = try await config.client.listSessions()
+                let local = Set(SessionLibrary.sessionFolders(in: Session.root).map(\.lastPathComponent))
+                for r in rows {
+                    let size = ByteCountFormatter.string(fromByteCount: r.size, countStyle: .file)
+                    print("\(local.contains(r.id) ? "here " : "cloud") \(r.id)  \(r.title)  \(Format.time(r.duration))  \(size)  from \(r.machine ?? "?")")
+                }
+                return 0
+            } catch {
+                fputs("cloud-list failed: \(error.localizedDescription)\n", stderr)
+                return error as? CloudAuthError == .signInRequired ? 2 : 1
+            }
+        }
+
+        if let i = args.firstIndex(of: "--pull") {
+            guard i + 1 < args.count, !args[i + 1].hasPrefix("--") else {
+                fputs("usage: ContextRecorder --pull <session-id> [--cloud <url>] [--into <library-folder>]\n", stderr)
+                return 2
+            }
+            guard let config = cloudConfig() else { return 2 }
+            do {
+                var last = ""
+                let root = value(args, "--into").map(path) ?? Session.root
+                let folder = try await CloudPull.run(id: args[i + 1], config: config, into: root) { phase, f in
+                    let line = String(format: "  %3.0f%%  %@", f * 100, phase)
+                    if line != last { fputs(line + "\n", stderr); last = line }
+                }
+                print("Downloaded \(args[i + 1]) → \(folder.path)")
+                return 0
+            } catch {
+                fputs("pull failed: \(error.localizedDescription)\n", stderr)
+                return error as? CloudAuthError == .signInRequired ? 2 : 1
+            }
+        }
+
         if let i = args.firstIndex(of: "--push") {
             guard i + 1 < args.count, !args[i + 1].hasPrefix("--") else {
                 fputs("usage: ContextRecorder --push <session-folder> [--cloud <url>]\n", stderr)
                 return 2
             }
             let session = path(args[i + 1])
-            guard let config = CloudConfig.current(override: value(args, "--cloud")) else {
-                fputs("No cloud configured: pass --cloud <url>, set CR_CLOUD_URL, or set it in Cloud Settings.\n", stderr)
-                return 2
-            }
-            // A local wrangler dev Worker (DEV_IDENTITY) takes requests without a token.
-            guard CloudAuth.isLocal(config.url) || config.hasCredentials else {
-                fputs("Not signed in to \(config.url.absoluteString). Sign in from Cloud Settings in the app, or set CR_CLOUD_TOKEN.\n", stderr)
-                return 2
-            }
+            guard let config = cloudConfig() else { return 2 }
             do {
                 var last = ""
-                let (record, report) = try await CloudPush.run(session: session, config: config) { phase, f in
+                let (record, report) = try await CloudPush.run(session: session, config: config, force: args.contains("--force")) { phase, f in
                     let line = String(format: "  %3.0f%%  %@", f * 100, phase)
                     if line != last { fputs(line + "\n", stderr); last = line }
                 }

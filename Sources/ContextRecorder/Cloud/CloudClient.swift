@@ -46,10 +46,28 @@ struct CloudClient {
         }
     }
 
+    /// The commit was refused (412): the cloud copy isn't the version this Mac last pushed or downloaded.
+    struct Conflict: LocalizedError, Equatable {
+        /// Who pushed what the cloud has now.
+        var machine: String?
+        var pushedAt: String
+        /// `pushedAt` as a date and time, when it parses.
+        var when: String {
+            let iso = ISO8601DateFormatter()
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let date = iso.date(from: pushedAt) ?? ISO8601DateFormatter().date(from: pushedAt)
+            return date?.formatted(date: .abbreviated, time: .shortened) ?? pushedAt
+        }
+        var errorDescription: String? {
+            "The cloud copy changed since this Mac last pushed or downloaded it (pushed \(when)\(machine.map { " from \($0)" } ?? ""))."
+        }
+    }
+
     typealias Progress = (_ done: Int64, _ total: Int64) -> Void
 
-    /// Pushes the bundle folder written by `CloudBundle.build`.
-    func push(bundle: URL, progress: Progress? = nil) async throws -> Report {
+    /// Pushes the bundle folder written by `CloudBundle.build`. With `expected` (the manifestSha256 this Mac last
+    /// pushed or downloaded) the commit only replaces that version, and throws `Conflict` when the cloud has another.
+    func push(bundle: URL, expected: String? = nil, progress: Progress? = nil) async throws -> Report {
         let manifestData = try Data(contentsOf: bundle.appendingPathComponent("manifest.json"))
         let manifest = try JSONDecoder().decode(CloudManifest.self, from: manifestData)
         let id = manifest.sessionId
@@ -81,7 +99,15 @@ struct CloudClient {
 
         // Commit; if blobs vanished in between (409), upload them and try once more.
         for attempt in 0..<2 {
-            let (data, status) = try await timed("Committing") { try await request("POST", "api/sessions/\(id)/commit", body: manifestData) }
+            let headers = expected.map { ["If-Match": "\"\($0)\""] } ?? [:]
+            let (data, status) = try await timed("Committing") {
+                try await request("POST", "api/sessions/\(id)/commit", body: manifestData, headers: headers)
+            }
+            if status == 412 {
+                struct Body: Decodable { struct Row: Decodable { var machine: String?; var pushedAt: String }; var current: Row }
+                let current = (try? JSONDecoder().decode(Body.self, from: data))?.current
+                throw Conflict(machine: current?.machine, pushedAt: current?.pushedAt ?? "recently")
+            }
             if status == 409, attempt == 0, let missing = try? JSONDecoder().decode(Missing.self, from: data) {
                 try await timed("Uploading") { try await upload(missing.missing) }
                 continue
@@ -176,7 +202,7 @@ struct CloudClient {
 
     // MARK: HTTP
 
-    private func json<T: Decodable>(_ method: String, _ path: String, body: Data?, contentType: String = "application/json") async throws -> T {
+    func json<T: Decodable>(_ method: String, _ path: String, body: Data?, contentType: String = "application/json") async throws -> T {
         let (data, status) = try await request(method, path, body: body, contentType: contentType)
         try check(status, data, path)
         do { return try JSONDecoder().decode(T.self, from: data) } catch {
@@ -189,29 +215,32 @@ struct CloudClient {
         try check(status, data, path)
     }
 
-    private func check(_ status: Int, _ data: Data, _ path: String) throws {
+    func check(_ status: Int, _ data: Data, _ path: String) throws {
         guard (200..<300).contains(status) else { throw HTTPError(status: status, body: String(decoding: data, as: UTF8.self), path: path) }
     }
 
     /// Sends with the current token; on a 401 refreshes once and retries.
-    func request(_ method: String, _ path: String, body: Data?, contentType: String = "application/json") async throws -> (Data, Int) {
+    func request(_ method: String, _ path: String, body: Data?, contentType: String = "application/json",
+                 headers: [String: String] = [:]) async throws -> (Data, Int) {
         let token = try await auth?.token(for: baseURL)
-        let (data, status) = try await attempt(method, path, body: body, contentType: contentType, token: token)
+        let (data, status) = try await attempt(method, path, body: body, contentType: contentType, headers: headers, token: token)
         guard status == 401, let auth else { return (data, status) }
         if token == nil, await !auth.isFixed {
             // Signed out and the cloud wants a sign-in.
             throw CloudAuthError.signInRequired
         }
         let fresh = try await auth.token(for: baseURL, after: token)
-        let retry = try await attempt(method, path, body: body, contentType: contentType, token: fresh)
+        let retry = try await attempt(method, path, body: body, contentType: contentType, headers: headers, token: fresh)
         if retry.1 == 401 { throw CloudAuthError.signInRequired }
         return retry
     }
 
-    private func attempt(_ method: String, _ path: String, body: Data?, contentType: String, token: String?) async throws -> (Data, Int) {
+    private func attempt(_ method: String, _ path: String, body: Data?, contentType: String, headers: [String: String],
+                         token: String?) async throws -> (Data, Int) {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
         req.httpMethod = method
         req.timeoutInterval = 600
+        for (name, value) in headers { req.setValue(value, forHTTPHeaderField: name) }
         if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body {
             req.httpBody = body
@@ -319,7 +348,10 @@ struct CloudRecord: Codable, Equatable {
 @MainActor
 enum CloudPush {
     /// Builds the cloud copy in a temporary folder, pushes it, writes exports/cloud.json and cleans up.
-    static func run(session: URL, config: CloudConfig, progress: ((String, Double) -> Void)? = nil) async throws -> (CloudRecord, CloudClient.Report) {
+    /// Replaces only the version recorded in exports/cloud.json, unless `force`.
+    static func run(session: URL, config: CloudConfig, force: Bool = false,
+                    progress: ((String, Double) -> Void)? = nil) async throws -> (CloudRecord, CloudClient.Report) {
+        let expected = force ? nil : CloudRecord.load(session)?.manifestSha256
         let temp = FileManager.default.temporaryDirectory
             .appendingPathComponent("ContextRecorder-cloud/\(CloudBundle.sessionID(for: session))-\(UUID().uuidString.prefix(8))")
         defer { try? FileManager.default.removeItem(at: temp) }
@@ -335,7 +367,7 @@ enum CloudPush {
             progress?(name == "Done" ? "Uploading" : name, f * 0.5)
         }
         enter(nil)
-        var report = try await config.client.push(bundle: temp) { done, total in
+        var report = try await config.client.push(bundle: temp, expected: expected) { done, total in
             let f = total > 0 ? Double(done) / Double(total) : 1
             progress?("Uploading \(ByteCountFormatter.string(fromByteCount: done, countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: total, countStyle: .file))", 0.5 + 0.48 * f)
         }

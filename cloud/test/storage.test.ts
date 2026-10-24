@@ -41,6 +41,41 @@ describe("push → upload → commit", () => {
     expect(await inR2(shaOf(a, "recording.mp4"))).toBe(true); // still used by s-share-b
   });
 
+  it("If-Match commits only over the version the pusher last saw", async () => {
+    const { manifest: v1 } = await seed("s-match", 21);
+    const v1sha = await sha256Hex(JSON.stringify(v1));
+    // Another Mac pushes v2 over v1.
+    const files2 = makeFiles("s-match", 22);
+    const v2 = await makeManifest("s-match", files2, { machine: "Studio" });
+    await pushSession(v2, files2);
+    const v2sha = await sha256Hex(JSON.stringify(v2));
+
+    // This Mac still thinks v1 is current: refused, and the cloud keeps v2 and its files.
+    const files3 = makeFiles("s-match", 23);
+    const v3 = await makeManifest("s-match", files3);
+    for (const [sha, f] of v3.files.map((f) => [f.sha256, files3[f.path]!] as const)) await putBlob(sha, f.bytes);
+    const commit = (ifMatch: string) =>
+      call("/api/sessions/s-match/commit", {
+        method: "POST",
+        headers: { "content-type": "application/json", "if-match": ifMatch },
+        body: JSON.stringify(v3),
+      });
+    const stale = await commit(`"${v1sha}"`);
+    expect(stale.status).toBe(412);
+    const body = (await stale.json()) as { current: { manifestSha256: string; machine: string } };
+    expect(body.current.manifestSha256).toBe(v2sha);
+    expect(body.current.machine).toBe("Studio");
+    const kept = (await (await call("/api/sessions/s-match")).json()) as { manifest: { files: { sha256: string }[] } };
+    expect(kept.manifest.files.map((f) => f.sha256)).toEqual(v2.files.map((f) => f.sha256));
+    const video = await call("/s/s-match/recording.mp4");
+    expect(video.headers.get("etag")).toBe(`"${shaOf(v2, "recording.mp4")}"`);
+    expect(await inR2(shaOf(v2, "recording.mp4"))).toBe(true);
+
+    // With the current version it goes through.
+    expect((await commit(`"${v2sha}"`)).status).toBe(200);
+    expect((await call("/s/s-match/recording.mp4")).headers.get("etag")).toBe(`"${shaOf(v3, "recording.mp4")}"`);
+  });
+
   it("commit returns 409 with the missing blobs", async () => {
     const files = makeFiles("s-409", 409);
     const manifest = await makeManifest("s-409", files);
@@ -133,12 +168,14 @@ describe("sessions", () => {
     const older = makeFiles("s-old");
     await pushSession(await makeManifest("s-old", older, { recordedAt: "2020-01-01T00:00:00Z" }), older);
     const newer = makeFiles("s-new");
-    await pushSession(await makeManifest("s-new", newer, { recordedAt: "2030-01-01T00:00:00Z" }), newer);
+    await pushSession(await makeManifest("s-new", newer, { recordedAt: "2030-01-01T00:00:00Z", machine: "Studio" }), newer);
     const list = (await (await call("/api/sessions")).json()) as { id: string }[];
     const ids = list.map((r) => r.id);
     expect(ids.indexOf("s-new")).toBeLessThan(ids.indexOf("s-old"));
     const row = list.find((r) => r.id === "s-new") as Record<string, unknown>;
-    expect(Object.keys(row).sort()).toEqual(["duration", "id", "markCount", "poster", "pushedAt", "recordedAt", "size", "title"]);
+    expect(Object.keys(row).sort()).toEqual(["duration", "id", "machine", "markCount", "poster", "pushedAt", "recordedAt", "size", "title"]);
+    expect(row.machine).toBe("Studio");
+    expect((list.find((r) => r.id === "s-old") as Record<string, unknown>).machine).toBeNull();
 
     const got = (await (await call("/api/sessions/s-new")).json()) as { manifest: { sessionId: string } };
     expect(got.manifest.sessionId).toBe("s-new");

@@ -144,5 +144,5 @@ This milestone proves the format and the parity question without Cloudflare. It 
 ## Below the cut line
 
 - Canvas view in the cloud; ZIP download for agents; search across sessions and "what happened" Q&A.
-- A second Mac pulling sessions into its library; automatic push; editing anything in the cloud.
+- Automatic push; editing anything in the cloud. (A second Mac pulling sessions into its library has since shipped: docs/cloud-sessions.md §7.)
 - Cloudflare Stream or HLS encoding; multiple users; a public library.
