@@ -80,6 +80,10 @@ enum CloudSelfTest {
             if vf.map(CMFormatDescriptionGetMediaSubType) != kCMVideoCodecType_H264 { f.append("video isn't H.264") }
             if af.map(CMFormatDescriptionGetMediaSubType) != kAudioFormatMPEG4AAC { f.append("audio isn't AAC") }
         } catch { f.append("couldn't read the video: \(error)") }
+        // Fast start: moov before mdat, so the viewer needs no tail request.
+        if !CloudBundle.isFastStart(video.url) {
+            f.append("video isn't fast start: \(CloudBundle.topLevelAtoms(video.url) ?? [])")
+        }
 
         // Every frame of the flattened video is the source frame EditMap says it should be.
         let generator = AVAssetImageGenerator(asset: video)
