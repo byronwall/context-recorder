@@ -207,7 +207,7 @@ final class CloudState {
 
     private func loadPoster(_ row: CloudSessionRow, config: CloudConfig) async {
         guard let poster = row.poster,
-              let (data, status) = try? await config.client.request("GET", "s/\(row.id)/\(poster)", body: nil),
+              let (data, status) = try? await config.client.request("GET", CloudClient.filePath(row.id, poster), body: nil),
               (200..<300).contains(status), let image = NSImage(data: data) else { return }
         posters[row.id] = image
     }

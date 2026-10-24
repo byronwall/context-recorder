@@ -122,3 +122,25 @@ describe("parseRange", () => {
     expect(parseRange("bytes=10-", 10)).toBe("unsatisfiable");
   });
 });
+
+// The Mac downloads through /api (Access lets it through to the bearer check); /s/* stays behind Access.
+describe("GET /api/sessions/:id/files/<path>", () => {
+  it("serves the same bytes and ranges as /s/", async () => {
+    const whole = await call("/api/sessions/f-1/files/recording.mp4");
+    expect(whole.status).toBe(200);
+    expect(whole.headers.get("etag")).toBe(`"${shaOf(manifest, "recording.mp4")}"`);
+    expect(new Uint8Array(await whole.arrayBuffer())).toEqual(video());
+    const part = await call("/api/sessions/f-1/files/recording.mp4", { headers: { range: "bytes=100-199" } });
+    expect(part.status).toBe(206);
+    expect(new Uint8Array(await part.arrayBuffer())).toEqual(video().slice(100, 200));
+  });
+
+  it("serves the manifest exactly as pushed, and refuses escaping paths", async () => {
+    const res = await call("/api/sessions/f-1/files/manifest.json");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(JSON.stringify(manifest));
+    expect((await call("/api/sessions/f-1/files/nope.json")).status).toBe(404);
+    // An encoded slash survives URL normalization as one segment and decodes to "a/../b".
+    expect((await call("/api/sessions/f-1/files/a%2F..%2Fb")).status).toBe(400);
+  });
+});

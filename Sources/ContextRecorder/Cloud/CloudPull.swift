@@ -20,9 +20,12 @@ extension CloudClient {
         try await json("GET", "api/sessions", body: nil)
     }
 
+    /// A session file's API path. `/api/*` reaches the Worker's bearer check; `/s/*` sits behind Access (browsers only).
+    static func filePath(_ id: String, _ path: String) -> String { "api/sessions/\(id)/files/\(path)" }
+
     /// The session's manifest exactly as it was pushed, so its sha256 is the cloud's `manifestSha256`.
     func manifestData(_ id: String) async throws -> Data {
-        let (data, status) = try await request("GET", "s/\(id)/manifest.json", body: nil)
+        let (data, status) = try await request("GET", Self.filePath(id, "manifest.json"), body: nil)
         try check(status, data, "manifest.json")
         return data
     }
@@ -30,7 +33,7 @@ extension CloudClient {
     /// Bytes `offset…offset+length-1` of a file in the session. A server that ignores the range answers 200 with
     /// the whole file; `whole` says which one came back.
     func fileRange(_ id: String, _ path: String, offset: Int64, length: Int64) async throws -> (data: Data, whole: Bool) {
-        let (data, status) = try await request("GET", "s/\(id)/\(path)", body: nil,
+        let (data, status) = try await request("GET", Self.filePath(id, path), body: nil,
                                                headers: ["Range": "bytes=\(offset)-\(offset + length - 1)"])
         try check(status, data, path)
         return (data, status == 200)

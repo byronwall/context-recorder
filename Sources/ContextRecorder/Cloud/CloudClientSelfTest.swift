@@ -514,9 +514,9 @@ final class FakeWorker: URLProtocol {
                         "machine": m.machine ?? NSNull()]
             }
             return (200, json(rows))
-        case ("GET", _, _) where parts.first == "s" && parts.count >= 3:
-            guard let manifestData = state.sessions[parts[1]] else { return (404, Data()) }
-            let path = parts.dropFirst(2).joined(separator: "/")
+        case ("GET", _, "sessions") where parts.count >= 5 && parts[3] == "files":
+            guard let manifestData = state.sessions[parts[2]] else { return (404, Data()) }
+            let path = parts.dropFirst(4).joined(separator: "/")
             if path == "manifest.json" { return (200, manifestData) }
             guard let m = try? JSONDecoder().decode(CloudManifest.self, from: manifestData),
                   let file = m.files.first(where: { $0.path == path }), let blob = state.blobs[file.sha256] else { return (404, Data()) }

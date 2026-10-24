@@ -99,6 +99,7 @@ endpoints the provider owns.
 | `GET /api/sessions/:id` | → `{ ...row, manifest }` or `404` |
 | `DELETE /api/sessions/:id` | → `204`; removes the row and orphaned blobs |
 | `GET /s/:id/` | the viewer (`viewer.html` from Worker static assets, no embedded data) |
+| `GET /api/sessions/:id/files/<path>` | the same as `GET /s/:id/<path>`, for apps: `/api/*` passes Access to the Worker's bearer check, while `/s/*` stays behind Access (a bearer request there gets Access's login redirect) |
 | `GET /s/:id/<path>` | the file from the manifest, with `Content-Type` from the manifest, `Range` support (206), `ETag` = sha256 and `Cache-Control: private, no-cache` (add `?v=<sha256>` for immutable caching). `manifest.json` is served from D1 |
 | `GET /v/:id` | `302` → `/s/:id/` |
 | `GET /` | library page: sessions, plus signed-in apps with Sign out |
@@ -194,14 +195,15 @@ the Mac app and MCP agents.
 
 ## 7. Mac pull (sessions from another Mac)
 
-Same account, another Mac: the app lists what's in the cloud and downloads a session on request. No new routes:
-it reads `GET /api/sessions` and the session's files with the saved sign-in (§6).
+Same account, another Mac: the app lists what's in the cloud and downloads a session on request. It reads
+`GET /api/sessions` and `GET /api/sessions/:id/files/<path>` with the saved sign-in (§6). Not `/s/*`: that is behind
+Access, which answers an app's bearer request with its login redirect.
 
 - **Listing:** the sidebar's **In the Cloud** section shows each cloud session with no library folder named its
-  `id`: poster (`GET /s/:id/<poster>`), title, `machine` and mark count, with Download in a fixed slot that turns into
+  `id`: poster (`GET /api/sessions/:id/files/<poster>`), title, `machine` and mark count, with Download in a fixed slot that turns into
   a progress ring. It is hidden when there's no cloud, signed out, or nothing to show. It refreshes when the sidebar
   appears, when the app becomes active, after sign-in and when the cloud address changes.
-- **Download (`CloudPull`):** read `GET /s/:id/manifest.json` (exactly as pushed, so its sha256 is the cloud's
+- **Download (`CloudPull`):** read `GET /api/sessions/:id/files/manifest.json` (exactly as pushed, so its sha256 is the cloud's
   `manifestSha256`), then fetch every file in `files` with `Range` requests of 32 MB into
   `<library>/.<id>.partial/` (hidden, so the library scan skips it). A file already there with the right size and
   sha256 is skipped, a short one is continued, and every file is checked against its sha256. Paths with `..`, and
