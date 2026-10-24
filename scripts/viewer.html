@@ -138,7 +138,13 @@ aside { border-left: 1px solid var(--line); display: flex; flex-direction: colum
 .item + .item { margin-top: 2px; }
 .item:hover { background: var(--panel-2); }
 .item.sel { border-color: var(--line-2); background: var(--panel-2); box-shadow: inset 3px 0 0 var(--accent); }
-.item > img { width: 104px; height: 66px; object-fit: cover; border-radius: 6px; background: #000; box-shadow: 0 0 0 1px var(--line); }
+/* The card's summary is a button (Enter/Space select it); it keeps the card's look, and its focus ring outlines the whole card. */
+.item .summary { grid-column: 1 / -1; display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px; align-items: stretch; width: 100%; height: auto; padding: 0;
+  border: 0; border-radius: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-align: left; }
+.item .summary:hover { background: none; color: inherit; }
+.item .summary:focus-visible { outline: none; }
+.item:has(> .summary:focus-visible) { outline: 2px solid var(--accent); outline-offset: -1px; }
+.item .summary > img { width: 104px; height: 66px; object-fit: cover; border-radius: 6px; background: #000; box-shadow: 0 0 0 1px var(--line); }
 .item .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .item .top { display: flex; gap: 8px; align-items: center; font: 11px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .badge { display: inline-flex; align-items: center; gap: 5px; font: 600 10px/18px var(--sans); letter-spacing: .03em; text-transform: uppercase; padding: 0 7px; border-radius: 999px; }
@@ -158,11 +164,13 @@ aside { border-left: 1px solid var(--line); display: flex; flex-direction: colum
 .detail .kv { padding: 10px 0; border-top: 1px solid var(--line); }
 .detail .actions { display: flex; gap: 8px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
 
-.row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
-.row:hover { background: var(--panel-2); }
+.row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  align-items: stretch; width: 100%; height: auto; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-align: left; }
+.row:hover { background: var(--panel-2); color: inherit; }
+.row:focus-visible { outline-offset: -2px; }
 .row.cur { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .row .t { font: 11px/20px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.row .sub { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.row .sub { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 8px; vertical-align: 0; }
 
 .problems { margin: 10px 0 0; padding: 10px 12px; list-style: none; font: 11px/1.5 var(--mono); color: var(--now); background: var(--now-soft); border-radius: 6px; }
@@ -210,7 +218,8 @@ code { font: 11px var(--mono); background: var(--panel-2); border: 1px solid var
   <div class="main">
     <section class="stage">
       <div class="player"><video id="video" src="recording.mp4" controls preload="metadata"></video></div>
-      <div class="timeline" id="timeline">
+      <!-- Pointer-only overview: keyboard users reach the same moments through the list and the video's scrubber. -->
+      <div class="timeline" id="timeline" aria-hidden="true">
         <div class="lane-label">Marks</div>
         <div class="lane" id="laneMarks"></div>
         <div class="lane-label">Active app</div>
@@ -228,11 +237,11 @@ code { font: 11px var(--mono); background: var(--panel-2); border: 1px solid var
     </section>
     <aside>
       <div class="tabs">
-        <div class="segmented" role="tablist">
-          <button data-tab="marks" class="on">Marks</button>
-          <button data-tab="transcript">Transcript</button>
-          <button data-tab="activity">Activity</button>
-          <button data-tab="browser">Page</button>
+        <div class="segmented" role="tablist" aria-label="Sidebar">
+          <button role="tab" id="tab-marks" aria-controls="list" aria-selected="true" data-tab="marks" class="on">Marks</button>
+          <button role="tab" id="tab-transcript" aria-controls="list" aria-selected="false" tabindex="-1" data-tab="transcript">Transcript</button>
+          <button role="tab" id="tab-activity" aria-controls="list" aria-selected="false" tabindex="-1" data-tab="activity">Activity</button>
+          <button role="tab" id="tab-browser" aria-controls="list" aria-selected="false" tabindex="-1" data-tab="browser">Page</button>
         </div>
         <div class="filters" id="filters">
           <button data-filter="all" class="on">All</button>
@@ -240,7 +249,7 @@ code { font: 11px var(--mono); background: var(--panel-2); border: 1px solid var
           <button data-filter="mark">Marks</button>
         </div>
       </div>
-      <div class="list" id="list" aria-busy="true"><div class="empty-state">Loading session…</div></div>
+      <div class="list" id="list" role="tabpanel" aria-labelledby="tab-marks" aria-busy="true"><div class="empty-state">Loading session…</div></div>
     </aside>
   </div>
 </div>
@@ -490,15 +499,17 @@ function renderList() {
     list.innerHTML = shown.length ? shown.map((m) => {
       const c = m.context || {};
       return `<div class="item ${selected === m.index ? "sel" : ""}" data-mark="${m.index}">
+        <button type="button" class="summary" aria-expanded="${selected === m.index}" aria-controls="detail-${m.index}">
         <img src="${esc(previewOf(m))}" alt="" loading="lazy">
-        <div class="meta">
-          <div class="top"><span class="badge ${m.kind}">${m.kind === "screenshot" ? "Shot" : "Mark"}</span><span>#${m.index}</span><span>${fmt(m.offsetSeconds)}</span></div>
-          <div class="title">${esc(titleOf(m))}</div>
-          <div class="sub">${esc(c.browserURL || c.windowTitle || c.appName || "")}</div>
-          ${m.browser?.hovered ? `<div class="sub"><code>${esc(m.browser.hovered.selector)}</code></div>` : ""}
-          ${(m.browser?.recent || []).some(isProblem) ? `<div class="sub warn">${icon("alert")}${(m.browser.recent || []).filter(isProblem).length} recent errors</div>` : ""}
-        </div>
-        <div class="detail">
+        <span class="meta">
+          <span class="top"><span class="badge ${m.kind}">${m.kind === "screenshot" ? "Shot" : "Mark"}</span><span>#${m.index}</span><span>${fmt(m.offsetSeconds)}</span></span>
+          <span class="title">${esc(titleOf(m))}</span>
+          <span class="sub">${esc(c.browserURL || c.windowTitle || c.appName || "")}</span>
+          ${m.browser?.hovered ? `<span class="sub"><code>${esc(m.browser.hovered.selector)}</code></span>` : ""}
+          ${(m.browser?.recent || []).some(isProblem) ? `<span class="sub warn">${icon("alert")}${(m.browser.recent || []).filter(isProblem).length} recent errors</span>` : ""}
+        </span>
+        </button>
+        <div class="detail" id="detail-${m.index}">
           ${detailImg(m, m.image, `Mark ${m.index}`)}
           ${m.frame && m.frame !== m.image ? `<div class="caption">Full screen at this moment</div>${detailImg(m, m.frame, `Full frame ${m.index}`)}` : ""}
           ${m.narration ? `<blockquote>${esc(m.narration)}</blockquote>` : ""}
@@ -510,17 +521,17 @@ function renderList() {
     }).join("") : emptyState("flag", filter === "all" ? "No marks yet. Press <kbd>⌃⌥M</kbd> or <kbd>⌃⌥S</kbd> while recording." : "Nothing matches this filter.");
   } else if (tab === "transcript") {
     list.innerHTML = transcript.length ? transcript.map((s, i) =>
-      `<div class="row" data-seek="${s.start}" data-sent="${i}"><span class="t">${fmt(s.start)}</span><span>${esc(s.text)}</span></div>`).join("")
+      `<button type="button" class="row" data-seek="${s.start}" data-sent="${i}"><span class="t">${fmt(s.start)}</span><span>${esc(s.text)}</span></button>`).join("")
       : emptyState("mic", "Silent recording: no narration.");
   } else if (tab === "browser") {
     list.innerHTML = browserEvents.map((b) => {
       const e = b.event || {};
-      return `<div class="row" data-seek="${b.offsetSeconds}"><span class="t">${fmt(b.offsetSeconds)}</span><span><span class="swatch k-${e.kind}"></span>${esc({ click: "Click", nav: "Navigation", console: "Console", error: "Error", request: "Request" }[e.kind] || e.kind)}<div class="sub" style="${isProblem(e) ? "color:var(--now)" : ""}">${esc(pageEventText(e))}</div></span></div>`;
+      return `<button type="button" class="row" data-seek="${b.offsetSeconds}"><span class="t">${fmt(b.offsetSeconds)}</span><span><span class="swatch k-${e.kind}"></span>${esc({ click: "Click", nav: "Navigation", console: "Console", error: "Error", request: "Request" }[e.kind] || e.kind)}<span class="sub" style="${isProblem(e) ? "color:var(--now)" : ""}">${esc(pageEventText(e))}</span></span></button>`;
     }).join("") || emptyState("inbox", "No page events. Install the Chrome extension (see README) to capture clicks, console errors and failed requests.");
   } else {
     list.innerHTML = activity.map((a) => {
       const c = a.context || {};
-      return `<div class="row" data-seek="${a.offsetSeconds}"><span class="t">${fmt(a.offsetSeconds)}</span><span><span class="swatch" style="background:${appColor(c.appName)}"></span>${esc(c.appName)}<div class="sub">${esc(c.browserURL || c.windowTitle || "")}</div></span></div>`;
+      return `<button type="button" class="row" data-seek="${a.offsetSeconds}"><span class="t">${fmt(a.offsetSeconds)}</span><span><span class="swatch" style="background:${appColor(c.appName)}"></span>${esc(c.appName)}<span class="sub">${esc(c.browserURL || c.windowTitle || "")}</span></span></button>`;
     }).join("") || emptyState("app", "No activity recorded.");
   }
 }
@@ -546,6 +557,7 @@ function select(index, { seek = true, scroll = true } = {}) {
   renderTimeline(); renderNow();
   // Toggle classes rather than re-rendering so images don't reload and flicker.
   document.querySelectorAll(".item[data-mark]").forEach((el) => el.classList.toggle("sel", +el.dataset.mark === index));
+  document.querySelectorAll(".item[data-mark] > .summary").forEach((b) => b.setAttribute("aria-expanded", +b.parentElement.dataset.mark === index));
   const item = document.querySelector(`.item[data-mark="${index}"]`);
   loadDetail(item);
   if (scroll) item?.scrollIntoView({ block: "nearest" });
@@ -560,7 +572,13 @@ function step(dir) {
 
 function setTab(t) {
   tab = t;
-  document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
+  document.querySelectorAll("[data-tab]").forEach((b) => {
+    const on = b.dataset.tab === t;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", on);
+    b.tabIndex = on ? 0 : -1;
+  });
+  $("#list").setAttribute("aria-labelledby", `tab-${t}`);
   $("#filters").style.display = t === "marks" ? "" : "none";
   renderList(); renderNow();
 }
@@ -573,6 +591,8 @@ async function copy(text, btn) {
 document.addEventListener("click", (e) => {
   const el = e.target;
   const btn = el.closest("button");
+  // A mouse click shouldn't leave focus on a card or row, or the next Space would re-press it instead of playing.
+  if (e.detail && btn?.matches(".summary, .row")) btn.blur();
   if (btn?.matches("[data-tab]")) return setTab(btn.dataset.tab);
   if (btn?.matches("[data-filter]")) {
     filter = btn.dataset.filter;
@@ -592,9 +612,24 @@ document.addEventListener("click", (e) => {
   if (lane) { const r = lane.getBoundingClientRect(); seekTo(((e.clientX - r.left) / r.width) * duration); renderNow(); }
 });
 
+// Tabs: roving tabindex, ←/→/Home/End move between them and select.
+$(".segmented").addEventListener("keydown", (e) => {
+  const tabs = [...e.currentTarget.querySelectorAll("[role=tab]")];
+  const i = tabs.indexOf(e.target);
+  if (i < 0) return;
+  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  const to = tabs[(next + tabs.length) % tabs.length];
+  to.focus();
+  setTab(to.dataset.tab);
+});
+
 document.addEventListener("keydown", (e) => {
   if (e.target.matches("input, textarea")) return;
   if (lightbox.isOpen()) return lightbox.key(e);
+  // Focused controls keep Space and the arrows (Space presses a button, arrows move between tabs); j/k still step.
+  if ((e.key === " " || e.key.startsWith("Arrow")) && e.target.closest("button, a, input, textarea, select, [role=tab], [contenteditable]:not([contenteditable=false])")) return;
   if (e.key === " " && e.target !== video) { e.preventDefault(); video.paused ? video.play() : video.pause(); }
   else if (e.key === "j") step(1);
   else if (e.key === "k") step(-1);
