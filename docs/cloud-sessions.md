@@ -97,8 +97,11 @@ endpoints the provider owns.
 1. **Embedded:** the `/*__SESSION_DATA__*/null` token in `const DATA = …` is replaced with the session JSON. If
    `DATA.cloud` is present it holds `{ "manifest": {…}, "drawings": […] }` — this is what `index.html` in a
    bundle uses on `file://`.
-2. **Fetched:** when `DATA` is `null`, the viewer fetches `session.json`, `manifest.json` and `drawings.json`
-   relative to the page (that's how `/s/:id/` works), then renders the same way.
+2. **Fetched:** when `DATA` is `null`, the viewer shows "Loading session…" and fetches `session.json` and
+   `manifest.json` relative to the page (that's how `/s/:id/` works), then renders the same way. Only a `404`
+   for `manifest.json` means a local-format session; any other failure (status, network, non-JSON such as an
+   expired Access sign-in) shows the error screen with **Retry** and **Sign in again**. `drawings.json` loads
+   after the first render; if it fails, a note under the player says the video plays without drawings.
 
 With cloud data present the viewer: plays `recording.mp4` straight through (single segment), overlays each
 drawing PNG between `start` and `end` scaled to the video box, shows thumbnail hover on the timeline from
