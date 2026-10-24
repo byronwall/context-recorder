@@ -152,7 +152,7 @@ aside { border-left: 1px solid var(--line); display: flex; flex-direction: colum
 .badge.mark { color: var(--mark); background: color-mix(in srgb, var(--mark) 14%, transparent); }
 .badge.screenshot { color: var(--shot); background: color-mix(in srgb, var(--shot) 14%, transparent); }
 .badge.screenshot::before { border-radius: 2px; }
-.item .title { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .title { font-weight: 600; font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
 .item .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item .warn { color: var(--now); display: inline-flex; align-items: center; gap: 4px; }
 .item .warn .i { width: 12px; height: 12px; }
@@ -582,6 +582,7 @@ function select(index, { seek = true, scroll = true } = {}) {
   const item = document.querySelector(`.item[data-mark="${index}"]`);
   loadDetail(item);
   if (scroll) item?.scrollIntoView({ block: "nearest" });
+  if (m) writeHash(`#m=${index}`);
 }
 
 function step(dir) {
@@ -855,6 +856,30 @@ function setupCloud() {
 
 $(".app").classList.remove("loading"); $("#list").removeAttribute("aria-busy");
 renderHeader(); renderTimeline(); setTab("marks");
+
+// Location in the URL hash (#m=<mark index> or #t=<edited seconds>) so a reload or a shared link lands in the
+// same place. The hash works over file:// and never reaches the server; replaceState keeps it out of history.
+function writeHash(h) { if (location.hash !== h) history.replaceState(null, "", h); }
+function writeTimeHash() {
+  const m = marks.find((x) => x.index === selected);
+  // Paused on the selected mark (select() pauses and seeks there) keeps #m; anywhere else is a time.
+  if (m && Math.abs(now() - m.offsetSeconds) < 0.25) return writeHash(`#m=${m.index}`);
+  writeHash(`#t=${now().toFixed(1)}`);
+}
+video.addEventListener("pause", writeTimeHash);
+video.addEventListener("seeked", () => { if (video.paused) writeTimeHash(); });
+function readHash() {
+  const [, key, val] = location.hash.match(/^#([mt])=(\d+(?:\.\d+)?)$/) || [];
+  if (key === "m" && marks.some((x) => x.index === +val)) {
+    if (tab !== "marks") setTab("marks");
+    select(+val, { seek: true });
+  } else if (key === "t" && +val <= duration) {
+    const go = () => seekTo(+val);
+    if (video.readyState >= 1) go(); else video.addEventListener("loadedmetadata", go, { once: true });
+  }
+}
+addEventListener("hashchange", readHash);
+readHash();
 </script>
 </body>
 </html>
