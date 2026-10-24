@@ -5,9 +5,11 @@ import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The cloud copy of a session (docs/cloud-sessions.md §1): one folder in edited time.
-/// Cuts and joins are flattened into one mp4, drawings become transparent PNGs, and session.json is
-/// rewritten for that single video, so nothing downstream needs to know about edits.json.
+/// The cloud copy of a session (docs/cloud-sessions.md §1): one folder in edited time, laid out like a session
+/// recorded without edits. Cuts and joins are flattened into one mp4, drawings become transparent PNGs (and
+/// edited-time annotations.json), marks' images take their play-order names, and session.json and the logs are
+/// rewritten for that single video, so nothing downstream needs to know about edits.json, and a Mac that
+/// downloads the copy can process it again and get the same session.
 struct CloudManifest: Codable, Equatable {
     struct Video: Codable, Equatable { var path: String; var width: Int; var height: Int }
     struct Thumbs: Codable, Equatable { var interval: Double; var count: Int; var pattern: String; var width: Int }
@@ -51,8 +53,10 @@ enum CloudBundle {
     static let thumbWidth = 480
     static let minimumPageBudget: Int64 = 10 * 1024 * 1024
 
-    /// Logs and documents copied as they are, when present.
-    static let plainFiles = ["transcript.json", "session.md", "activity.jsonl", "browser.jsonl", "marks.jsonl"]
+    /// Written by processing; copied as is. The logs it is built from are rewritten in edited time (`writeLogs`).
+    static let plainFiles = ["session.md"]
+    /// Fields processing adds to a mark of an edited or joined session; a flat session has none of them.
+    static let editFields = ["sourceOffsetSeconds", "sourceSession", "rawSession", "rawIndex"]
 
     typealias Progress = (_ phase: String, _ fraction: Double) -> Void
 
@@ -124,6 +128,24 @@ enum CloudBundle {
         if let mds = try? fm.contentsOfDirectory(atPath: session.appendingPathComponent("marks").path) {
             for md in mds.sorted() where md.hasSuffix(".md") { _ = include("marks/" + md) }
         }
+        /// `relative` stored at `path` in the bundle instead of at its own path; nil when it doesn't exist.
+        func place(_ relative: String?, at path: String) -> String? {
+            guard let relative, !relative.isEmpty else { return nil }
+            let file = session.appendingPathComponent(relative).standardizedFileURL
+            guard fm.fileExists(atPath: file.path) else { return nil }
+            copies[path] = file
+            return path
+        }
+        /// An image's marked-up copy (and its editable drawing) under the name processing gives `path`.
+        let store = AnnotationStore(folder: session)
+        func placeAnnotated(_ original: String?, as path: String) -> String? {
+            guard let original else { return nil }
+            let from = store.base(for: original), to = "annotations/" + (path as NSString).deletingPathExtension.replacingOccurrences(of: "/", with: "-")
+            guard fm.fileExists(atPath: from.appendingPathExtension("png").path) else { return nil }
+            copies[to + ".png"] = from.appendingPathExtension("png")
+            if fm.fileExists(atPath: from.appendingPathExtension("json").path) { copies[to + ".json"] = from.appendingPathExtension("json") }
+            return to + ".png"
+        }
 
         let videoSize = (try? fm.attributesOfItem(atPath: video.path)[.size] as? Int64) ?? 0
         let budget = max(minimumPageBudget, videoSize / 2)
@@ -131,13 +153,23 @@ enum CloudBundle {
         var marks = data["marks"] as? [[String: Any]] ?? []
         for i in marks.indices {
             var m = marks[i]
-            // `image` and `frame` are the annotated copies where one exists; the captures stay local.
-            let image = include(m["image"] as? String), frame = include(m["frame"] as? String)
-            m["image"] = image.map { $0 as Any } ?? NSNull()
-            m["frame"] = frame.map { $0 as Any } ?? NSNull()
-            m["sourceImage"] = nil
-            m["sourceFrame"] = nil
-            if m["screenshot"] is String { m["screenshot"] = (m["kind"] as? String) == "screenshot" ? image : nil }
+            // Each mark's frame and screenshot (and marked-up copies) go where processing a flat session puts
+            // them: `frames/NNN.jpg`, `screenshots/NNN.png`, by play-order index.
+            let n = String(format: "%03d", (m["index"] as? Int) ?? i + 1)
+            let originalFrame = (m["sourceFrame"] ?? m["frame"]) as? String
+            let frame = place(originalFrame, at: "frames/\(n).jpg")
+            let markedFrame = placeAnnotated(originalFrame, as: "frames/\(n).jpg")
+            var shot: String?, markedShot: String?
+            if let original = m["screenshot"] as? String {
+                shot = place(original, at: "screenshots/\(n).png")
+                markedShot = placeAnnotated(original, as: "screenshots/\(n).png")
+            }
+            m["screenshot"] = shot
+            m["sourceFrame"] = frame.map { $0 as Any } ?? NSNull()
+            m["sourceImage"] = (shot ?? frame).map { $0 as Any } ?? NSNull()
+            m["frame"] = (markedFrame ?? frame).map { $0 as Any } ?? NSNull()
+            m["image"] = (shot.map { markedShot ?? $0 } ?? markedFrame ?? frame).map { $0 as Any } ?? NSNull()
+            for key in editFields { m[key] = nil }
             if var browser = m["browser"] as? [String: Any], let page = browser["pageFile"] as? String {
                 let file = session.appendingPathComponent(page).standardizedFileURL
                 let path = bundlePath(page)
@@ -161,6 +193,13 @@ enum CloudBundle {
             }
         }
         skipped.sort { $0.path < $1.path }
+        // Processing a downloaded copy again reads this as the reason the page is missing.
+        for page in skipped {
+            let note = out.appendingPathComponent((page.path as NSString).deletingPathExtension + ".error.txt")
+            try fm.createDirectory(at: note.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try "Left out of the cloud copy (\(ByteCountFormatter.string(fromByteCount: page.size, countStyle: .file)))\n"
+                .write(to: note, atomically: true, encoding: .utf8)
+        }
 
         for (path, file) in copies {
             let target = out.appendingPathComponent(path)
@@ -175,6 +214,7 @@ enum CloudBundle {
         data["duration"] = duration
         data["folder"] = ""
         try writeJSON(data, to: out.appendingPathComponent("session.json"))
+        try writeLogs(data, session: session, edited: edited, map: map, out: out)
 
         // 5. The manifest: every file with its hash, then index.html with everything embedded.
         progress?("Hashing", 0.92)
@@ -196,6 +236,68 @@ enum CloudBundle {
         try writeIndex(session: data, manifest: manifest, drawings: drawings, to: out.appendingPathComponent("index.html"))
         progress?("Done", 1)
         return manifest
+    }
+
+    // MARK: Logs
+
+    /// The raw inputs processing reads, in edited time on the flat video: marks.jsonl and the activity and page
+    /// logs from session.json (already mapped), and transcript.json with its word timings mapped the same way
+    /// processing maps them. An unedited session's transcript is copied as is.
+    private static func writeLogs(_ data: [String: Any], session: URL, edited: Bool, map: EditMap, out: URL) throws {
+        func jsonl(_ items: [[String: Any]], _ name: String) throws {
+            guard !items.isEmpty else { return }
+            let lines = try items.map { String(decoding: try JSONSerialization.data(withJSONObject: $0, options: [.sortedKeys, .withoutEscapingSlashes]), as: UTF8.self) }
+            try (lines.joined(separator: "\n") + "\n").write(to: out.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        let derived = ["frame", "image", "sourceFrame", "sourceImage", "narration"]
+        let marks = (data["marks"] as? [[String: Any]] ?? []).map { $0.filter { !derived.contains($0.key) && !($0.value is NSNull) } }
+        try jsonl(marks, "marks.jsonl")
+        try jsonl(data["activity"] as? [[String: Any]] ?? [], "activity.jsonl")
+        try jsonl(data["browser"] as? [[String: Any]] ?? [], "browser.jsonl")
+
+        let transcript = out.appendingPathComponent("transcript.json")
+        guard edited else {
+            let own = session.appendingPathComponent("transcript.json")
+            if FileManager.default.fileExists(atPath: own.path) { try FileManager.default.copyItem(at: own, to: transcript) }
+            return
+        }
+        var sentences: [[String: Any]] = []
+        for source in map.sources {
+            let file = EditMap.folder(of: source, in: session).appendingPathComponent("transcript.json")
+            guard let raw = try? Data(contentsOf: file),
+                  let obj = try JSONSerialization.jsonObject(with: raw) as? [String: Any] else { continue }
+            sentences += mapSentences(obj["sentences"] as? [[String: Any]] ?? [], map: map, source: source)
+        }
+        guard !sentences.isEmpty else { return }
+        sentences.sort { ($0["start"] as? Double ?? 0) < ($1["start"] as? Double ?? 0) }
+        let text = sentences.compactMap { $0["text"] as? String }.joined()
+        try writeJSON(["text": text, "sentences": sentences], to: transcript)
+    }
+
+    /// process_session.py's map_sentences: a sentence survives when more than half of it is kept; its times are
+    /// clamped to what is kept and words inside cuts are dropped.
+    static func mapSentences(_ sentences: [[String: Any]], map: EditMap, source: String) -> [[String: Any]] {
+        func round6(_ x: Double) -> Double { (x * 1_000_000).rounded() / 1_000_000 }
+        var out: [[String: Any]] = []
+        for var sentence in sentences {
+            guard let start = sentence["start"] as? Double, let end = sentence["end"] as? Double else { continue }
+            let pieces = map.editedPieces(source: source, start, end)
+            guard let first = pieces.first, let last = pieces.last,
+                  pieces.reduce(0, { $0 + $1.upperBound - $1.lowerBound }) > max(1e-6, end - start) / 2 else { continue }
+            var tokens: [[String: Any]] = []
+            for var token in sentence["tokens"] as? [[String: Any]] ?? [] {
+                guard let a = token["start"] as? Double, let b = token["end"] as? Double,
+                      let mid = map.toEdited(source: source, (a + b) / 2) else { continue }
+                token["start"] = round6(mid - (b - a) / 2)
+                token["end"] = round6(mid + (b - a) / 2)
+                tokens.append(token)
+            }
+            sentence["start"] = round6(first.lowerBound)
+            sentence["end"] = round6(last.upperBound)
+            sentence["tokens"] = tokens
+            out.append(sentence)
+        }
+        return out
     }
 
     // MARK: Output folder

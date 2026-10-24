@@ -131,13 +131,48 @@ enum CloudSelfTest {
             if let e = map.toEdited(source: want.source, want.time), abs(e - t) > 1e-6 { f.append("mark at \(t) but EditMap says \(e)") }
             let got = await code(at: t + frame / 2)
             if !near(got, expect(want.source, want.time)) { f.append("mark at \(t) shows \(String(describing: got))") }
-            for key in ["image", "frame"] {
+            // Named by play order, as processing a flat session would name them.
+            let n = String(format: "%03d", m["index"] as? Int ?? -1)
+            for key in ["image", "frame", "sourceImage", "sourceFrame"] {
                 guard let p = m[key] as? String else { f.append("mark at \(t) has no \(key)"); continue }
                 if !FileManager.default.fileExists(atPath: out.appendingPathComponent(p).path) { f.append("\(key) \(p) not in bundle") }
-                if c.edits?.first?.source.hasPrefix("../") == true, !p.hasPrefix("sources/") { f.append("\(key) \(p) should be under sources/") }
-                if want.annotated == true, key == "image", !p.hasPrefix("annotations/") { f.append("annotated image not used: \(p)") }
+                let marked = want.annotated == true && (key == "image" || key == "frame")
+                if p != (marked ? "annotations/frames-\(n).png" : "frames/\(n).jpg") { f.append("mark \(n) \(key) is \(p)") }
             }
-            if m["sourceImage"] != nil || m["sourceFrame"] != nil { f.append("sourceImage/sourceFrame left in") }
+            for key in CloudBundle.editFields where m[key] != nil { f.append("mark \(n) keeps \(key)") }
+        }
+        // marks.jsonl: the same marks, at edited times, without the derived fields.
+        let lines = ((try? String(contentsOf: out.appendingPathComponent("marks.jsonl"), encoding: .utf8)) ?? "")
+            .split(separator: "\n").compactMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
+        if lines.map({ $0["offsetSeconds"] as? Double ?? -1 }) != marks.map({ $0["offsetSeconds"] as? Double ?? -2 })
+            || lines.map({ $0["index"] as? Int ?? -1 }) != marks.map({ $0["index"] as? Int ?? -2 }) {
+            f.append("marks.jsonl doesn't match session.json: \(lines.count) lines")
+        }
+        for line in lines where line.keys.contains(where: { (CloudBundle.editFields + ["frame", "image", "sourceImage", "sourceFrame"]).contains($0) }) {
+            f.append("marks.jsonl line keeps derived fields: \(line.keys.sorted())")
+        }
+        // transcript.json: the sources' sentences (one every second, half a second long) that survive the cuts.
+        let sentences = (try? Data(contentsOf: out.appendingPathComponent("transcript.json")))
+            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["sentences"] as? [[String: Any]] ?? []
+        var expected: [Double] = []
+        for source in map.sources {
+            let name = source == "." ? (c.copyOf ?? "") : source.replacingOccurrences(of: "../", with: "")
+            let seconds = Int(fixture.sources.first { $0.name == name }?.seconds ?? 0)
+            for k in 0..<seconds {
+                let pieces = map.editedPieces(source: source, Double(k), Double(k) + 0.5)
+                if pieces.reduce(0, { $0 + $1.upperBound - $1.lowerBound }) > 0.25, let first = pieces.first { expected.append(first.lowerBound) }
+            }
+        }
+        let starts = sentences.compactMap { $0["start"] as? Double }
+        if starts.count != expected.count || zip(starts, expected.sorted()).contains(where: { abs($0 - $1) > 1e-6 }) {
+            f.append("transcript sentences at \(starts.prefix(6)), want \(expected.sorted().prefix(6)) (\(starts.count) vs \(expected.count))")
+        }
+        // Each word lands back on its own moment: the middle of a word is a quarter second past a whole second.
+        for s in sentences {
+            for token in s["tokens"] as? [[String: Any]] ?? [] {
+                let mid = ((token["start"] as? Double ?? 0) + (token["end"] as? Double ?? 0)) / 2
+                if abs(map.toSource(mid).time.truncatingRemainder(dividingBy: 1) - 0.25) > 1e-3 { f.append("word at \(mid) not mapped from its source"); break }
+            }
         }
         if (session["hiddenMarks"] as? [Any])?.isEmpty != true { f.append("hiddenMarks not empty") }
         if (session["folder"] as? String) != "" { f.append("folder not empty") }
@@ -178,6 +213,9 @@ enum CloudSelfTest {
         if c.marks.contains(where: { $0.page == "big" }), !manifest.skippedPages.contains(where: { $0.path == "pages/big.mhtml" }) {
             f.append("big page not skipped: \(manifest.skippedPages)")
         }
+        if c.marks.contains(where: { $0.page == "big" }), !manifest.files.contains(where: { $0.path == "pages/big.error.txt" }) {
+            f.append("no note for the skipped page")
+        }
         if c.marks.contains(where: { $0.page == "small" }), !manifest.files.contains(where: { $0.path == "pages/small.mhtml" }) {
             f.append("small page not included")
         }
@@ -213,13 +251,23 @@ enum CloudSelfTest {
         let folder = root.appendingPathComponent(s.name)
         try FileManager.default.createDirectory(at: folder.appendingPathComponent("frames"), withIntermediateDirectories: true)
         try await encode(s, fps: fps, to: folder.appendingPathComponent("recording.mp4"))
+        // A sentence of one word every second, half a second long.
+        let sentences = (0..<Int(s.seconds)).map { k -> [String: Any] in
+            let a = Double(k), b = Double(k) + 0.5
+            return ["start": a, "end": b, "text": " w\(k)", "tokens": [["start": a, "end": b, "text": " w\(k)"]]]
+        }
+        try CloudBundle.writeJSON(["text": "", "sentences": sentences], to: folder.appendingPathComponent("transcript.json"))
     }
 
     private static func makeSession(_ c: Case, fixture: Fixture, root: URL) throws -> URL {
         let fm = FileManager.default
         let folder = root.appendingPathComponent(c.name)
         try fm.createDirectory(at: folder.appendingPathComponent("frames"), withIntermediateDirectories: true)
-        if let copy = c.copyOf { try fm.copyItem(at: root.appendingPathComponent("\(copy)/recording.mp4"), to: folder.appendingPathComponent("recording.mp4")) }
+        if let copy = c.copyOf {
+            for name in ["recording.mp4", "transcript.json"] {
+                try fm.copyItem(at: root.appendingPathComponent("\(copy)/\(name)"), to: folder.appendingPathComponent(name))
+            }
+        }
         if let edits = c.edits { try EditsFile.save(edits, to: folder) }
         let segments = c.edits ?? [Segment(start: 0, end: c.duration)]
         let map = EditMap(segments)
