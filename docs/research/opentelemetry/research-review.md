@@ -6,10 +6,10 @@ Status: proposal for review, October 24, 2026. This capture authorizes no implem
 
 The user asked to preserve an architecture review and its idea in Context Recorder.
 The source is a supplied ChatGPT response associated with [this conversation](https://chatgpt.com/c/6adb4135-57a0-83e9-9c9a-039962b4e67a).
-The conversation itself was inaccessible and was not independently read. The user supplied
-`Pasted text(20261024-044343).txt` instead (Library ID `libfile_fbbb7cd57434819187dfc247bf31861d`, reported size 11,219 bytes).
-The [source copy](sources/response.txt) contains the full response text relayed by the parent after it retrieved the attachment.
-It is a text transcription with a terminal newline, not a byte-verified download of the attachment in this checkout.
+The user supplied the response as a text attachment, `Pasted text(20261024-044343).txt`.
+The original conversation was not independently inspected.
+The [source copy](sources/response.txt) preserves the supplied response text with a terminal newline;
+its byte-for-byte equality with the original attachment was not verified.
 Its favicon links, bare domain names, and `+1` are copied presentation remnants, not substantive citations.
 
 The proposed job is to record a web-app failure, inspect the operation that failed, and seek to
