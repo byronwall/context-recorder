@@ -123,9 +123,12 @@ final class CloudState {
         Task {
             do {
                 if needsSignIn { try await signIn(to: config.url) }
-                _ = try await CloudPush.run(session: folder, config: config) { [weak self] phase, f in
+                let (_, report) = try await CloudPush.run(session: folder, config: config) { [weak self] phase, f in
                     self?.jobs[folder] = Job(phase: phase, fraction: f)
                 }
+                NSLog("ContextRecorder: pushed %@ (%@ in %d files): %@", folder.lastPathComponent,
+                      ByteCountFormatter.string(fromByteCount: report.uploadedBytes, countStyle: .file), report.uploaded.count,
+                      CloudClient.Timing.summary(report.timings))
             } catch CloudAuthError.cancelled {
             } catch {
                 errors[folder] = error.localizedDescription

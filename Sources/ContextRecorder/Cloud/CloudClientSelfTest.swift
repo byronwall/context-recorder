@@ -96,6 +96,36 @@ extension CloudSelfTest {
             if progressed.last != Int64(100 + big.count) { f.append("progress ended at \(progressed.last ?? -1)") }
             if Set(FakeWorker.state.bearers) != ["Bearer \(signedIn.accessToken)"] { f.append("bearers sent \(Set(FakeWorker.state.bearers))") }
 
+            if !first.timings.contains(where: { $0.phase == "Uploading" }) || !first.timings.contains(where: { $0.phase == "Committing" }) {
+                f.append("timings \(first.timings)")
+            }
+
+            // Many small files and a multipart video go up several at a time, within the limits.
+            let many = root.appendingPathComponent("many")
+            try FileManager.default.createDirectory(at: many.appendingPathComponent("thumbs"), withIntermediateDirectories: true)
+            for i in 0..<30 { try Data("thumb \(i)".utf8).write(to: many.appendingPathComponent(String(format: "thumbs/%04d.jpg", i))) }
+            var bigger = big
+            bigger.append(Data(repeating: 1, count: 10 * 1024 * 1024))
+            try bigger.write(to: many.appendingPathComponent("recording.mp4"))
+            var manyManifest = manifest
+            manyManifest.files = try CloudBundle.listFiles(in: many)
+            try manyManifest.encoded().write(to: many.appendingPathComponent("manifest.json"))
+            FakeWorker.lock.withLock { FakeWorker.state.blobDelay = 0.05; FakeWorker.state.parts = 0 }
+            var manyProgress: [Int64] = []
+            let concurrent = try await client.push(bundle: many) { done, _ in manyProgress.append(done) }
+            FakeWorker.lock.withLock { FakeWorker.state.blobDelay = 0 }
+            let state = FakeWorker.lock.withLock { FakeWorker.state }
+            if concurrent.uploaded.count != 31 { f.append("concurrent push uploaded \(concurrent.uploaded.count) files, want 31") }
+            if FakeWorker.state.parts != 5 { f.append("concurrent push sent \(FakeWorker.state.parts) parts, want 5") }
+            if state.maxBlobsInFlight < 2 || state.maxBlobsInFlight > client.concurrency {
+                f.append("\(state.maxBlobsInFlight) uploads at once, want 2...\(client.concurrency)")
+            }
+            if state.maxPartsInFlight < 2 || state.maxPartsInFlight > client.partConcurrency {
+                f.append("\(state.maxPartsInFlight) parts at once, want 2...\(client.partConcurrency)")
+            }
+            let manyTotal = manyManifest.files.reduce(Int64(0)) { $0 + $1.size }
+            if manyProgress != manyProgress.sorted() || manyProgress.last != manyTotal { f.append("concurrent progress ended at \(manyProgress.last ?? -1) of \(manyTotal)") }
+
             let second = try await client.push(bundle: bundle)
             if !second.uploaded.isEmpty { f.append("unchanged re-push uploaded \(second.uploaded)") }
 
@@ -244,6 +274,9 @@ final class FakeWorker: URLProtocol {
         var dropBeforeCommit: String?
         var commits409 = 0
         var corruptUploads = false
+        /// Blob uploads wait this long, so concurrent ones overlap; the most seen at once is recorded.
+        var blobDelay: TimeInterval = 0
+        var blobsInFlight = 0, partsInFlight = 0, maxBlobsInFlight = 0, maxPartsInFlight = 0
     }
     nonisolated(unsafe) static var state = State()
     static let lock = NSLock()
@@ -259,6 +292,30 @@ final class FakeWorker: URLProtocol {
     override func stopLoading() {}
 
     override func startLoading() {
+        let isBlob = request.httpMethod == "PUT" && request.url!.path.hasPrefix("/api/blobs/")
+        let isPart = isBlob && request.url!.path.split(separator: "/").count == 6
+        let delay: TimeInterval = Self.lock.withLock {
+            guard isBlob, Self.state.blobDelay > 0 else { return 0 }
+            Self.state.blobsInFlight += 1
+            Self.state.maxBlobsInFlight = max(Self.state.maxBlobsInFlight, Self.state.blobsInFlight)
+            if isPart {
+                Self.state.partsInFlight += 1
+                Self.state.maxPartsInFlight = max(Self.state.maxPartsInFlight, Self.state.partsInFlight)
+            }
+            return Self.state.blobDelay
+        }
+        guard delay > 0 else { return respond() }
+        // URLProtocol loads on one thread; sleeping there would serialize the requests.
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [self] in
+            Self.lock.withLock {
+                Self.state.blobsInFlight -= 1
+                if isPart { Self.state.partsInFlight -= 1 }
+            }
+            respond()
+        }
+    }
+
+    private func respond() {
         let (status, body) = Self.lock.withLock { Self.handle(request) }
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1",
                                        headerFields: ["Content-Type": "application/json"])!

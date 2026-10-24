@@ -94,6 +94,7 @@ enum CloudCLI {
                 print("Pushed \(session.lastPathComponent) → \(record.url)")
                 print("  uploaded \(report.uploaded.count) files (\(ByteCountFormatter.string(fromByteCount: report.uploadedBytes, countStyle: .file)))"
                       + (report.multipart.isEmpty ? "" : ", in parts: " + report.multipart.joined(separator: ", ")))
+                print("  took " + CloudClient.Timing.summary(report.timings))
                 print("  manifestSha256 \(record.manifestSha256)")
                 print("  wrote \(CloudRecord.url(session).path)")
                 return 0
