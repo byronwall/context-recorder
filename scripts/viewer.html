@@ -192,14 +192,25 @@ code { font: 11px var(--mono); background: var(--panel-2); border: 1px solid var
 @keyframes fade { from { opacity: 0; } }
 
 @media (max-width: 1200px) { .keys { display: none; } }
+/* Narrow: one page-scrolling column ordered player → marks/transcript → timeline overview → now cards.
+   .stage dissolves so its children and aside interleave as items of .main. */
 @media (max-width: 900px) {
-  header { height: auto; padding: 12px 16px; flex-wrap: wrap; }
-  .main { grid-template-columns: 1fr; }
-  .stage { padding: 16px; }
-  aside { border-left: 0; border-top: 1px solid var(--line); min-height: 60vh; }
-  .now { grid-template-columns: 1fr; }
-  .timeline { grid-template-columns: 64px minmax(0, 1fr); }
   .app { height: auto; }
+  header { height: 52px; padding: 0 12px; gap: 10px; }
+  .brand { flex: 0 1 auto; }
+  .stats .chip:not(:first-child) { display: none; }
+  .main { grid-template-columns: minmax(0, 1fr); row-gap: 12px; padding: 12px 0 16px; }
+  .stage { display: contents; }
+  .player, .timeline, .now { margin: 0 12px; }
+  .player { order: 1; }
+  aside { order: 2; border: solid var(--line); border-width: 1px 0; }
+  .timeline { order: 3; grid-template-columns: 64px minmax(0, 1fr); }
+  .now { order: 4; grid-template-columns: 1fr; gap: 12px; }
+  .list { flex: none; max-height: min(70vh, 640px); }
+}
+/* Phones: Copy all keeps its icon; the label stays in the DOM as the accessible name. */
+@media (max-width: 600px) {
+  #copyAll { font-size: 0; gap: 0; width: 28px; padding: 0; justify-content: center; flex: none; }
 }
 </style>
 </head>
@@ -484,9 +495,19 @@ function renderTimeline() {
   const speech = $("#laneSpeech");
   $("#speechLabel").style.display = speech.style.display = transcript.length ? "" : "none";
   speech.innerHTML = transcript.map((s) => `<div class="seg" style="left:${pct(s.start)};width:${pct(s.end - s.start)};background:var(--accent);opacity:.6" title="${esc(s.text)}"></div>`).join("") + `<div class="playhead" style="left:${pct(now())}"></div>`;
-  const n = 6;
-  $("#ruler").innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${fmt((duration * i) / n)}</span>`).join("");
+  renderRuler();
 }
+
+// Narrow screens get three labels (start, middle, end) when seven would crowd the ruler.
+const narrow = matchMedia("(max-width: 900px)");
+function renderRuler() {
+  const ruler = $("#ruler");
+  const n = narrow.matches && ruler.clientWidth < 520 ? 2 : 6;
+  if (ruler.childElementCount === n + 1 && ruler.dataset.duration === String(duration)) return;
+  ruler.dataset.duration = duration;
+  ruler.innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${fmt((duration * i) / n)}</span>`).join("");
+}
+addEventListener("resize", renderRuler);
 
 // Full-size detail images load on first selection. A hidden .detail still fetches a plain src.
 const detailImg = (m, path, alt) => `<img ${selected === m.index ? "src" : "data-src"}="${esc(asset(path))}" alt="${esc(alt)}" data-zoom>`;
