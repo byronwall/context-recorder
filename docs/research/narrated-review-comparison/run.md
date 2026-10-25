@@ -39,7 +39,7 @@ Completion requires collected reports, checked decisive claims, dispositions, in
 
 ## Submission
 
-- Phase: submitted; Pro is researching. Collection and integration remain pending.
+- Phase: collected and integrated; final validation and review PR are in progress.
 - First browser tab was closed during the user's scope update. No sent message was observed.
 - Chrome profile: `byroni.us`; account menu showed Byron Wall Pro.
 - Model selector showed Pro, power 5 of 5.
@@ -51,7 +51,8 @@ Completion requires collected reports, checked decisive claims, dispositions, in
 - Screenshot: `tmp/pro/narrated-review-comparison/submitted.png` (ignored local evidence).
 - First check: October 25, about 12:19 a.m. EDT; 04:19 UTC.
 - Heartbeat: `complete-context-recorder-comparison-research`, ACTIVE, hourly on this chat.
-- Collected files and PR: pending.
+- Collected files: `tmp/pro/narrated-review-comparison/collected/` contains all six reports and their ZIP.
+- PR: pending.
 - Follow-ups: zero.
 
 ## Upload review
@@ -63,3 +64,26 @@ Before retrying, `gh repo view` confirmed the repository is public.
 Removed the private prior-review excerpt and guide from the packet.
 The normal upload review then approved the smaller public-source payload.
 No workaround or alternate transmission path was used.
+
+## Collection and integration
+
+Checked the same Pro conversation at about 04:21 UTC on October 25.
+Pro had completed in 31 minutes, 6 seconds. No resubmission or follow-up was needed.
+The normal ZIP download succeeded despite the browser download-event timeout.
+Found the actual file before any retry. Checked archive paths and ZIP integrity, then extracted six files.
+The originals remain ignored. Pro's optional Library save was rejected; no Library save was needed or retried.
+
+Read all four Markdown reports and parsed both CSV files.
+Validated 15 products plus one written baseline, 65 features, 1,040 feature cells, and 48 operational records.
+Created reviewed feature/product projections, a compact matrix, feature taxonomy and guide, summary, and conditional plan.
+No existing research index was found to update.
+
+Checked decisive note loss, transcript coverage, approximate frames, input-value capture, missing web Find, and source-hash limits.
+Spot-checked current primary sources for Jam, Clipy, Vidmatic, Loom, Breadcrumb, and CaptureCat.
+ThinkRun's local-mode URL was inaccessible to the local reader; its claims remain qualified Pro assessments.
+Details and local changes to Pro's recommendations are in [validation.md](validation.md).
+All 16 recommendation IDs have local dispositions. REC-005 and REC-006 now require exploration before implementation.
+Removed automatic future worktree creation and speculative validators from Pro's plan.
+
+Authored Markdown links, CSV cross-references, product counts, and Git whitespace checks passed.
+No application code, capture, comparative trial, purchase, installation, or application test ran.
