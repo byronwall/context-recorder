@@ -78,3 +78,7 @@ No native capture, competitor trial, account connection, installation, or purcha
 All 16 recommendation dispositions are in the [plan](../../intent/narrated-review-comparison/implementation-plan.md).
 The [validation record](validation.md) separates local checks from unverified research claims.
 [Source conversation](https://chatgpt.com/c/6add7517-fa5c-83ea-a835-b48d3709a763).
+
+## Preserved Pro result materials
+
+[Complete original Pro artifacts](../../intent/narrated-review-comparison/assets/pro-results/narrated-review-comparison-2026-10-25/ASSET_INDEX.md) are preserved under the intent entry. ZIP containers remain local.

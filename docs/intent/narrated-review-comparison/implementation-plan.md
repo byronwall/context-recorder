@@ -128,3 +128,9 @@ These cover every Pro recommendation. Build means include in a plan, not start i
 The exact trial client/model, fixtures, privacy constraints, acceptable spend, and adoption threshold remain unset.
 No purchase, installation, trial, recording upload, or application change is needed to review this plan.
 If later authorized, use the existing checkout rules and pnpm. Preserve the current stack.
+
+## Preserved Pro result materials
+
+[Original Pro reports and artifacts for #59](assets/pro-results/narrated-review-comparison-2026-10-25/ASSET_INDEX.md)
+
+All extracted result materials are preserved without ZIP containers. Original bytes and attribution are unchanged.

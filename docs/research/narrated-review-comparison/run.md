@@ -100,3 +100,7 @@ The working checkout is reserved for this research branch; no additional worktre
 The result includes the 15-product comparison, 65-feature matrix, qualified source records, feature synthesis, and proposed trial.
 No merge or application implementation began. Review the plan before authorizing trials or code changes.
 The continuation heartbeat was deleted because this run reached its review endpoint.
+
+## Preserved Pro result materials
+
+Backfill requested by Byron: [6 original result files](../../intent/narrated-review-comparison/assets/pro-results/narrated-review-comparison-2026-10-25/ASSET_INDEX.md) are now committed under the intent entry. This supersedes earlier instructions to leave originals ignored. ZIPs and input source packets remain local. Byte equality and supplied manifest entries were checked; no downloaded code was executed.
