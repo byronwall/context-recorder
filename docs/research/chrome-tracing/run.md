@@ -23,9 +23,18 @@ Done when the summary, dispositions, and implementation plan are in the reposito
 - Submitted: October 28, 2026, 9:38 p.m. EDT (01:38 UTC October 29).
 - Verified: sent message with both files, "Thinking" shown, Stop control visible.
 - Check: session cron job `836d96d7`, hourly at :41. Session-only; it ends if this Claude session closes.
-- Phase: running. Follow-ups: 0.
-- Last check: —
+- Phase: complete. Follow-ups: 0 (all six questions answered; deliverables usable).
+- Checks: 9:56 p.m. EDT still running; 10:56 p.m. EDT done.
 
 ## Collection
 
-Pending.
+- Collected October 28, 10:56 p.m. EDT. Pro's ZIP was downloaded through Claude in Chrome (clicking "Download ZIP" saved it to `~/Downloads`), then moved to `tmp/pro/chrome-tracing/` (ignored, not committed).
+- ZIP SHA-256 `4488a436…84e0`, 65,849 bytes, 3 entries, no absolute or `..` paths.
+- Raw reports committed under [sources/pro-output](../../intent/chrome-tracing/sources/pro-output/): report (70,306 B), scenarios (45,368 B), implementation plan (65,680 B). All three were read in full.
+- Pro reported reading the packet (all 22 hashes matched) and GitHub at the exact commit, plus 5 extra files at the same ref.
+
+## Integration
+
+- [summary.md](summary.md): decision, findings, claims checked against code, dispositions for CT-01 to CT-22.
+- [implementation-plan.md](../../intent/chrome-tracing/implementation-plan.md): M0–M6, with a CDP spike first and fewer fixtures than Pro's plan.
+- PR: see below.
