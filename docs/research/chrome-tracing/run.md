@@ -22,7 +22,7 @@ Done when the summary, dispositions, and implementation plan are in the reposito
 - Attachments: `pro-prompt(…).md` (ChatGPT renamed it) and `chrome-tracing-source-packet.txt`.
 - Submitted: October 28, 2026, 9:38 p.m. EDT (01:38 UTC October 29).
 - Verified: sent message with both files, "Thinking" shown, Stop control visible.
-- Check: session cron job `836d96d7`, hourly at :41. Session-only; it ends if this Claude session closes.
+- Check: session cron job `836d96d7`, hourly at :41 (deleted at completion).
 - Phase: complete. Follow-ups: 0 (all six questions answered; deliverables usable).
 - Checks: 9:56 p.m. EDT still running; 10:56 p.m. EDT done.
 
@@ -37,4 +37,5 @@ Done when the summary, dispositions, and implementation plan are in the reposito
 
 - [summary.md](summary.md): decision, findings, claims checked against code, dispositions for CT-01 to CT-22.
 - [implementation-plan.md](../../intent/chrome-tracing/implementation-plan.md): M0–M6, with a CDP spike first and fewer fixtures than Pro's plan.
-- PR: see below.
+- PR: [#60](https://github.com/byronwall/context-recorder/pull/60), open against `main`. The body was checked against the body file, and the file list has 7 docs files with no ZIP.
+- Check job `836d96d7` deleted after the PR was verified.
