@@ -1,39 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// The sidebar's "In the Cloud" section: sessions pushed from another Mac (or removed from this one) that aren't
-/// in the library, each with Download. Hidden until signed in to a configured cloud, and when there are none.
-struct CloudOnlySection: View {
-    var state: LibraryState
-    var cloud = CloudState.shared
-    @AppStorage("cloudSectionExpanded") private var expanded = true
-
-    var body: some View {
-        let local = Set(state.library.entries.map { CloudBundle.sessionID(for: $0.url) })
-        let rows = cloud.cloudOnly(localIDs: local)
-        Group {
-            if cloud.configured, !rows.isEmpty {
-                Section(isExpanded: $expanded) {
-                    ForEach(rows) { row in
-                        CloudOnlyRow(row: row, root: state.library.downloadRoot) { folder in
-                            state.library.refresh()
-                            state.open(folder)
-                        }
-                    }
-                } header: {
-                    Text("In the Cloud")
-                }
-            }
-        }
-        .task { await cloud.refreshRemote() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            Task { await cloud.refreshRemote() }
-        }
-    }
-}
-
-/// A cloud-only session, laid out like a library row: poster, title, where it came from, and a fixed-size slot on
-/// the right for Download, its progress, or why it failed.
+/// A cloud-only session in the sidebar, among the library's rows by date (signed in to a configured cloud): laid
+/// out like a library row but ghosted, with a fixed-size slot on the right for Download, its progress, or why it
+/// failed.
 struct CloudOnlyRow: View {
     var row: CloudSessionRow
     /// The library folder it downloads into.
@@ -47,6 +17,8 @@ struct CloudOnlyRow: View {
         let job = cloud.downloads[row.id]
         HStack(spacing: 10) {
             poster
+                .opacity(0.45)
+                .saturation(0)
                 .frame(width: 60, height: 38)
                 .clipShape(.rect(cornerRadius: 6))
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator.opacity(0.7), lineWidth: 0.5))
@@ -59,14 +31,13 @@ struct CloudOnlyRow: View {
                         .padding(3)
                 }
             VStack(alignment: .leading, spacing: 3) {
-                // Wraps rather than truncates: these names are read here before deciding to download.
-                Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    .foregroundStyle(.secondary)
                 // Unchanged while downloading (the ring on the right shows progress), so the row keeps its height.
                 Text(detail)
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
             }
             Spacer(minLength: 0)
             action(job)
@@ -123,19 +94,19 @@ struct CloudOnlyRow: View {
         }
     }
 
-    private var recorded: Date? { ISO8601DateFormatter().date(from: row.recordedAt) }
+    private var recorded: Date? { row.date }
 
-    /// The name given in the app, else when it was recorded (as the library shows it).
+    /// The name given in the app, else the time it was recorded (as the library shows it, under its date).
     private var title: String {
         if row.title != row.id { return row.title }
-        return recorded?.formatted(date: .abbreviated, time: .shortened) ?? row.id
+        return recorded?.formatted(date: .omitted, time: .shortened) ?? row.id
     }
 
     private var sizeText: String { ByteCountFormatter.string(fromByteCount: row.size, countStyle: .file) }
 
     private var detail: String {
         let marks = row.markCount == 0 ? "No marks" : (row.markCount == 1 ? "1 mark" : "\(row.markCount) marks")
-        return [row.machine.map { "From \($0)" }, marks].compactMap { $0 }.joined(separator: " · ")
+        return [marks, row.machine].compactMap { $0 }.joined(separator: " · ")
     }
 }
 
@@ -193,5 +164,16 @@ enum CloudSnapshot {
         renderer.scale = 2
         guard let image = renderer.cgImage else { throw ReviewError("Couldn't draw \(url.lastPathComponent)") }
         try CloudBundle.writePNG(image, to: url)
+    }
+}
+
+extension CloudSessionRow {
+    /// When it was recorded: `recordedAt`, else the `yyyy-MM-dd_HH-mm-ss` id.
+    var date: Date? {
+        if let d = ISO8601DateFormatter().date(from: recordedAt) { return d }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        return f.date(from: String(id.prefix(19)))
     }
 }

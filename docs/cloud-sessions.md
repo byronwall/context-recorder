@@ -199,9 +199,10 @@ Same account, another Mac: the app lists what's in the cloud and downloads a ses
 `GET /api/sessions` and `GET /api/sessions/:id/files/<path>` with the saved sign-in (§6). Not `/s/*`: that is behind
 Access, which answers an app's bearer request with its login redirect.
 
-- **Listing:** the sidebar's **In the Cloud** section shows each cloud session with no library folder named its
-  `id`: poster (`GET /api/sessions/:id/files/<poster>`), title, `machine` and mark count, with Download in a fixed slot that turns into
-  a progress ring. It is hidden when there's no cloud, signed out, or nothing to show. It refreshes when the sidebar
+- **Listing:** the sidebar shows each cloud session with no library folder named its `id` among the library's
+  sessions, in its date group, ghosted (faded poster and text) and not selectable: poster
+  (`GET /api/sessions/:id/files/<poster>`), title, mark count and `machine`, with Download in a fixed slot that turns
+  into a progress ring. None show when there's no cloud or when signed out. The list refreshes when the sidebar
   appears, when the app becomes active, after sign-in and when the cloud address changes.
 - **Download (`CloudPull`):** read `GET /api/sessions/:id/files/manifest.json` (exactly as pushed, so its sha256 is the cloud's
   `manifestSha256`), then fetch every file in `files` with `Range` requests of 32 MB into
