@@ -101,13 +101,21 @@ struct SessionSidebar: View {
         List(selection: $state.selection) {
             ForEach(groups, id: \.title) { group in
                 Section(group.title) {
-                    ForEach(group.entries) { entry in
-                        SessionRow(entry: entry, status: status(of: entry), state: state)
-                            .tag(entry.url)
+                    ForEach(group.items) { item in
+                        switch item {
+                        case .local(let entry):
+                            SessionRow(entry: entry, status: status(of: entry), state: state)
+                                .tag(entry.url)
+                        case .cloud(let row):
+                            // Untagged, so it can't be selected: there's nothing to open until it's downloaded.
+                            CloudOnlyRow(row: row, root: state.library.downloadRoot) { folder in
+                                state.library.refresh()
+                                state.open(folder)
+                            }
+                        }
                     }
                 }
             }
-            CloudOnlySection(state: state)
         }
         .listStyle(.sidebar)
         .contextMenu(forSelectionType: URL.self) { urls in
@@ -124,6 +132,10 @@ struct SessionSidebar: View {
                 ContentUnavailableView("No Sessions", systemImage: "record.circle",
                                        description: Text("Recordings are saved to ~/Movies/ContextRecorder."))
             }
+        }
+        .task { await CloudState.shared.refreshRemote() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await CloudState.shared.refreshRemote() }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             RecordCard(startFromWindow: state.startFromWindow)
@@ -180,13 +192,38 @@ struct SessionSidebar: View {
         }
     }
 
-    private struct Group { var title: String; var entries: [SessionEntry] }
+    /// A session in the library, or one only in the cloud (shown ghosted, with Download).
+    private enum Item: Identifiable {
+        case local(SessionEntry), cloud(CloudSessionRow)
+        var id: String {
+            switch self {
+            case .local(let e): e.url.path
+            case .cloud(let r): "cloud:" + r.id
+            }
+        }
+        var date: Date? {
+            switch self {
+            case .local(let e): e.date
+            case .cloud(let r): r.date
+            }
+        }
+    }
 
-    /// Today / Yesterday / weekday / full date, newest first.
+    private struct Group { var title: String; var items: [Item] }
+
+    /// Library and cloud-only sessions together: Today / Yesterday / weekday / full date, newest first.
     private var groups: [Group] {
+        let cloud = CloudState.shared
+        let local = Set(state.library.entries.map { CloudBundle.sessionID(for: $0.url) })
+        let remote = cloud.configured ? cloud.cloudOnly(localIDs: local).map(Item.cloud) : []
+        // Stable merge: library order is kept, and an undated item sorts last.
+        let items = (state.library.entries.map(Item.local) + remote).enumerated().sorted { a, b in
+            let da = a.element.date ?? .distantPast, db = b.element.date ?? .distantPast
+            return da != db ? da > db : a.offset < b.offset
+        }.map(\.element)
         let cal = Calendar.current
         var out: [Group] = []
-        for e in state.library.entries {
+        for e in items {
             let title: String
             if let d = e.date {
                 if cal.isDateInToday(d) { title = "Today" }
@@ -199,7 +236,7 @@ struct SessionSidebar: View {
             } else {
                 title = "Other"
             }
-            if out.last?.title == title { out[out.count - 1].entries.append(e) } else { out.append(Group(title: title, entries: [e])) }
+            if out.last?.title == title { out[out.count - 1].items.append(e) } else { out.append(Group(title: title, items: [e])) }
         }
         return out
     }
