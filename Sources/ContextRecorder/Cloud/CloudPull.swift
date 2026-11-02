@@ -47,6 +47,8 @@ extension CloudClient {
 enum CloudPull {
     /// Big files come down in pieces this size, so a dropped connection costs one piece, not the whole video.
     nonisolated static let chunkSize: Int64 = 32 * 1024 * 1024
+    /// Files in flight at once.
+    nonisolated static let concurrency = 12
 
     static func partialFolder(_ id: String, in root: URL) -> URL { root.appendingPathComponent(".\(id).partial") }
 
@@ -74,9 +76,19 @@ enum CloudPull {
             let text = "Downloading \(ByteCountFormatter.string(fromByteCount: done, countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: total, countStyle: .file))"
             progress?(text, 0.02 + 0.95 * Double(done) / Double(total))
         }
-        for file in manifest.files {
-            let url = partial.appendingPathComponent(file.path)
-            try await fetch(file, id: id, to: url, client: client) { done += $0; report() }
+        // Several files at once, biggest first: one at a time, each of the hundreds of thumbnails waits a full round
+        // trip through the Worker, which dominated the download (a 75 MB session took a minute).
+        var queue = manifest.files.sorted { $0.size > $1.size }
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            func next() {
+                guard !queue.isEmpty else { return }
+                let file = queue.removeFirst()
+                group.addTask { @MainActor in
+                    try await fetch(file, id: id, to: partial.appendingPathComponent(file.path), client: client) { done += $0; report() }
+                }
+            }
+            for _ in 0..<concurrency { next() }
+            while try await group.next() != nil { next() }
         }
 
         // Where it came from; then the folder appears in the library in one step.

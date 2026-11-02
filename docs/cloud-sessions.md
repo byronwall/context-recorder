@@ -205,7 +205,8 @@ Access, which answers an app's bearer request with its login redirect.
   appears, when the app becomes active, after sign-in and when the cloud address changes.
 - **Download (`CloudPull`):** read `GET /api/sessions/:id/files/manifest.json` (exactly as pushed, so its sha256 is the cloud's
   `manifestSha256`), then fetch every file in `files` with `Range` requests of 32 MB into
-  `<library>/.<id>.partial/` (hidden, so the library scan skips it). A file already there with the right size and
+  `<library>/.<id>.partial/` (hidden, so the library scan skips it), 12 files at a time, biggest first (one at a
+  time, the hundreds of small files each waited a round trip, and a 75 MB session took a minute). A file already there with the right size and
   sha256 is skipped, a short one is continued, and every file is checked against its sha256. Paths with `..`, and
   `exports/…` or `session-info.json`, are refused. When all are in, the folder is renamed to `<library>/<id>`.
   A server that ignores `Range` (200) still works: the file starts over whole.
