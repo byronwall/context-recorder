@@ -2,7 +2,7 @@
 title: "Cloud share links — shape brief"
 slug: "cloud-share-links"
 phase: shape
-status: building
+status: built
 last_updated: "2026-11-02"
 ---
 

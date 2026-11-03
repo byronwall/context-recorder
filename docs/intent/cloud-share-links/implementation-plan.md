@@ -2,11 +2,21 @@
 title: "Cloud share links — implementation plan"
 slug: "cloud-share-links"
 phase: plan
-status: building
+status: built
 last_updated: "2026-11-02"
 ---
 
 # Cloud share links — implementation plan
+
+## Where it landed (2026-11-02)
+
+All four milestones are built. The durable reference is [docs/cloud-sessions.md §8](../../cloud-sessions.md).
+
+What changed from the plan:
+- **Share files:** an allowlist of what the viewer loads, plus saved pages. The raw logs and `marks/` are not served.
+- **Library:** the links and stats sit in a popover from a **Shared** column, not a panel under the row.
+- **Mac menu:** the second item is **Manage Share Links…**.
+- **Not built:** watch depth and link-preview cards (cloud/README.md, "What's next").
 
 ## Plan at a glance
 
