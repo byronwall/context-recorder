@@ -6,15 +6,17 @@ import Foundation
 ///   ContextRecorder --push <session> [--cloud <url>] [--force]   (--force replaces a cloud copy another Mac pushed)
 ///   ContextRecorder --cloud-list [--cloud <url>]
 ///   ContextRecorder --pull <session-id> [--cloud <url>] [--into <library-folder>]
+///   ContextRecorder --share <session-id> [--label <text>] [--cloud <url>]   (prints the newest active share link,
+///     or makes one; a label always makes a new one)
 ///   ContextRecorder --self-test cloud-bundle | cloud-client
 ///   ContextRecorder --cloud-snapshot <library-folder> <out-folder>   (CR_CLOUD_URL; draws the sidebar's
 ///     "In the Cloud" rows off screen before, during and after downloading the first one, no window shown)
-/// `--push`, `--cloud-list` and `--pull` use the app's stored sign-in; `CR_CLOUD_TOKEN` (an access token) overrides it.
+/// `--push`, `--cloud-list`, `--pull` and `--share` use the app's stored sign-in; `CR_CLOUD_TOKEN` (an access token) overrides it.
 /// Exit codes: 0 ok, 1 failed, 2 bad usage, no cloud configured, or signed out.
 @MainActor
 enum CloudCLI {
     static func handles(_ args: [String]) -> Bool {
-        ["--cloud-bundle", "--push", "--cloud-list", "--pull", "--cloud-snapshot"].contains(where: args.contains) || ["cloud-bundle", "cloud-client"].contains(value(args, "--self-test") ?? "")
+        ["--cloud-bundle", "--push", "--cloud-list", "--pull", "--share", "--cloud-snapshot"].contains(where: args.contains) || ["cloud-bundle", "cloud-client"].contains(value(args, "--self-test") ?? "")
     }
 
     /// Runs the command on the main actor and exits; the caller then runs the (prohibited, windowless) app's run loop.
@@ -114,6 +116,21 @@ enum CloudCLI {
                 return 0
             } catch {
                 fputs("cloud-list failed: \(error.localizedDescription)\n", stderr)
+                return error as? CloudAuthError == .signInRequired ? 2 : 1
+            }
+        }
+
+        if let i = args.firstIndex(of: "--share") {
+            guard i + 1 < args.count, !args[i + 1].hasPrefix("--") else {
+                fputs("usage: ContextRecorder --share <session-id> [--label <text>] [--cloud <url>]\n", stderr)
+                return 2
+            }
+            guard let config = cloudConfig() else { return 2 }
+            do {
+                print(try await config.client.shareLink(args[i + 1], label: value(args, "--label")).url)
+                return 0
+            } catch {
+                fputs("share failed: \(error.localizedDescription)\n", stderr)
                 return error as? CloudAuthError == .signInRequired ? 2 : 1
             }
         }

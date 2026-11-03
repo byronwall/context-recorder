@@ -155,7 +155,7 @@ drawing PNG between `start` and `end` scaled to the video box, shows thumbnail h
   means another Mac pushed since: the app asks **Replace the cloud copy?** (naming that Mac and when) and
   **Replace Cloud Copy** commits again without `If-Match`.
 - CLI: `--cloud-bundle <session> <out-folder>`, `--push <session> [--cloud <url>] [--force]` (`--force` skips
-  `If-Match`), `--cloud-list`, `--pull <id> [--into <library-folder>]`, and
+  `If-Match`), `--cloud-list`, `--pull <id> [--into <library-folder>]`, `--share <id> [--label <text>]` (§8), and
   `CR_CLOUD_URL=… --cloud-snapshot <library-folder> <out-folder>` (§7).
 - Headless commands run the app's run loop with activation prohibited, so nothing shows or takes focus and SwiftUI's
   `ImageRenderer` (drawings, snapshots) has a real main thread.
@@ -261,3 +261,6 @@ one person's link and keep the others. Links never expire; **Push Again** keeps 
   popover with **New link** (optional label; the new URL is copied), each link's URL, **Copy link**, **Revoke** and
   stats, and the revoked links behind a toggle. `/#share=<id>` opens that session's popover.
 - **Access:** `/share/*` is in the bypass app (cloud/README.md, "Access").
+- **The Mac app:** the session menu has **Copy Share Link** (the newest active link, or a new one) and **Manage Share
+  Links…** (the library at `/#share=<id>`). CLI: `--share <session-id> [--label <text>]` prints a link the same way;
+  a label always makes a new one.

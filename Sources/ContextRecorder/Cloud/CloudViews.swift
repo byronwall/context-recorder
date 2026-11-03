@@ -175,6 +175,30 @@ final class CloudState {
         NSPasteboard.general.setString(url, forType: .string)
     }
 
+    /// Copies the session's newest active share link, making one when there is none (docs/cloud-sessions.md §8).
+    func copyShareLink(_ folder: URL) {
+        guard let config = CloudConfig.current() else { showSettings = true; return }
+        errors[folder] = nil
+        Task {
+            do {
+                let link = try await config.client.shareLink(CloudBundle.sessionID(for: folder))
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(link.url, forType: .string)
+            } catch {
+                errors[folder] = error.localizedDescription
+                if case CloudAuthError.signInRequired = error { stored = FileAuthStore().load() }
+            }
+        }
+    }
+
+    /// The cloud library with this session's share links open: make, copy and revoke links, and see their views.
+    func manageShares(_ folder: URL) {
+        guard let base = CloudConfig.current()?.url,
+              var parts = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return }
+        parts.fragment = "share=\(CloudBundle.sessionID(for: folder))"
+        if let url = parts.url { NSWorkspace.shared.open(url) }
+    }
+
     // MARK: Sessions from other Macs
 
     /// Signed in (or a local dev Worker), so the cloud's list can be read without a browser sign-in.
@@ -250,6 +274,8 @@ struct CloudMenuItems: View {
             if status != .notPushed {
                 Button("Open Cloud Copy", systemImage: "globe") { cloud.open(folder) }
                 Button("Copy Cloud Link", systemImage: "link") { cloud.copyLink(folder) }
+                Button("Copy Share Link", systemImage: "person.2") { cloud.copyShareLink(folder) }
+                Button("Manage Share Links…", systemImage: "chart.bar") { cloud.manageShares(folder) }
             }
             Button("Open Cloud Library", systemImage: "square.grid.2x2") { cloud.openLibrary() }
         }
