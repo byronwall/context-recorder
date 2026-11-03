@@ -55,3 +55,40 @@ describe("share links", () => {
     expect((await open(`/share/${a.token}/`)).status).toBe(404);
   });
 });
+
+describe("share link views", () => {
+  const beacon = (token: string, body: unknown, ua = "Mozilla/5.0 (Macintosh)") =>
+    open(`/share/${token}/view`, { method: "POST", body: JSON.stringify(body), headers: { "content-type": "text/plain", "user-agent": ua } });
+  const stats = async (id: string) =>
+    (await (await call(`/api/sessions/${id}/shares`)).json()) as {
+      token: string; views: number; viewers: number; referrers: { host: string | null; views: number }[]; devices: { mobile: number };
+    }[];
+
+  it("counts beacons, not page loads, per link", async () => {
+    await seed("s-views");
+    const a = await share("s-views", "a");
+    const b = await share("s-views", "b");
+    await open(`/share/${a.token}/`); // a preview bot: HTML only, no beacon
+    expect((await beacon(a.token, { viewer: "viewer-one", referrer: "https://app.slack.com/client/x" })).status).toBe(204);
+    await beacon(a.token, { viewer: "viewer-one", referrer: "http://localhost/share/x/" });
+    await beacon(a.token, { viewer: "viewer-two" }, "Mozilla/5.0 (iPhone)");
+    await beacon(a.token, "not json");
+
+    const byToken = new Map((await stats("s-views")).map((s) => [s.token, s]));
+    const sa = byToken.get(a.token)!;
+    expect(sa.views).toBe(4);
+    expect(sa.viewers).toBe(3);
+    expect(sa.devices.mobile).toBe(1);
+    expect(sa.referrers).toContainEqual({ host: "app.slack.com", views: 1 });
+    expect(sa.referrers).toContainEqual({ host: null, views: 3 }); // its own host and no referrer are both direct
+    expect(byToken.get(b.token)!.views).toBe(0);
+  });
+
+  it("counts nothing on a revoked link", async () => {
+    await seed("s-views-gone");
+    const { token } = await share("s-views-gone");
+    await call(`/api/shares/${token}/revoke`, { method: "POST" });
+    expect((await beacon(token, { viewer: "viewer-one" })).status).toBe(410);
+    expect((await stats("s-views-gone"))[0]!.views).toBe(0);
+  });
+});

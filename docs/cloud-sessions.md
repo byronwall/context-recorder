@@ -232,10 +232,11 @@ one person's link and keep the others. Links never expire; **Push Again** keeps 
 | Method & path | Who | Body → response |
 | --- | --- | --- |
 | `POST /api/sessions/:id/shares` | owner | `{ "label"? }` (≤ 100 characters) → `201` + `{ token, sessionId, label, createdAt, revokedAt, url }` |
-| `GET /api/sessions/:id/shares` | owner | → the same objects, newest first, revoked ones included |
+| `GET /api/sessions/:id/shares` | owner | → the same objects plus stats (below), newest first, revoked ones included |
 | `POST /api/shares/:token/revoke` | owner | → `204` |
 | `GET /share/:token/` | anyone | the viewer. Revoked: `410`, unknown: `404`, both with the "no longer shared" page |
 | `GET /share/:token/<path>` | anyone | as `/s/:id/<path>`, for the viewer's files only (below) |
+| `POST /share/:token/view` | anyone | `{ viewer, referrer }` as text → `204`; records one view (below) |
 
 - **Token:** 16 random bytes, base64url (22 characters), kept in D1 `shares`.
 - **Revoke** takes effect on the next request: every `/share/*` request looks the token up.
@@ -244,5 +245,19 @@ one person's link and keep the others. Links never expire; **Push Again** keeps 
   not served (`404`).
 - **Headers:** the viewer page sends `Referrer-Policy: no-referrer`, so a link out of the viewer doesn't carry the
   token, and `X-Robots-Tag: noindex`.
-- Deleting a cloud session deletes its links.
+- Deleting a cloud session deletes its links and their views.
+
+### Views
+
+- **What counts:** the viewer sends one beacon (`navigator.sendBeacon("view", …)`) after its first render on a
+  `/share/` page. Link-preview bots load the page but run no script, so they aren't counted. A beacon to a revoked
+  link records nothing, and neither does one carrying a valid Access cookie (you, watching your own link).
+- **`share_views`:** one row per beacon: time, `viewer` (a random id the viewer keeps in `localStorage`; a bad one is
+  replaced), `country`, `region` and `city` from `request.cf`, the referrer's host (null when absent or this host),
+  and `device` (`mobile` when the User-Agent says Mobi, Android, iPhone or iPad). No IP address is stored.
+- **Stats per link:** `views`, `viewers` (distinct ids), `lastViewedAt`, `places` and `referrers` (top 5 each,
+  `{ name | host, views }`, a null host = direct), and `devices: { mobile, desktop }`.
+- **Library page:** a **Shared** column shows **Share**, or the views over a session's active links. It opens a
+  popover with **New link** (optional label; the new URL is copied), each link's URL, **Copy link**, **Revoke** and
+  stats, and the revoked links behind a toggle. `/#share=<id>` opens that session's popover.
 - **Access:** `/share/*` is in the bypass app (cloud/README.md, "Access").

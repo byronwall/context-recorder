@@ -4,7 +4,7 @@ import { serveSessionFile } from "./files";
 import { HttpError, json, readJson, sha256Hex } from "./http";
 import type { Identity } from "./identity";
 import { assertSessionId, isValidPath, parseManifest, SHA256 } from "./manifest";
-import { Store, type ShareRow } from "./store";
+import { emptyStats, Store, type ShareRow } from "./store";
 
 /** /api/* routes (docs/cloud-sessions.md §2). Returns null when nothing matched. */
 export async function handleApi(request: Request, env: AppEnv, identity: Identity, url: URL): Promise<Response | null> {
@@ -51,7 +51,10 @@ export async function handleApi(request: Request, env: AppEnv, identity: Identit
       return await serveSessionFile(request, store, id, filePath);
     }
     if (parts.length === 3 && parts[2] === "shares") {
-      if (method === "GET") return json((await store.listShares(id)).map((s) => shareJson(s, url.origin)));
+      if (method === "GET") {
+        const [shares, stats] = await Promise.all([store.listShares(id), store.shareStats(id)]);
+        return json(shares.map((s) => ({ ...shareJson(s, url.origin), ...(stats.get(s.token) ?? emptyStats()) })));
+      }
       if (method === "POST") {
         const { value } = await readJson(request);
         const raw = (value as { label?: unknown } | null)?.label;

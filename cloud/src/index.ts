@@ -52,7 +52,9 @@ export async function handleRequest(request: Request, env: AppEnv, ctx: Executio
     if (path === "/" && (request.method === "GET" || request.method === "HEAD")) {
       const oauth = (env as AppEnv & { OAUTH_PROVIDER?: OAuthHelpers }).OAUTH_PROVIDER;
       const grants = oauth ? await listGrants(oauth, identity.id) : [];
-      const html = libraryPage(await new Store(env).listSessions(), identity.id, grants);
+      const store = new Store(env);
+      const [sessions, shares] = await Promise.all([store.listSessions(), store.shareSummaries()]);
+      const html = libraryPage(sessions, identity.id, grants, shares);
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "private, no-cache" } });
     }
 

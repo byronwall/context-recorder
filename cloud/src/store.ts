@@ -74,6 +74,34 @@ export interface ShareRow {
   revokedAt: string | null;
 }
 
+export interface ShareView {
+  viewer: string;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  /** Host only; null = direct. */
+  referrer: string | null;
+  device: "mobile" | "desktop";
+}
+
+export interface ShareStats {
+  views: number;
+  viewers: number;
+  lastViewedAt: string | null;
+  /** Most views first, at most 5 each. */
+  places: { name: string; views: number }[];
+  referrers: { host: string | null; views: number }[];
+  devices: { mobile: number; desktop: number };
+}
+
+/** Per session: active links and views over all its links, for the library list. */
+export interface ShareSummary {
+  active: number;
+  views: number;
+}
+
+export const emptyStats = (): ShareStats => ({ views: 0, viewers: 0, lastViewedAt: null, places: [], referrers: [], devices: { mobile: 0, desktop: 0 } });
+
 const SHARE_COLUMNS = "token, session_id AS sessionId, label, created_at AS createdAt, revoked_at AS revokedAt";
 
 /** 16 random bytes as base64url: 22 characters. */
@@ -337,6 +365,7 @@ export class Store {
     const [, deleted] = await db.batch([
       db.prepare("DELETE FROM session_files WHERE session_id = ?1").bind(id),
       db.prepare("DELETE FROM sessions WHERE id = ?1").bind(id),
+      db.prepare("DELETE FROM share_views WHERE token IN (SELECT token FROM shares WHERE session_id = ?1)").bind(id),
       db.prepare("DELETE FROM shares WHERE session_id = ?1").bind(id),
     ]);
     if (!deleted?.meta.changes) return false;
@@ -379,6 +408,55 @@ export class Store {
     if (!r) throw new HttpError(404, "no such share link");
     if (r.revoked_at) throw new HttpError(410, "this link was revoked");
     return r.session_id;
+  }
+
+  /** Records a view of an active link (a revoked one records nothing). */
+  async recordView(token: string, v: ShareView): Promise<void> {
+    await this.env.DB.prepare(
+      `INSERT INTO share_views (token, viewed_at, viewer, country, region, city, referrer, device)
+       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8 WHERE EXISTS (SELECT 1 FROM shares WHERE token = ?1 AND revoked_at IS NULL)`,
+    )
+      .bind(token, new Date().toISOString(), v.viewer, v.country, v.region, v.city, v.referrer, v.device)
+      .run();
+  }
+
+  /** Stats for each of a session's links, by token. Links never viewed get zeroes. */
+  async shareStats(sessionId: string): Promise<Map<string, ShareStats>> {
+    const db = this.env.DB;
+    const mine = "token IN (SELECT token FROM shares WHERE session_id = ?1)";
+    const [totals, places, referrers, devices] = await db.batch<Record<string, string | number | null>>([
+      db.prepare(`SELECT token, COUNT(*) AS views, COUNT(DISTINCT viewer) AS viewers, MAX(viewed_at) AS last FROM share_views WHERE ${mine} GROUP BY token`).bind(sessionId),
+      db.prepare(`SELECT token, city, region, country, COUNT(*) AS n FROM share_views WHERE ${mine} GROUP BY token, city, region, country ORDER BY n DESC`).bind(sessionId),
+      db.prepare(`SELECT token, referrer, COUNT(*) AS n FROM share_views WHERE ${mine} GROUP BY token, referrer ORDER BY n DESC`).bind(sessionId),
+      db.prepare(`SELECT token, device, COUNT(*) AS n FROM share_views WHERE ${mine} GROUP BY token, device`).bind(sessionId),
+    ]);
+    const out = new Map<string, ShareStats>();
+    const of = (token: unknown) => {
+      let s = out.get(token as string);
+      if (!s) out.set(token as string, (s = emptyStats()));
+      return s;
+    };
+    for (const r of totals!.results) Object.assign(of(r.token), { views: r.views, viewers: r.viewers, lastViewedAt: r.last });
+    for (const r of places!.results) {
+      const s = of(r.token);
+      if (s.places.length < 5) s.places.push({ name: [r.city, r.region, r.country].filter(Boolean).join(", ") || "Unknown", views: r.n as number });
+    }
+    for (const r of referrers!.results) {
+      const s = of(r.token);
+      if (s.referrers.length < 5) s.referrers.push({ host: r.referrer as string | null, views: r.n as number });
+    }
+    for (const r of devices!.results) of(r.token).devices[r.device === "mobile" ? "mobile" : "desktop"] += r.n as number;
+    return out;
+  }
+
+  /** Active links and total views per session that has any link. */
+  async shareSummaries(): Promise<Map<string, ShareSummary>> {
+    const { results } = await this.env.DB.prepare(
+      `SELECT s.session_id AS id, SUM(s.revoked_at IS NULL) AS active,
+              (SELECT COUNT(*) FROM share_views v JOIN shares t ON v.token = t.token WHERE t.session_id = s.session_id) AS views
+         FROM shares s GROUP BY s.session_id`,
+    ).all<{ id: string; active: number; views: number }>();
+    return new Map(results.map((r) => [r.id, { active: r.active, views: r.views }]));
   }
 
   // ---- reading session content (viewer files, MCP) ----

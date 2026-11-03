@@ -2,7 +2,8 @@ import type { AppEnv } from "./env";
 import { serveSessionFile, serveViewer } from "./files";
 import { HttpError } from "./http";
 import { isValidPath } from "./manifest";
-import { Store } from "./store";
+import { cookie, verifyAccessJwt } from "./identity";
+import { Store, type ShareView } from "./store";
 
 /**
  * /share/:token/ (docs/cloud-sessions.md §8): one session in the viewer, read-only, with no sign-in. Every
@@ -31,6 +32,11 @@ export async function handleShare(request: Request, env: AppEnv, rawToken: strin
     throw e;
   }
 
+  if (path === "view" && request.method === "POST") {
+    if (!(await isOwner(request, env))) await store.recordView(token, await readView(request));
+    return new Response(null, { status: 204 });
+  }
+
   if (page) {
     const res = await serveViewer(request, env, store, id);
     const headers = new Headers(res.headers);
@@ -41,6 +47,47 @@ export async function handleShare(request: Request, env: AppEnv, rawToken: strin
   }
   if (!isValidPath(path) || !isSharedPath(path)) throw new HttpError(404, "not part of the shared session");
   return await serveSessionFile(request, store, id, path);
+}
+
+/**
+ * The beacon's body (`{ viewer, referrer }`, sent as text by sendBeacon) plus where Cloudflare says the request came
+ * from. Nothing here is trusted: a bad viewer id gets a random one, and the referrer keeps only its host.
+ */
+async function readView(request: Request): Promise<ShareView> {
+  let body: { viewer?: unknown; referrer?: unknown } = {};
+  try {
+    body = JSON.parse((await request.text()).slice(0, 2000));
+  } catch {
+    /* counted with defaults */
+  }
+  const viewer = typeof body.viewer === "string" && /^[A-Za-z0-9-]{8,40}$/.test(body.viewer) ? body.viewer : crypto.randomUUID();
+  let referrer: string | null = null;
+  try {
+    const host = new URL(String(body.referrer)).hostname;
+    if (host && host !== new URL(request.url).hostname) referrer = host;
+  } catch {
+    /* direct */
+  }
+  const cf = (request as Request & { cf?: IncomingRequestCfProperties }).cf;
+  const ua = request.headers.get("user-agent") || "";
+  return {
+    viewer,
+    country: (cf?.country as string | undefined) ?? null,
+    region: cf?.region ?? null,
+    city: cf?.city ?? null,
+    referrer,
+    device: /Mobi|Android|iPhone|iPad/.test(ua) ? "mobile" : "desktop",
+  };
+}
+
+/** You, watching your own link while signed in to Access: not counted. */
+async function isOwner(request: Request, env: AppEnv): Promise<boolean> {
+  const token = cookie(request, "CF_Authorization");
+  if (!token || !env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) return false;
+  return verifyAccessJwt(token, { teamDomain: env.ACCESS_TEAM_DOMAIN, audience: env.ACCESS_AUD }).then(
+    () => true,
+    () => false,
+  );
 }
 
 function notShared(status: number): Response {
