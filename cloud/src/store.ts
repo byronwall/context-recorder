@@ -66,6 +66,22 @@ const toRow = (r: SessionDbRow): SessionRow => ({
 /** The session row (?1) holds manifest ?2: the commit's upsert went through. */
 const HOLDS_NEW = "EXISTS (SELECT 1 FROM sessions WHERE id = ?1 AND manifest_sha256 = ?2)";
 
+export interface ShareRow {
+  token: string;
+  sessionId: string;
+  label: string | null;
+  createdAt: string;
+  revokedAt: string | null;
+}
+
+const SHARE_COLUMNS = "token, session_id AS sessionId, label, created_at AS createdAt, revoked_at AS revokedAt";
+
+/** 16 random bytes as base64url: 22 characters. */
+function newToken(): string {
+  const raw = String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16)));
+  return btoa(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 const ROW_COLUMNS = "id, title, recorded_at, duration, mark_count, size, poster, pushed_at, json_extract(manifest, '$.machine') AS machine";
 
 export class Store {
@@ -321,10 +337,48 @@ export class Store {
     const [, deleted] = await db.batch([
       db.prepare("DELETE FROM session_files WHERE session_id = ?1").bind(id),
       db.prepare("DELETE FROM sessions WHERE id = ?1").bind(id),
+      db.prepare("DELETE FROM shares WHERE session_id = ?1").bind(id),
     ]);
     if (!deleted?.meta.changes) return false;
     await this.collectGarbage(previous);
     return true;
+  }
+
+  // ---- share links (docs/cloud-sessions.md §8) ----
+
+  async createShare(sessionId: string, label: string | null, by: string): Promise<ShareRow> {
+    if (!(await this.getSession(sessionId))) throw new HttpError(404, "no such session");
+    const share: ShareRow = { token: newToken(), sessionId, label, createdAt: new Date().toISOString(), revokedAt: null };
+    await this.env.DB.prepare("INSERT INTO shares (token, session_id, label, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5)")
+      .bind(share.token, sessionId, label, share.createdAt, by)
+      .run();
+    return share;
+  }
+
+  /** A session's links, newest first, revoked ones included. */
+  async listShares(sessionId: string): Promise<ShareRow[]> {
+    const { results } = await this.env.DB.prepare(`SELECT ${SHARE_COLUMNS} FROM shares WHERE session_id = ?1 ORDER BY created_at DESC`)
+      .bind(sessionId)
+      .all<ShareRow>();
+    return results;
+  }
+
+  /** Returns false when there is no such link. Revoking twice keeps the first time. */
+  async revokeShare(token: string): Promise<boolean> {
+    const r = await this.env.DB.prepare("UPDATE shares SET revoked_at = COALESCE(revoked_at, ?2) WHERE token = ?1")
+      .bind(token, new Date().toISOString())
+      .run();
+    return r.meta.changes > 0;
+  }
+
+  /** The session an active link opens. Throws 404 for an unknown token and 410 for a revoked one. */
+  async shareSession(token: string): Promise<string> {
+    const r = await this.env.DB.prepare("SELECT session_id, revoked_at FROM shares WHERE token = ?1")
+      .bind(token)
+      .first<{ session_id: string; revoked_at: string | null }>();
+    if (!r) throw new HttpError(404, "no such share link");
+    if (r.revoked_at) throw new HttpError(410, "this link was revoked");
+    return r.session_id;
   }
 
   // ---- reading session content (viewer files, MCP) ----

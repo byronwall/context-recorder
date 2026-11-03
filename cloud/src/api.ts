@@ -4,7 +4,7 @@ import { serveSessionFile } from "./files";
 import { HttpError, json, readJson, sha256Hex } from "./http";
 import type { Identity } from "./identity";
 import { assertSessionId, isValidPath, parseManifest, SHA256 } from "./manifest";
-import { Store } from "./store";
+import { Store, type ShareRow } from "./store";
 
 /** /api/* routes (docs/cloud-sessions.md §2). Returns null when nothing matched. */
 export async function handleApi(request: Request, env: AppEnv, identity: Identity, url: URL): Promise<Response | null> {
@@ -50,6 +50,15 @@ export async function handleApi(request: Request, env: AppEnv, identity: Identit
       if (filePath !== "manifest.json" && !isValidPath(filePath)) throw new HttpError(400, "invalid path");
       return await serveSessionFile(request, store, id, filePath);
     }
+    if (parts.length === 3 && parts[2] === "shares") {
+      if (method === "GET") return json((await store.listShares(id)).map((s) => shareJson(s, url.origin)));
+      if (method === "POST") {
+        const { value } = await readJson(request);
+        const raw = (value as { label?: unknown } | null)?.label;
+        const label = typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 100) : null;
+        return json(shareJson(await store.createShare(id, label, identity.id), url.origin), { status: 201 });
+      }
+    }
     if (parts.length === 2 && method === "GET") {
       const row = await store.getSession(id);
       if (!row) throw new HttpError(404, "no such session");
@@ -60,6 +69,11 @@ export async function handleApi(request: Request, env: AppEnv, identity: Identit
       if (!(await store.deleteSession(id))) throw new HttpError(404, "no such session");
       return new Response(null, { status: 204 });
     }
+  }
+
+  if (parts[0] === "shares" && parts.length === 3 && parts[2] === "revoke" && method === "POST") {
+    if (!(await store.revokeShare(parts[1]!))) throw new HttpError(404, "no such share link");
+    return new Response(null, { status: 204 });
   }
 
   if (parts[0] === "blobs" && parts[1] !== undefined) {
@@ -94,6 +108,8 @@ export async function handleApi(request: Request, env: AppEnv, identity: Identit
   }
   return null;
 }
+
+const shareJson = (s: ShareRow, origin: string) => ({ ...s, url: `${origin}/share/${s.token}/` });
 
 export interface GrantRow {
   id: string;

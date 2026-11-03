@@ -3,6 +3,7 @@ import { handleApi, listGrants } from "./api";
 import { handleAuthorize } from "./authorize";
 import type { AppEnv } from "./env";
 import { serveSessionFile, serveViewer } from "./files";
+import { handleShare } from "./share";
 import { errorResponse, HttpError, json } from "./http";
 import { identify, type UserProps } from "./identity";
 import { libraryPage } from "./library";
@@ -15,7 +16,7 @@ import { Store } from "./store";
  * One Worker (docs/cloud-sessions.md §2 and §6). The OAuth provider in front owns /token, /register and the
  * /.well-known metadata, and lets only bearer-token requests through to /mcp. Everything else lands in
  * handleRequest, where Identity accepts a bearer token, Access, or (locally) DEV_IDENTITY. /f/* is
- * checked by its signature.
+ * checked by its signature, /share/* by its token.
  */
 export async function handleRequest(request: Request, env: AppEnv, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
@@ -31,6 +32,10 @@ export async function handleRequest(request: Request, env: AppEnv, ctx: Executio
       await verifyFileUrl(env, id, filePath, url);
       return await serveSessionFile(request, new Store(env), id, filePath);
     }
+
+    // Share links: no Identity, the token is the check.
+    const share = /^\/share\/([^/]+)(\/(.*))?$/.exec(path);
+    if (share) return await handleShare(request, env, share[1]!, share[2] === undefined ? undefined : (share[3] ?? ""));
 
     if (path === "/authorize") return await handleAuthorize(request, env as AppEnv & { OAUTH_PROVIDER: OAuthHelpers });
 
