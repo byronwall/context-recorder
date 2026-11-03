@@ -856,6 +856,19 @@ function setupCloud() {
 
 $(".app").classList.remove("loading"); $("#list").removeAttribute("aria-busy");
 renderHeader(); renderTimeline(); setTab("marks");
+countShareView();
+
+// Opened from a share link (/share/<token>/): count this view once per page load (docs/cloud-sessions.md §8).
+// Counting here, after the first render, leaves out link-preview bots, which fetch the page but run no script.
+function countShareView() {
+  if (!/^https?:$/.test(location.protocol) || !/\/share\/[^/]+\/(index\.html)?$/.test(location.pathname)) return;
+  let viewer;
+  try {
+    viewer = localStorage.getItem("contextRecorderViewer");
+    if (!viewer) localStorage.setItem("contextRecorderViewer", viewer = crypto.randomUUID());
+  } catch { /* storage blocked: count the view with a throwaway id */ }
+  try { navigator.sendBeacon("view", JSON.stringify({ viewer: viewer || crypto.randomUUID(), referrer: document.referrer })); } catch {}
+}
 
 // Location in the URL hash (#m=<mark index> or #t=<edited seconds>) so a reload or a shared link lands in the
 // same place. The hash works over file:// and never reaches the server; replaceState keeps it out of history.

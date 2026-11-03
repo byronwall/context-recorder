@@ -82,7 +82,7 @@ Drawings that a cut splits into separate windows get one `drawings.json` entry p
 
 ## 2. Worker HTTP API
 
-One Worker. Every route passes through `Identity` (§6) except `/f/*` (signed URLs, §4) and the OAuth
+One Worker. Every route passes through `Identity` (§6) except `/f/*` (signed URLs, §4), `/share/*` (share links, §8) and the OAuth
 endpoints the provider owns.
 - **Storage:** content-addressed. R2 key `blobs/<sha256>`. D1 holds each session's current manifest. A file
   is served by looking its path up in the manifest. Blobs no manifest references are deleted at commit/delete.
@@ -105,6 +105,7 @@ endpoints the provider owns.
 | `GET /` | library page: sessions, plus signed-in apps with Sign out |
 | `GET /api/me`, `GET /api/grants`, `POST /api/grants/:id/revoke` | sign-in (§6) |
 | `/mcp` | MCP (section 4) |
+| `/api/sessions/:id/shares`, `/api/shares/:token/revoke`, `/share/:token/…` | share links (§8) |
 
 `manifestSha256` is the sha256 of the manifest JSON exactly as the Mac sent it. `POST` bodies must be JSON:
 `text/plain`, form and multipart bodies get `415`, because those skip the browser's CORS preflight.
@@ -154,7 +155,7 @@ drawing PNG between `start` and `end` scaled to the video box, shows thumbnail h
   means another Mac pushed since: the app asks **Replace the cloud copy?** (naming that Mac and when) and
   **Replace Cloud Copy** commits again without `If-Match`.
 - CLI: `--cloud-bundle <session> <out-folder>`, `--push <session> [--cloud <url>] [--force]` (`--force` skips
-  `If-Match`), `--cloud-list`, `--pull <id> [--into <library-folder>]`, and
+  `If-Match`), `--cloud-list`, `--pull <id> [--into <library-folder>]`, `--share <id> [--label <text>]` (§8), and
   `CR_CLOUD_URL=… --cloud-snapshot <library-folder> <out-folder>` (§7).
 - Headless commands run the app's run loop with activation prohibited, so nothing shows or takes focus and SwiftUI's
   `ImageRenderer` (drawings, snapshots) has a real main thread.
@@ -221,3 +222,45 @@ Access, which answers an app's bearer request with its login redirect.
   the section's rows with `ImageRenderer` before, during and after a real download of the first cloud-only session,
   through the same path as the button. AppKit-backed controls can't be drawn that way, so the Download button shows
   as its icon.
+
+## 8. Share links
+
+A share link opens one session in the viewer, read-only, with no sign-in. It is a random token, not the session id
+(a timestamp anyone could guess). A session can have many links, each with an optional label, so you can revoke
+one person's link and keep the others. Links never expire; **Push Again** keeps them working.
+
+| Method & path | Who | Body → response |
+| --- | --- | --- |
+| `POST /api/sessions/:id/shares` | owner | `{ "label"? }` (≤ 100 characters) → `201` + `{ token, sessionId, label, createdAt, revokedAt, url }` |
+| `GET /api/sessions/:id/shares` | owner | → the same objects plus stats (below), newest first, revoked ones included |
+| `POST /api/shares/:token/revoke` | owner | → `204` |
+| `GET /share/:token/` | anyone | the viewer. Revoked: `410`, unknown: `404`, both with the "no longer shared" page |
+| `GET /share/:token/<path>` | anyone | as `/s/:id/<path>`, for the viewer's files only (below) |
+| `POST /share/:token/view` | anyone | `{ viewer, referrer }` as text → `204`; records one view (below) |
+
+- **Token:** 16 random bytes, base64url (22 characters), kept in D1 `shares`.
+- **Revoke** takes effect on the next request: every `/share/*` request looks the token up.
+- **Files:** `manifest.json`, `session.json`, `drawings.json`, `recording.mp4`, and everything under `thumbs/`,
+  `frames/`, `screenshots/`, `drawings/`, `annotations/`, `pages/` and `sources/`. The raw logs and `marks/` are
+  not served (`404`).
+- **Headers:** the viewer page sends `Referrer-Policy: no-referrer`, so a link out of the viewer doesn't carry the
+  token, and `X-Robots-Tag: noindex`.
+- Deleting a cloud session deletes its links and their views.
+
+### Views
+
+- **What counts:** the viewer sends one beacon (`navigator.sendBeacon("view", …)`) after its first render on a
+  `/share/` page. Link-preview bots load the page but run no script, so they aren't counted. A beacon to a revoked
+  link records nothing, and neither does one carrying a valid Access cookie (you, watching your own link).
+- **`share_views`:** one row per beacon: time, `viewer` (a random id the viewer keeps in `localStorage`; a bad one is
+  replaced), `country`, `region` and `city` from `request.cf`, the referrer's host (null when absent or this host),
+  and `device` (`mobile` when the User-Agent says Mobi, Android, iPhone or iPad). No IP address is stored.
+- **Stats per link:** `views`, `viewers` (distinct ids), `lastViewedAt`, `places` and `referrers` (top 5 each,
+  `{ name | host, views }`, a null host = direct), and `devices: { mobile, desktop }`.
+- **Library page:** a **Shared** column shows **Share**, or the views over a session's active links. It opens a
+  popover with **New link** (optional label; the new URL is copied), each link's URL, **Copy link**, **Revoke** and
+  stats, and the revoked links behind a toggle. `/#share=<id>` opens that session's popover.
+- **Access:** `/share/*` is in the bypass app (cloud/README.md, "Access").
+- **The Mac app:** the session menu has **Copy Share Link** (the newest active link, or a new one) and **Manage Share
+  Links…** (the library at `/#share=<id>`). CLI: `--share <session-id> [--label <text>]` prints a link the same way;
+  a label always makes a new one.

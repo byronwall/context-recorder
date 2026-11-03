@@ -17,7 +17,7 @@ last_updated: "2026-10-22"
 | 3. Agents read sessions locally over MCP | Built |
 | 4. Live on your domain | Live on `workers.dev`, not a custom domain: Byron kept `byroni.us` at Namecheap. The Media Transformations spike waits for a zone, so frames come from thumbnails |
 | 5. Agents from anywhere | Built differently: the Worker is its own OAuth server, with Access guarding `/authorize`. That one sign-in also replaced the Mac's Access service token |
-| 6. Sharing and lifecycle | Not started |
+| 6. Sharing and lifecycle | Share links built in [cloud-share-links](../cloud-share-links/implementation-plan.md). Asking on trash is not started |
 
 What changed from the plan:
 - **Sign-in:** OAuth sign-in (browser, refresh tokens) replaced the service token. Pasting a token ID and secret into Cloud Settings was too much friction.

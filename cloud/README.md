@@ -15,6 +15,7 @@ locally on Miniflare until you deploy.
 | `src/store.ts` | R2 blobs (`blobs/<sha256>`), D1 sessions/files/blobs, hash checks, multipart, orphan GC |
 | `src/api.ts` | `/api/*` routes, including `/api/me` and `/api/grants` (signed-in apps, revoke) |
 | `src/files.ts` | `/s/:id/<path>` and `/f/:id/<path>`: Range/206, ETag, viewer at `/s/:id/` |
+| `src/share.ts` | `/share/:token/…`: share links, the view beacon, the "no longer shared" page (§8) |
 | `src/library.ts` | `GET /` |
 | `src/signing.ts` | HMAC-SHA256 signed `/f/*` URLs (≤ 1 h) |
 | `src/frames/` | `Frames` port: `thumbs` (default) and `media` (Media Transformations) |
@@ -70,19 +71,19 @@ Access signs a person in; the Worker checks everything else itself.
 | Access app | Destinations | Policy |
 | --- | --- | --- |
 | Main app | the whole host (so `/`, `/s/*`, `/v/*`, `/authorize`) | Allow: `byron@byroni.us` |
-| `Context Recorder signed files` | `/f/*`, `/api/*`, `/mcp`, `/token`, `/register`, `/.well-known/*` | Bypass: Everyone |
+| `Context Recorder signed files` | `/f/*`, `/share/*`, `/api/*`, `/mcp`, `/token`, `/register`, `/.well-known/*` | Bypass: Everyone |
 
 The main app's Audience tag is `ACCESS_AUD` in `wrangler.jsonc`. `/authorize` must stay behind Access: it's
-where a person signs in before approving an app. Share links (`/share/*`) will need a bypass too.
+where a person signs in before approving an app. Share links (`/share/*`) check their own token, so they are bypassed.
 
 ### Checks after a deploy or an Access change
 
 ```sh
 U=https://context-recorder-cloud.byron-711.workers.dev
-for p in / /s/x/ /authorize /.well-known/oauth-authorization-server /api/me /mcp; do
+for p in / /s/x/ /authorize /.well-known/oauth-authorization-server /api/me /mcp /share/x/; do
   printf '%-42s %s\n' "$p" "$(curl -s -o /dev/null -w '%{http_code}' "$U$p")"
 done
-# expect 302 (Access) for the first three, 200 for the metadata, 401 for /api/me and /mcp
+# expect 302 (Access) for the first three, 200 for the metadata, 401 for /api/me and /mcp, 404 for /share/x/
 ```
 
 ### Signing in
@@ -100,7 +101,8 @@ $0.015/GB, with free egress. Zero Trust Free.
 
 ## What's next
 
-- **Share links** (`shares` table, `/share/:token`, revoke), and asking on trash whether to delete the cloud copy.
+- Asking on trash whether to delete the cloud copy.
+- Share links: watch depth (the furthest point reached) and link-preview cards (`og:image` from the poster).
 - **Frames from Media Transformations** (`FRAMES=media`, `src/frames/media.ts`): needs a zone on Cloudflare,
   so it waits for a custom domain. Until then `get_frame` returns the nearest 2 s thumbnail.
 - Rewrite `transcript.json` and the logs into edited time in the cloud copy (§1, known gap).
