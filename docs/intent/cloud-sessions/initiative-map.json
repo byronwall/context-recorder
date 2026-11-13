@@ -4,11 +4,11 @@
     "title": "Cloud sessions",
     "slug": "cloud-sessions",
     "scale": "capability",
-    "current_phase": "plan",
-    "last_updated": "2026-10-21",
+    "current_phase": "execution",
+    "last_updated": "2026-11-12",
     "summary": "Push locally recorded sessions to an owner-only Cloudflare-hosted store so they can be reviewed in a browser and processed by agents from any machine.",
-    "status": "planned",
-    "next_action": "Review shape open choices, then start M1 (cloud copy on disk)."
+    "status": "active",
+    "next_action": "Build M6's trash prompt (keep or delete the cloud copy; clear exports/cloud.json when the cloud copy is gone). Run the Media Transformations spike only if a Cloudflare zone is added."
   },
   "artifacts": {
     "intent_brief": {
@@ -29,7 +29,7 @@
     "implementation_plan": {
       "path": "implementation-plan.md",
       "status": "current",
-      "updated_at": "2026-10-21"
+      "updated_at": "2026-11-12"
     }
   },
   "sources": [
@@ -415,7 +415,7 @@
     ]
   },
   "implementation": {
-    "status": "planned",
+    "status": "active",
     "repository_snapshot": {
       "root": null,
       "revision": "08faf14",
@@ -568,8 +568,10 @@
         "proof": "--self-test cloud-bundle; one real edited, annotated session compared against the app within one frame",
         "valid_intermediate_state": "A local export command exists; nothing uploads; viewer.html still works embedded.",
         "rollback": "Remove the command; session folders are untouched (output goes to a chosen folder).",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #38 (merged 2026-10-22): CloudBundle and --self-test cloud-bundle, which checks every exported frame of unedited, cut and joined sessions against EditMap within one frame. PR #45 (2026-10-24) changed the layout to an unedited session with drawings as shapes and logs in edited time."
+        ]
       },
       {
         "id": "m2",
@@ -581,8 +583,10 @@
         "proof": "vitest push/commit/Range/delete; app push to localhost viewed in the browser pane",
         "valid_intermediate_state": "Cloud usable locally; push hidden unless a cloud URL is configured.",
         "rollback": "Unset the cloud URL; delete exports/cloud.json.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #38 (merged 2026-10-22): Worker in cloud/ with R2 blobs, D1 manifests, Range streaming and library page; Push to Cloud in the app uploads only changed files; pnpm --dir cloud test passed (62). Follow-ups: PRs #39, #41, #46, #55."
+        ]
       },
       {
         "id": "m3",
@@ -592,8 +596,10 @@
         "proof": "MCP contract tests on seeded Miniflare; Inspector and claude mcp add run",
         "valid_intermediate_state": "MCP served locally with the thumbs frames adapter.",
         "rollback": "Remove the /mcp route.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #38 (merged 2026-10-22): /mcp with list_sessions, get_session, get_mark, get_frame(s), get_file_url; frames from the thumbs adapter (docs/cloud-sessions.md §4)."
+        ]
       },
       {
         "id": "m4",
@@ -606,8 +612,10 @@
         "proof": "Signed-out request blocked; phone viewing after sign-in; Media Transformations spike result recorded",
         "valid_intermediate_state": "Live cloud for the owner; MCP live but unauthenticated route disabled until m5.",
         "rollback": "Disable the Worker route or Access app; Mac copies are untouched.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #38 (merged 2026-10-22): live at context-recorder-cloud.byron-711.workers.dev behind Access; live checks of push, Range 206 and Access 302/200/401. Changed: workers.dev, not a custom domain, because Byron kept byroni.us at Namecheap. The Media Transformations spike was not run: it needs a zone. Frames come from 2 s thumbnails."
+        ]
       },
       {
         "id": "m5",
@@ -619,8 +627,10 @@
         "proof": "Both clients fetch get_frame for the same moment",
         "valid_intermediate_state": "Viewer unchanged; MCP behind OAuth.",
         "rollback": "Disable /mcp; viewer and push keep working.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #38 (merged 2026-10-22): built differently. The Worker is its own OAuth 2.1 server and Access guards /authorize. The same sign-in serves Claude Code and claude.ai on /mcp; live MCP get_frame passed. It also replaced the Mac's Access service token."
+        ]
       },
       {
         "id": "m6",
@@ -630,8 +640,10 @@
         "proof": "vitest share/revoke; signed-out browser check; trash prompt in the app",
         "valid_intermediate_state": "Complete first release.",
         "rollback": "Revoke all shares; remove the Bypass policy.",
-        "status": "planned",
-        "evidence": []
+        "status": "active",
+        "evidence": [
+          "Share links shipped in PRs #64, #65, #66 and #67 (merged 2026-11-03) under the cloud-share-links initiative (docs/cloud-sessions.md §8). Not started: the trash prompt. Move to Trash (Sources/ContextRecorder/Library/LibraryWindow.swift trashConfirmed) does not ask about the cloud copy, and nothing clears exports/cloud.json after a cloud delete."
+        ]
       }
     ],
     "cut_line": [
@@ -758,6 +770,10 @@
     {
       "date": "2026-10-21",
       "change": "Three question rounds completed; intent rewritten; shape and plan written with Cloudflare research."
+    },
+    {
+      "date": "2026-11-12",
+      "change": "Checked milestones against origin/main (81a890c) and merged PRs. M1-M5 shipped in PR #38 (M4 on workers.dev without the Media Transformations spike; M5 with the Worker as OAuth server). M6 share links shipped in PRs #64-#67; the trash prompt is not started, so the initiative stays active and is not retired. Out of plan: Mac pull of cloud sessions (claim C11) shipped in PRs #47 and #54-#57."
     }
   ],
   "closure": null

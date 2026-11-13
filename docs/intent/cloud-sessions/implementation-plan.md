@@ -2,22 +2,22 @@
 title: "Cloud sessions — implementation plan"
 slug: "cloud-sessions"
 phase: plan
-status: built
-last_updated: "2026-10-22"
+status: active
+last_updated: "2026-11-12"
 ---
 
 # Cloud sessions — implementation plan
 
-## Where it landed (2026-10-22)
+## Where it landed (checked 2026-11-12)
 
-| Milestone | Status |
-| --- | --- |
-| 1. The cloud copy plays from disk | Built. `--self-test cloud-bundle` checks every exported frame against `EditMap` within one frame |
-| 2. Push to a local cloud and browse it | Built |
-| 3. Agents read sessions locally over MCP | Built |
-| 4. Live on your domain | Live on `workers.dev`, not a custom domain: Byron kept `byroni.us` at Namecheap. The Media Transformations spike waits for a zone, so frames come from thumbnails |
-| 5. Agents from anywhere | Built differently: the Worker is its own OAuth server, with Access guarding `/authorize`. That one sign-in also replaced the Mac's Access service token |
-| 6. Sharing and lifecycle | Share links built in [cloud-share-links](../cloud-share-links/implementation-plan.md). Asking on trash is not started |
+| Milestone | Status | Evidence |
+| --- | --- | --- |
+| 1. The cloud copy plays from disk | Completed. `--self-test cloud-bundle` checks every exported frame against `EditMap` within one frame | #38; layout changed in #45 |
+| 2. Push to a local cloud and browse it | Completed | #38 |
+| 3. Agents read sessions locally over MCP | Completed | #38 |
+| 4. Live on your domain | Completed, changed. Live on `workers.dev`, not a custom domain: Byron kept `byroni.us` at Namecheap. The Media Transformations spike waits for a zone, so frames come from thumbnails | #38 |
+| 5. Agents from anywhere | Completed, built differently: the Worker is its own OAuth server, with Access guarding `/authorize`. That one sign-in also replaced the Mac's Access service token | #38 |
+| 6. Sharing and lifecycle | Active. Share links built in [cloud-share-links](../cloud-share-links/implementation-plan.md). Asking on trash is not started | #64, #65, #66, #67 |
 
 What changed from the plan:
 - **Sign-in:** OAuth sign-in (browser, refresh tokens) replaced the service token. Pasting a token ID and secret into Cloud Settings was too much friction.
