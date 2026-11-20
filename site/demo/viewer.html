@@ -1,0 +1,898 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Session Viewer</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0b0c0e; --panel: #121418; --panel-2: #181b20; --raised: #1e2228; --line: #23272e; --line-2: #2e333b;
+  --text: #ecedef; --text-2: #b4b9c1; --muted: #7d848f;
+  --accent: #6e8bff; --accent-ink: #fff; --accent-soft: rgba(110, 139, 255, .14);
+  --mark: #f5b041; --shot: #3ecf8e; --now: #ff5a5f; --now-soft: rgba(255, 90, 95, .12);
+  --radius: 10px; --radius-sm: 6px;
+  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px -12px rgba(0,0,0,.6);
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root { color-scheme: light;
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f3f4f6; --raised: #ffffff; --line: #e6e8ec; --line-2: #d9dce2;
+    --text: #111316; --text-2: #3d434c; --muted: #6b727d;
+    --accent: #4458e8; --accent-soft: rgba(68, 88, 232, .10);
+    --mark: #c27c0e; --shot: #14945c; --now: #e5383b; --now-soft: rgba(229, 56, 59, .08);
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 20px -10px rgba(16,24,40,.12); }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 13px/1.5 var(--sans); -webkit-font-smoothing: antialiased; letter-spacing: -.003em; }
+::selection { background: var(--accent-soft); }
+a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+svg.i { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+button { font: 500 12px/1 var(--sans); color: var(--text-2); background: transparent; border: 1px solid var(--line-2); border-radius: var(--radius-sm);
+  height: 28px; padding: 0 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .12s, border-color .12s, color .12s; }
+button:hover { background: var(--panel-2); color: var(--text); }
+button.primary { background: var(--text); color: var(--bg); border-color: transparent; }
+button.primary:hover { opacity: .9; }
+button.done { color: var(--shot); border-color: color-mix(in srgb, var(--shot) 40%, transparent); }
+
+.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+
+/* Header */
+header { display: flex; align-items: center; gap: 14px; padding: 0 20px; height: 56px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.logo { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(145deg, #2a2f38, #15181d); display: grid; place-items: center; box-shadow: 0 0 0 1px rgba(255,255,255,.06) inset; flex: none; }
+.logo::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--now); box-shadow: 0 0 0 3px rgba(255,90,95,.22); }
+.brand .eyebrow { font-size: 11px; color: var(--muted); line-height: 1.2; }
+.brand .eyebrow a { color: inherit; text-decoration: none; }
+.brand .eyebrow a:hover { color: var(--text); text-decoration: underline; }
+header h1 { font-size: 14px; margin: 0; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text-2); font-size: 12px; white-space: nowrap; }
+.chip b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.chip .i { width: 12px; height: 12px; color: var(--muted); }
+header .spacer { flex: 1; }
+.keys { color: var(--muted); font-size: 11px; display: flex; gap: 10px; white-space: nowrap; }
+kbd { font: 500 10px/1 var(--mono); min-width: 18px; height: 18px; display: inline-grid; place-items: center; padding: 0 4px; margin-right: 3px;
+  border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 4px; color: var(--text-2); background: var(--panel-2); }
+
+/* Stage */
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; min-height: 0; }
+.stage { display: flex; flex-direction: column; min-height: 0; padding: 20px; gap: 14px; overflow: auto; }
+.player { flex: none; position: relative; border-radius: var(--radius); overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--line), var(--shadow); }
+/* Reserve the player's box before metadata (or the session) loads; setupCloud swaps in the manifest's size. */
+video { display: block; width: 100%; max-height: 60vh; background: #000; aspect-ratio: auto 16 / 9; }
+/* Cloud copies: drawings sit over the video's content box (letterboxing excluded); clicks pass through to the controls. */
+.drawings { position: absolute; pointer-events: none; }
+.drawings img { position: absolute; inset: 0; width: 100%; height: 100%; display: none; }
+.drawings img.on { display: block; }
+.thumbtip { position: fixed; z-index: 5; pointer-events: none; display: none; padding: 4px; border-radius: 8px; background: var(--raised); border: 1px solid var(--line-2); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.thumbtip.on { display: block; }
+.thumbtip img { display: block; width: 200px; height: auto; border-radius: 5px; background: #000; }
+.thumbtip span { display: block; text-align: center; font: 11px/18px var(--mono); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.load-error { max-width: 520px; margin: 18vh auto 0; padding: 0 16px; text-align: center; color: var(--muted); }
+.load-error h2 { font-size: 15px; color: var(--text); margin: 0 0 8px; }
+.load-error code { display: inline-block; margin-top: 6px; }
+.load-error .actions { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; }
+/* Until the session data arrives (fetched mode), the shell shows a muted placeholder. */
+.app.loading #name, .app.loading .list { color: var(--muted); }
+.app.loading .player { animation: pulse 1.6s ease-in-out infinite alternate; }
+@keyframes pulse { to { opacity: .7; } }
+.notice { margin: -6px 0 0; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.notice .i { width: 12px; height: 12px; color: var(--mark); }
+
+.section-label, .card h3 { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0; }
+
+/* Timeline: label column + lanes so everything shares one x-axis */
+.timeline { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px 10px; user-select: none; box-shadow: var(--shadow);
+  display: grid; grid-template-columns: 92px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; align-items: center; }
+.lane-label { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lane-label .hint { display: none; }
+.lane { position: relative; height: 20px; border-radius: 5px; background: var(--panel-2); cursor: pointer; box-shadow: 0 0 0 1px var(--line) inset; }
+.lane:hover { box-shadow: 0 0 0 1px var(--line-2) inset; }
+.seg { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; overflow: hidden; white-space: nowrap; font: 500 10px/16px var(--sans); padding: 0 6px; color: rgba(255,255,255,.95); text-overflow: ellipsis; box-shadow: 1px 0 0 var(--panel) ; }
+.pin { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 2px var(--panel); transition: transform .12s; z-index: 1; }
+.pin:hover { transform: scale(1.25); }
+.pin.mark { background: var(--mark); } .pin.screenshot { background: var(--shot); border-radius: 3px; }
+.pin.sel { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--text); }
+.dot { position: absolute; top: 4px; bottom: 4px; width: 4px; margin-left: -2px; border-radius: 2px; cursor: pointer; }
+.dot:hover { width: 6px; margin-left: -3px; }
+.tick { position: absolute; top: 4px; bottom: 4px; width: 2px; background: var(--accent); opacity: .55; }
+.playhead { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--now); pointer-events: none; border-radius: 1px; z-index: 2; box-shadow: 0 0 0 1px var(--panel); }
+.ruler { grid-column: 2; display: flex; justify-content: space-between; color: var(--muted); font: 10px var(--mono); font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+/* Event kinds */
+.k-click { background: var(--accent); } .k-nav { background: var(--muted); } .k-console, .k-error { background: var(--now); } .k-request { background: var(--mark); }
+
+/* Now cards */
+.now { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; box-shadow: var(--shadow); }
+.card h3 { margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.card h3 .live { width: 6px; height: 6px; border-radius: 50%; background: var(--now); }
+.kv { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
+.said { font-size: 15px; line-height: 1.55; color: var(--text); }
+.empty { color: var(--muted); }
+.empty-state { padding: 40px 24px; text-align: center; color: var(--muted); }
+.empty-state .i { width: 22px; height: 22px; display: block; margin: 0 auto 10px; opacity: .7; }
+
+/* Sidebar */
+aside { border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+.tabs { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid var(--line); }
+.segmented { display: flex; padding: 3px; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
+.segmented button { flex: 1; border: 0; height: 26px; justify-content: center; border-radius: 6px; color: var(--muted); }
+.segmented button:hover { background: transparent; color: var(--text); }
+.segmented button.on { background: var(--raised); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 0 0 1px var(--line-2); }
+.filters { display: flex; gap: 6px; }
+.filters button { height: 24px; border-radius: 999px; padding: 0 10px; font-size: 11.5px; }
+.filters button .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.filters button.on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.filters button.on .n { color: inherit; opacity: .75; }
+.list { overflow: auto; flex: 1; padding: 10px; }
+
+.item { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px; padding: 10px; border-radius: var(--radius); cursor: pointer; border: 1px solid transparent; transition: background .12s, border-color .12s; }
+.item + .item { margin-top: 2px; }
+.item:hover { background: var(--panel-2); }
+.item.sel { border-color: var(--line-2); background: var(--panel-2); box-shadow: inset 3px 0 0 var(--accent); }
+/* The card's summary is a button (Enter/Space select it); it keeps the card's look, and its focus ring outlines the whole card. */
+.item .summary { grid-column: 1 / -1; display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px; align-items: stretch; width: 100%; height: auto; padding: 0;
+  border: 0; border-radius: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-align: left; }
+.item .summary:hover { background: none; color: inherit; }
+.item .summary:focus-visible { outline: none; }
+.item:has(> .summary:focus-visible) { outline: 2px solid var(--accent); outline-offset: -1px; }
+.item .summary > img { width: 104px; height: 66px; object-fit: cover; border-radius: 6px; background: #000; box-shadow: 0 0 0 1px var(--line); }
+.item .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.item .top { display: flex; gap: 8px; align-items: center; font: 11px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font: 600 10px/18px var(--sans); letter-spacing: .03em; text-transform: uppercase; padding: 0 7px; border-radius: 999px; }
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.mark { color: var(--mark); background: color-mix(in srgb, var(--mark) 14%, transparent); }
+.badge.screenshot { color: var(--shot); background: color-mix(in srgb, var(--shot) 14%, transparent); }
+.badge.screenshot::before { border-radius: 2px; }
+.item .title { font-weight: 600; font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
+.item .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .warn { color: var(--now); display: inline-flex; align-items: center; gap: 4px; }
+.item .warn .i { width: 12px; height: 12px; }
+.detail { grid-column: 1 / -1; display: none; cursor: default; padding-top: 4px; }
+.item.sel .detail { display: block; }
+.detail img { display: block; width: 100%; height: auto; object-fit: contain; cursor: zoom-in; margin: 6px 0 10px; border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
+.detail .caption { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; margin-top: 4px; }
+.detail blockquote { margin: 4px 0 12px; padding: 10px 12px; border-left: 2px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; color: var(--text); font-size: 13px; }
+.detail .kv { padding: 10px 0; border-top: 1px solid var(--line); }
+.detail .actions { display: flex; gap: 8px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+.row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  align-items: stretch; width: 100%; height: auto; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-align: left; }
+.row:hover { background: var(--panel-2); color: inherit; }
+.row:focus-visible { outline-offset: -2px; }
+.row.cur { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+.row .t { font: 11px/20px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.row .sub { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 8px; vertical-align: 0; }
+
+.problems { margin: 10px 0 0; padding: 10px 12px; list-style: none; font: 11px/1.5 var(--mono); color: var(--now); background: var(--now-soft); border-radius: 6px; }
+.problems li { overflow-wrap: anywhere; } .problems li + li { margin-top: 4px; }
+code { font: 11px var(--mono); background: var(--panel-2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; color: var(--text-2); }
+
+.lightbox { position: fixed; inset: 0; background: rgba(5,6,8,.82); backdrop-filter: blur(6px); display: none; z-index: 10; overflow: hidden; touch-action: none; cursor: zoom-out; }
+.lightbox.open { display: block; animation: fade .15s ease-out; }
+.lightbox img { position: absolute; left: 0; top: 0; max-width: none; max-height: none; transform-origin: 0 0; border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.6); cursor: grab; user-select: none; -webkit-user-drag: none; }
+.lightbox.panning, .lightbox.panning img { cursor: grabbing; }
+.lightbox.animate img { transition: transform .18s ease-out; }
+.zoombar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; cursor: default;
+  background: rgba(18,20,24,.88); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 10px 30px rgba(0,0,0,.4); color: #ecedef; }
+.zoombar button { color: #ecedef; border-color: transparent; min-width: 28px; justify-content: center; }
+.zoombar button:hover { background: rgba(255,255,255,.08); color: #fff; }
+.zoombar output { font: 11px/28px var(--mono); min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
+.zoombar .hint { font-size: 11px; color: #7d848f; padding: 0 8px; white-space: nowrap; }
+@media (max-width: 700px) { .zoombar .hint { display: none; } }
+@keyframes fade { from { opacity: 0; } }
+
+@media (max-width: 1200px) { .keys { display: none; } }
+/* Narrow: one page-scrolling column ordered player → marks/transcript → timeline overview → now cards.
+   .stage dissolves so its children and aside interleave as items of .main. */
+@media (max-width: 900px) {
+  .app { height: auto; }
+  header { height: 52px; padding: 0 12px; gap: 10px; }
+  .brand { flex: 0 1 auto; }
+  .stats .chip:not(:first-child) { display: none; }
+  .main { grid-template-columns: minmax(0, 1fr); row-gap: 12px; padding: 12px 0 16px; }
+  .stage { display: contents; }
+  .player, .timeline, .now { margin: 0 12px; }
+  .player { order: 1; }
+  aside { order: 2; border: solid var(--line); border-width: 1px 0; }
+  .timeline { order: 3; grid-template-columns: 64px minmax(0, 1fr); }
+  .now { order: 4; grid-template-columns: 1fr; gap: 12px; }
+  .list { flex: none; max-height: min(70vh, 640px); }
+}
+/* Phones: Copy all keeps its icon; the label stays in the DOM as the accessible name. */
+@media (max-width: 600px) {
+  #copyAll { font-size: 0; gap: 0; width: 28px; padding: 0; justify-content: center; flex: none; }
+}
+</style>
+</head>
+<body>
+<div class="app loading">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div style="min-width:0"><div class="eyebrow">Context Recorder</div><h1 id="name">Loading session…</h1></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <span class="spacer"></span>
+    <span class="keys"><span><kbd>space</kbd>play</span><span><kbd>j</kbd><kbd>k</kbd>marks</span><span><kbd>←</kbd><kbd>→</kbd>5s</span></span>
+    <button id="copyAll" class="primary">Copy all as Markdown</button>
+  </header>
+  <div class="main">
+    <section class="stage">
+      <div class="player"><video id="video" src="recording.mp4" controls preload="metadata"></video></div>
+      <!-- Pointer-only overview: keyboard users reach the same moments through the list and the video's scrubber. -->
+      <div class="timeline" id="timeline" aria-hidden="true">
+        <div class="lane-label">Marks</div>
+        <div class="lane" id="laneMarks"></div>
+        <div class="lane-label">Active app</div>
+        <div class="lane" id="laneApps"></div>
+        <div class="lane-label" id="pageLabel" title="click · nav · error · failed request">Page events</div>
+        <div class="lane" id="lanePage"></div>
+        <div class="lane-label" id="speechLabel">Narration</div>
+        <div class="lane" id="laneSpeech"></div>
+        <div class="ruler" id="ruler"></div>
+      </div>
+      <div class="now">
+        <div class="card"><h3>On screen now</h3><dl class="kv" id="nowCtx"></dl></div>
+        <div class="card"><h3><span class="live"></span>Said now</h3><div class="said" id="nowSaid"></div></div>
+      </div>
+    </section>
+    <aside>
+      <div class="tabs">
+        <div class="segmented" role="tablist" aria-label="Sidebar">
+          <button role="tab" id="tab-marks" aria-controls="list" aria-selected="true" data-tab="marks" class="on">Marks</button>
+          <button role="tab" id="tab-transcript" aria-controls="list" aria-selected="false" tabindex="-1" data-tab="transcript">Transcript</button>
+          <button role="tab" id="tab-activity" aria-controls="list" aria-selected="false" tabindex="-1" data-tab="activity">Activity</button>
+          <button role="tab" id="tab-browser" aria-controls="list" aria-selected="false" tabindex="-1" data-tab="browser">Page</button>
+        </div>
+        <div class="filters" id="filters">
+          <button data-filter="all" class="on">All</button>
+          <button data-filter="screenshot">Screenshots</button>
+          <button data-filter="mark">Marks</button>
+        </div>
+      </div>
+      <div class="list" id="list" role="tabpanel" aria-labelledby="tab-marks" aria-busy="true"><div class="empty-state">Loading session…</div></div>
+    </aside>
+  </div>
+</div>
+<div class="thumbtip" id="thumbtip"><img alt=""><span></span></div>
+<div class="lightbox" id="lightbox" role="dialog" aria-label="Image viewer"><img alt="">
+  <div class="zoombar">
+    <button data-zoombtn="out" title="Zoom out (−)" aria-label="Zoom out">−</button>
+    <output id="zoomPct">100%</output>
+    <button data-zoombtn="in" title="Zoom in (+)" aria-label="Zoom in">+</button>
+    <button data-zoombtn="fit" title="Fit to screen (0)">Fit</button>
+    <button data-zoombtn="actual" title="Actual pixels (1)">1:1</button>
+    <span class="hint">Scroll or pinch to zoom · drag to pan · Esc to close</span>
+  </div>
+</div>
+
+<script type="module">
+// Embedded mode: the placeholder below is replaced with the session JSON (plus `cloud` in a cloud copy's index.html).
+// Fetched mode (the cloud /s/:id/ page): it stays null and the files are fetched relative to the page.
+const DATA = {"name": "2026-11-19_10-42-00", "folder": "demo", "duration": 48.0, "segments": [{"source": ".", "start": 0.0, "end": 48.0, "editedStart": 0.0}], "sourceDurations": {".": 48.0}, "errors": [], "marks": [{"context": {"appName": "Google Chrome", "bundleID": "com.google.Chrome", "browserTitle": "Checkout \u00b7 Northfold", "browserURL": "http://localhost:5173/checkout", "windowTitle": "Checkout \u00b7 Northfold"}, "index": 1, "kind": "mark", "offsetSeconds": 17.0, "wallTime": "2026-11-19T10:42:17Z", "browser": {"url": "http://localhost:5173/checkout", "title": "Checkout \u00b7 Northfold", "hovered": {"selector": "aside.summary > div.row > span.total", "tag": "span", "text": "$42.00", "components": ["OrderTotal", "OrderSummary", "CheckoutPage"], "source": {"file": "/src/checkout/OrderTotal.tsx", "line": 14, "column": 7, "via": "react-debugSource"}, "props": {"component": "OrderTotal", "props": {"items": "[2 items]", "shipping": 0, "currency": "USD"}}}, "recent": [{"kind": "nav", "how": "load", "url": "http://localhost:5173/packs/ridgeline-28"}, {"kind": "click", "element": {"selector": "[data-testid=\"add-to-cart\"]", "tag": "button", "text": "Add to cart", "components": ["AddToCart", "ProductPage"], "source": {"file": "/src/product/AddToCart.tsx", "line": 31, "column": 7, "via": "react-debugSource"}}, "url": "http://localhost:5173/packs/ridgeline-28"}, {"kind": "nav", "how": "pushState", "url": "http://localhost:5173/checkout"}]}, "frame": "frames/001.jpg", "image": "frames/001.jpg", "sourceImage": "frames/001.jpg", "sourceFrame": "frames/001.jpg", "narration": "Okay, I'm checking the checkout flow on the shop before the release. I set the quantity to two and click add to cart. On checkout, the line item says $84 for two packs, but the total says 42 \u2691, it looks like the total ignores the quantity. And the express shipping option is cut off, so you can't read it"}, {"context": {"appName": "Google Chrome", "bundleID": "com.google.Chrome", "browserTitle": "Checkout \u00b7 Northfold", "browserURL": "http://localhost:5173/checkout", "windowTitle": "Checkout \u00b7 Northfold"}, "index": 2, "kind": "mark", "offsetSeconds": 25.5, "wallTime": "2026-11-19T10:42:25Z", "browser": {"url": "http://localhost:5173/checkout", "title": "Checkout \u00b7 Northfold", "hovered": {"selector": "#ship-express > div.t", "tag": "div", "text": "Express overnight to your door", "components": ["ShippingOption", "ShippingPicker", "CheckoutPage"], "source": {"file": "/src/checkout/ShippingOption.tsx", "line": 22, "column": 7, "via": "react-debugSource"}}, "recent": [{"kind": "nav", "how": "load", "url": "http://localhost:5173/packs/ridgeline-28"}, {"kind": "click", "element": {"selector": "[data-testid=\"add-to-cart\"]", "tag": "button", "text": "Add to cart", "components": ["AddToCart", "ProductPage"], "source": {"file": "/src/product/AddToCart.tsx", "line": 31, "column": 7, "via": "react-debugSource"}}, "url": "http://localhost:5173/packs/ridgeline-28"}, {"kind": "nav", "how": "pushState", "url": "http://localhost:5173/checkout"}]}, "frame": "frames/002.jpg", "image": "frames/002.jpg", "sourceImage": "frames/002.jpg", "sourceFrame": "frames/002.jpg", "narration": "quantity to two and click add to cart. On checkout, the line item says $84 for two packs, but the total says 42, it looks like the total ignores the quantity. And the express shipping option is cut off, so you can't \u2691 read it. Now settings, I'll switch the theme to dark and save"}, {"context": {"appName": "Google Chrome", "bundleID": "com.google.Chrome", "browserTitle": "Settings \u00b7 Northfold", "browserURL": "http://localhost:5173/account/settings", "windowTitle": "Settings \u00b7 Northfold"}, "index": 3, "kind": "screenshot", "offsetSeconds": 40.0, "wallTime": "2026-11-19T10:42:40Z", "browser": {"url": "http://localhost:5173/account/settings", "title": "Settings \u00b7 Northfold", "hovered": {"selector": "[data-testid=\"save-settings\"]", "tag": "button", "text": "Save settings", "components": ["SaveButton", "SettingsForm", "SettingsPage"], "source": {"file": "/src/account/SettingsForm.tsx", "line": 58, "column": 7, "via": "react-debugSource"}}, "recent": [{"kind": "click", "element": {"selector": "[data-testid=\"add-to-cart\"]", "tag": "button", "text": "Add to cart", "components": ["AddToCart", "ProductPage"], "source": {"file": "/src/product/AddToCart.tsx", "line": 31, "column": 7, "via": "react-debugSource"}}, "url": "http://localhost:5173/packs/ridgeline-28"}, {"kind": "nav", "how": "pushState", "url": "http://localhost:5173/checkout"}, {"kind": "nav", "how": "pushState", "url": "http://localhost:5173/account/settings"}, {"kind": "click", "element": {"selector": "[data-testid=\"save-settings\"]", "tag": "button", "text": "Save settings", "components": ["SaveButton", "SettingsForm", "SettingsPage"], "source": {"file": "/src/account/SettingsForm.tsx", "line": 58, "column": 7, "via": "react-debugSource"}}, "url": "http://localhost:5173/account/settings"}, {"kind": "request", "method": "PUT", "requestUrl": "http://localhost:5173/api/account/settings", "status": 500, "ms": 212, "body": "{\"error\":\"theme must be one of: light, system\"}", "url": "http://localhost:5173/account/settings"}, {"kind": "console", "level": "error", "message": "SettingsForm: save failed (500)", "url": "http://localhost:5173/account/settings"}], "region": {"method": "pointer", "elements": [{"selector": "#theme", "text": "Dark", "source": {"file": "/src/account/ThemeSelect.tsx", "line": 12, "via": "react-debugSource"}}, {"selector": "[data-testid=\"save-settings\"]", "text": "Saving\u2026", "source": {"file": "/src/account/SettingsForm.tsx", "line": 58, "column": 7, "via": "react-debugSource"}}]}}, "screenshot": "screenshots/003.png", "frame": "frames/003.jpg", "image": "screenshots/003.png", "sourceImage": "screenshots/003.png", "sourceFrame": "frames/003.jpg", "narration": ". And the express shipping option is cut off, so you can't read it. Now settings, I'll switch the theme to dark and save. Saving fails with just something went wrong, and the button is \u2691 stuck on saving."}], "hiddenMarks": [], "activity": [{"context": {"appName": "Google Chrome", "bundleID": "com.google.Chrome", "browserTitle": "Ridgeline 28L \u00b7 Northfold", "browserURL": "http://localhost:5173/packs/ridgeline-28", "windowTitle": "Ridgeline 28L \u00b7 Northfold"}, "offsetSeconds": 0.1}, {"context": {"appName": "Google Chrome", "bundleID": "com.google.Chrome", "browserTitle": "Checkout \u00b7 Northfold", "browserURL": "http://localhost:5173/checkout", "windowTitle": "Checkout \u00b7 Northfold"}, "offsetSeconds": 11.1}, {"context": {"appName": "Google Chrome", "bundleID": "com.google.Chrome", "browserTitle": "Settings \u00b7 Northfold", "browserURL": "http://localhost:5173/account/settings", "windowTitle": "Settings \u00b7 Northfold"}, "offsetSeconds": 30.1}], "browser": [{"offsetSeconds": 0.3, "event": {"kind": "nav", "how": "load", "url": "http://localhost:5173/packs/ridgeline-28"}}, {"offsetSeconds": 8.6, "event": {"kind": "click", "element": {"selector": "[data-testid=\"add-to-cart\"]", "tag": "button", "text": "Add to cart", "components": ["AddToCart", "ProductPage"], "source": {"file": "/src/product/AddToCart.tsx", "line": 31, "column": 7, "via": "react-debugSource"}}, "url": "http://localhost:5173/packs/ridgeline-28"}}, {"offsetSeconds": 11.0, "event": {"kind": "nav", "how": "pushState", "url": "http://localhost:5173/checkout"}}, {"offsetSeconds": 30.0, "event": {"kind": "nav", "how": "pushState", "url": "http://localhost:5173/account/settings"}}, {"offsetSeconds": 35.4, "event": {"kind": "click", "element": {"selector": "[data-testid=\"save-settings\"]", "tag": "button", "text": "Save settings", "components": ["SaveButton", "SettingsForm", "SettingsPage"], "source": {"file": "/src/account/SettingsForm.tsx", "line": 58, "column": 7, "via": "react-debugSource"}}, "url": "http://localhost:5173/account/settings"}}, {"offsetSeconds": 35.7, "event": {"kind": "request", "method": "PUT", "requestUrl": "http://localhost:5173/api/account/settings", "status": 500, "ms": 212, "body": "{\"error\":\"theme must be one of: light, system\"}", "url": "http://localhost:5173/account/settings"}}, {"offsetSeconds": 35.75, "event": {"kind": "console", "level": "error", "message": "SettingsForm: save failed (500)", "url": "http://localhost:5173/account/settings"}}], "transcript": [{"start": 0.8, "end": 4.88, "text": "Okay, I'm checking the checkout flow on the shop before the release."}, {"start": 4.88, "end": 11.2, "text": "I set the quantity to two and click add to cart."}, {"start": 11.2, "end": 20.16, "text": "On checkout, the line item says $84 for two packs, but the total says 42, it looks like the total ignores the quantity."}, {"start": 22.16, "end": 30.24, "text": "And the express shipping option is cut off, so you can't read it."}, {"start": 30.24, "end": 36.24, "text": "Now settings, I'll switch the theme to dark and save."}, {"start": 36.24, "end": 41.6, "text": "Saving fails with just something went wrong, and the button is stuck on saving."}]} ?? await loadFetched();
+const $ = (s) => document.querySelector(s);
+const video = $("#video");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const hue = (str) => { let h = 0; for (const c of str || "") h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const appColor = (name) => `hsl(${hue(name)} 38% 46%)`;
+const ICONS = {
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  flag: '<path d="M5 21V4m0 0h11l-2 4 2 4H5"/>',
+  app: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  alert: '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4m0 3v.01"/>',
+  copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+  play: '<path d="M7 4v16l13-8z"/>',
+  check: '<path d="m5 12 5 5 9-10"/>',
+  inbox: '<path d="M3 13h5l2 3h4l2-3h5M5 5h14l2 8v6H3v-6z"/>',
+};
+const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+const emptyState = (ic, text) => `<div class="empty-state">${icon(ic)}${text}</div>`;
+
+// Fetches a session JSON file relative to the page. With `missingOK`, only a 404 means "not there" (null);
+// any other status, a network/CORS failure or an HTML body (an expired Access sign-in) is an error.
+async function getJSON(path, missingOK) {
+  let res;
+  try { res = await fetch(path, { cache: "no-cache" }); }
+  catch { throw new Error(`${path}: network error (offline, or the sign-in expired)`); }
+  if (missingOK && res.status === 404) return null;
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+  try { return await res.json(); }
+  catch { throw new Error(`${path}: not valid JSON${res.redirected ? " (redirected, probably to a sign-in page)" : ""}`); }
+}
+
+// Drawings aren't part of the startup gate: setupCloud fetches them after the first render.
+async function loadFetched() {
+  try {
+    const [session, manifest] = await Promise.all([getJSON("session.json"), getJSON("manifest.json", true)]);
+    return manifest ? { ...session, cloud: { manifest, drawings: null } } : session;
+  } catch (err) {
+    const local = location.protocol === "file:";
+    document.title = "Session unavailable";
+    document.body.innerHTML = `<div class="load-error"><h2>Couldn't load this session</h2>
+      <div>${local ? "This page has no session embedded and the browser won't fetch files from disk. Open the processed <code>viewer.html</code> (or a cloud copy's <code>index.html</code>), or serve the folder over HTTP." : "The session files didn't load. It may have been deleted, or you may need to sign in again."}</div>
+      <code>${String(err.message || err).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`)}</code>
+      ${local ? "" : `<div class="actions"><button class="primary" id="retry">Retry</button><a id="signin">Sign in again</a></div>`}</div>`;
+    if (!local) {
+      document.getElementById("retry").addEventListener("click", () => location.reload());
+      // A top-level navigation to this page, which Cloudflare Access gates (it doesn't gate the fetches).
+      document.getElementById("signin").href = location.href;
+    }
+    throw err;
+  }
+}
+
+// Cloud copy (format 1): one flattened video, drawings as PNGs, timeline thumbnails, relative paths.
+const cloud = DATA.cloud || null;
+const manifest = cloud?.manifest || null;
+const skippedPages = new Map((manifest?.skippedPages || []).map((p) => [p.path, p]));
+const sessionTitle = manifest?.title || DATA.name || "Session";
+// Absolute link for a bundle-relative path: the page's URL over http(s), the file's path on disk.
+const cloudURL = (path) => {
+  const u = new URL(path, location.href);
+  return u.protocol === "file:" ? decodeURIComponent(u.pathname) : u.href;
+};
+const videoPath = manifest?.video?.path || "recording.mp4";
+// Pin an image to its content with ?v=<sha256>: the Worker then serves it immutable, so reloads skip the
+// per-image revalidation. Paths without a manifest entry (local and embedded copies) stay as they are.
+const fileSha = new Map((manifest?.files || []).map((f) => [f.path, f.sha256]));
+const asset = (path) => {
+  const sha = path && fileSha.get(path);
+  return sha ? `${path}?v=${encodeURIComponent(sha)}` : path;
+};
+// Timeline thumbnails (thumb i is at i * interval): hover previews, and the small list image for frame marks.
+const th = manifest?.thumbs;
+const hasThumbs = !!(th && th.count > 0 && th.interval > 0 && th.pattern);
+const thumbPath = (i) => th.pattern.replace(/%(0?)(\d*)d/, (_, z, w) => String(i).padStart(+w || 0, z ? "0" : " "));
+const thumbAt = (t) => thumbPath(Math.min(th.count - 1, Math.max(0, Math.round(t / th.interval))));
+// A frame mark's list image is the nearby thumbnail, not the full-size frame. Screenshots keep their own
+// image: the crop is what identifies them.
+const previewOf = (m) => asset(hasThumbs && m.kind !== "screenshot" ? thumbAt(m.offsetSeconds) : m.image);
+
+let tab = "marks", filter = "all", selected = null;
+const marks = DATA.marks || [];
+const activity = DATA.activity || [];
+const transcript = DATA.transcript || [];
+const browserEvents = DATA.browser || [];
+const isProblem = (e) => e.kind === "console" || e.kind === "error" || (e.kind === "request" && (e.error || e.status >= 400 || e.status === 0 || e.slow));
+const pageEventText = (e) => {
+  if (e.kind === "click") return `click ${e.element?.selector || ""}${e.element?.text ? ` “${e.element.text}”` : ""}`;
+  if (e.kind === "nav") return `${e.how} → ${e.url}`;
+  if (e.kind === "console") return `console.${e.level}: ${e.message}`;
+  if (e.kind === "error") return `${e.type}: ${e.message || e.source}`;
+  if (e.kind === "request") return `${e.method} ${e.requestUrl} → ${e.status} (${e.ms} ms)${e.error ? " " + e.error : ""}${e.body ? " — " + e.body : ""}`;
+  return JSON.stringify(e);
+};
+const sourceText = (src) => src && src.file ? `${src.file}${src.line ? ":" + src.line : ""}${src.column ? ":" + src.column : ""}${src.via === "react-debugStack" ? " (post-transform line)" : ""}` : "";
+const propsText = (p) => p ? `<${p.component}> ` + Object.entries(p.props || {}).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" ") : "";
+const elementHtml = (label, el) => el ? `<dt>${label}</dt><dd><code>${esc(el.selector)}</code>${el.text ? ` “${esc(el.text)}”` : ""}${el.components ? `<div class="sub">${esc([...el.components].slice(0, 5).reverse().join(" › "))}</div>` : ""}${el.source ? `<div class="sub">📄 <code>${esc(sourceText(el.source))}</code></div>` : ""}${el.props ? `<div class="sub"><code>${esc(propsText(el.props))}</code></div>` : ""}</dd>` : "";
+function regionHtml(r) {
+  if (!r) return "";
+  if (!r.elements || !r.elements.length) return r.note ? `<div class="sub">Region: ${esc(r.note)}</div>` : "";
+  return `<div class="sub" style="margin-top:8px">Inside the region <span style="opacity:.7">(mapped via ${esc(r.method)})</span></div><ul class="problems" style="color:var(--text)">` +
+    r.elements.slice(0, 15).map((el) => `<li><code>${esc(el.selector)}</code>${el.text ? ` “${esc(el.text.slice(0, 80))}”` : ""}${el.source ? ` · 📄 ${esc(sourceText(el.source))}` : ""}</li>`).join("") + "</ul>";
+}
+function pageHtml(b) {
+  if (!b) return "";
+  if (b.error) return `<div class="sub">Page snapshot unavailable: ${esc(b.error)}</div>`;
+  const problems = (b.recent || []).filter(isProblem).slice(-8);
+  return `<dl class="kv" style="margin-top:6px">${elementHtml("Mouse", b.hovered)}${elementHtml("Focused", b.focused)}${b.selection ? `<dt>Selected</dt><dd>${esc(b.selection)}</dd>` : ""}</dl>` +
+    regionHtml(b.region) +
+    (b.pageFile && skippedPages.has(b.pageFile) ? `<div class="sub" style="margin-top:6px">Saved page not uploaded${skippedPages.get(b.pageFile).size ? ` (${(skippedPages.get(b.pageFile).size / 1e6).toFixed(1)} MB, over the cloud copy's budget)` : ""}. It's still in the session folder on the Mac.</div>` :
+     b.pageFile ? `<div class="sub" style="margin-top:6px"><a href="${esc(b.pageFile)}" target="_blank">Open saved page (MHTML)</a> to inspect the DOM as it was</div>` : "") +
+    (b.pageError ? `<div class="sub" style="margin-top:6px">Saved page missing: ${esc(b.pageError)}</div>` : "") +
+    (problems.length ? `<ul class="problems">${problems.map((e) => `<li>${esc(pageEventText(e))}</li>`).join("")}</ul>` : "");
+}
+let duration = DATA.duration || Math.max(1, ...marks.map((m) => m.offsetSeconds + 5));
+
+// Edited sessions: the <video> is the original recording, so play only the kept segments and show
+// everything in edited time (the times in DATA). Joined sessions span several videos; open those in the app.
+// A cloud copy is already flattened into one video, so it always plays straight through.
+const segments = (DATA.segments || []).filter((s) => s.source === ".");
+const edited = !cloud && ((DATA.segments || []).length > 1 || (segments[0] && (segments[0].start > 0.05 ||
+  Math.abs(segments[0].end - (DATA.sourceDurations?.["."] ?? segments[0].end)) > 0.05)));
+const joined = !cloud && (DATA.segments || []).some((s) => s.source !== ".");
+const toEdited = (t) => {
+  if (!edited) return t;
+  for (const s of segments) if (t <= s.end) return s.editedStart + Math.max(0, t - s.start);
+  return duration;
+};
+const toSource = (e) => {
+  if (!edited) return e;
+  for (const s of segments) if (e < s.editedStart + (s.end - s.start)) return s.start + Math.max(0, e - s.editedStart);
+  const last = segments[segments.length - 1];
+  return last ? last.end : e;
+};
+const now = () => toEdited(video.currentTime);
+const seekTo = (e) => { video.currentTime = toSource(Math.min(duration, Math.max(0, e))); };
+
+const pct = (t) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%`;
+const titleOf = (m) => {
+  const said = (m.narration || "").split("⚑")[0].trim();
+  const last = said.split(/(?<=[.!?])\s+/).filter(Boolean).pop();
+  return last || m.context?.browserTitle || m.context?.windowTitle || m.context?.appName || `Mark ${m.index}`;
+};
+const contextAt = (t) => { let cur = activity[0]; for (const a of activity) { if (a.offsetSeconds <= t) cur = a; else break; } return cur?.context; };
+const sentenceAt = (t) => transcript.find((s) => t >= s.start - 0.2 && t <= s.end + 0.6);
+
+function kv(ctx) {
+  if (!ctx) return `<span class="empty">No context recorded</span>`;
+  const rows = [["App", ctx.appName], ["Window", ctx.windowTitle], ["URL", ctx.browserURL && `<a href="${esc(ctx.browserURL)}" target="_blank">${esc(ctx.browserURL)}</a>`], ["Page", ctx.browserTitle]];
+  return rows.filter(([, v]) => v).map(([k, v]) => `<dt>${k}</dt><dd>${k === "URL" ? v : esc(v)}</dd>`).join("");
+}
+
+function markdownFor(m) {
+  const c = m.context || {};
+  return [
+    `## ${String(m.index).padStart(3, "0")} · ${fmt(m.offsetSeconds)} · ${titleOf(m)}`,
+    "", `![mark ${m.index}](${cloud ? cloudURL(m.image) : m.image})`, "",
+    m.narration ? `> ${m.narration}\n` : "",
+    c.appName && `- **App:** ${c.appName} (\`${c.bundleID}\`)`,
+    c.windowTitle && `- **Window:** ${c.windowTitle}`,
+    c.browserURL && `- **URL:** ${c.browserURL}`,
+    c.browserTitle && `- **Page title:** ${c.browserTitle}`,
+    `- **Video:** \`${cloud ? cloudURL(videoPath) : `${DATA.folder}/recording.mp4`}\` @ ${m.offsetSeconds.toFixed(1)}s`,
+    m.browser?.hovered && `- **Under mouse:** \`${m.browser.hovered.selector}\`${m.browser.hovered.text ? ` “${m.browser.hovered.text}”` : ""}${m.browser.hovered.components ? ` in ${[...m.browser.hovered.components].slice(0, 5).reverse().join(" › ")}` : ""}`,
+    m.browser?.hovered?.source && `- **Source:** \`${sourceText(m.browser.hovered.source)}\``,
+    m.browser?.focused && `- **Focused:** \`${m.browser.focused.selector}\``,
+    ...(m.browser?.region?.elements || []).slice(0, 15).map((el) => `- In region: \`${el.selector}\`${el.text ? ` “${el.text.slice(0, 80)}”` : ""}${el.source ? ` · ${sourceText(el.source)}` : ""}`),
+    m.browser?.pageFile && (!cloud ? `- **Saved page:** \`${DATA.folder}/${m.browser.pageFile}\``
+      : skippedPages.has(m.browser.pageFile) ? `- **Saved page:** not uploaded (\`${m.browser.pageFile}\` is only in the local session)`
+      : `- **Saved page:** \`${cloudURL(m.browser.pageFile)}\``),
+    ...(m.browser?.recent || []).filter(isProblem).slice(-8).map((e) => `- ⚠ ${pageEventText(e)}`),
+  ].filter((x) => x !== undefined && x !== null && x !== false).join("\n");
+}
+
+function renderHeader() {
+  document.title = manifest?.title ? sessionTitle : `Session ${DATA.name}`;
+  $("#name").textContent = sessionTitle;
+  // Served from the cloud at /s/<id>/: the eyebrow links back to the list of every session.
+  if (/^https?:$/.test(location.protocol) && /\/s\/[^/]+\/(index\.html)?$/.test(location.pathname)) {
+    const home = document.createElement("a");
+    home.href = new URL("../../", location.href).pathname;
+    home.textContent = "‹ All sessions";
+    home.title = "Every session in your cloud";
+    const eyebrow = document.querySelector(".brand .eyebrow");
+    eyebrow.replaceChildren(home);
+  }
+  $("#copyAll").innerHTML = `${icon("copy")}Copy all as Markdown`;
+  const shots = marks.filter((m) => m.kind === "screenshot").length;
+  const apps = new Set(activity.map((a) => a.context?.appName)).size;
+  const chip = (ic, value, label) => `<span class="chip">${icon(ic)}<b>${value}</b>${label}</span>`;
+  $("#stats").innerHTML = chip("clock", fmt(duration), "") + chip("flag", marks.length, marks.length === 1 ? "mark" : "marks") +
+    chip("app", apps, apps === 1 ? "app" : "apps") + (transcript.length ? chip("mic", transcript.length, "lines spoken") : `<span class="chip">Silent</span>`);
+  const count = { all: marks.length, screenshot: shots, mark: marks.length - shots };
+  document.querySelectorAll("[data-filter]").forEach((b) => (b.innerHTML = `${b.textContent.trim()} <span class="n">${count[b.dataset.filter]}</span>`));
+}
+
+function renderTimeline() {
+  $("#laneMarks").innerHTML = marks.map((m) =>
+    `<div class="pin ${m.kind} ${selected === m.index ? "sel" : ""}" data-mark="${m.index}" style="left:${pct(m.offsetSeconds)}" title="${esc(fmt(m.offsetSeconds) + " · " + titleOf(m))}"></div>`).join("") + `<div class="playhead" style="left:${pct(now())}"></div>`;
+  $("#laneApps").innerHTML = activity.map((a, i) => {
+    const end = activity[i + 1]?.offsetSeconds ?? duration;
+    const c = a.context || {};
+    const tip = [c.appName, c.windowTitle, c.browserURL].filter(Boolean).join("\n");
+    return `<div class="seg" style="left:${pct(a.offsetSeconds)};width:calc(${pct(end - a.offsetSeconds)});background:${appColor(c.appName)}" title="${esc(tip)}">${esc(c.appName)}</div>`;
+  }).join("") + `<div class="playhead" style="left:${pct(now())}"></div>`;
+  const page = $("#lanePage");
+  $("#pageLabel").style.display = page.style.display = browserEvents.length ? "" : "none";
+  page.innerHTML = browserEvents.map((b) => {
+    const e = b.event || {};
+    const kind = e.kind === "request" ? "request" : e.kind;
+    return `<div class="dot k-${kind}" data-seek="${b.offsetSeconds}" style="left:${pct(b.offsetSeconds)}" title="${esc(fmt(b.offsetSeconds) + " · " + pageEventText(e))}"></div>`;
+  }).join("") + `<div class="playhead" style="left:${pct(now())}"></div>`;
+  const speech = $("#laneSpeech");
+  $("#speechLabel").style.display = speech.style.display = transcript.length ? "" : "none";
+  speech.innerHTML = transcript.map((s) => `<div class="seg" style="left:${pct(s.start)};width:${pct(s.end - s.start)};background:var(--accent);opacity:.6" title="${esc(s.text)}"></div>`).join("") + `<div class="playhead" style="left:${pct(now())}"></div>`;
+  renderRuler();
+}
+
+// Narrow screens get three labels (start, middle, end) when seven would crowd the ruler.
+const narrow = matchMedia("(max-width: 900px)");
+function renderRuler() {
+  const ruler = $("#ruler");
+  const n = narrow.matches && ruler.clientWidth < 520 ? 2 : 6;
+  if (ruler.childElementCount === n + 1 && ruler.dataset.duration === String(duration)) return;
+  ruler.dataset.duration = duration;
+  ruler.innerHTML = Array.from({ length: n + 1 }, (_, i) => `<span>${fmt((duration * i) / n)}</span>`).join("");
+}
+addEventListener("resize", renderRuler);
+
+// Full-size detail images load on first selection. A hidden .detail still fetches a plain src.
+const detailImg = (m, path, alt) => `<img ${selected === m.index ? "src" : "data-src"}="${esc(asset(path))}" alt="${esc(alt)}" data-zoom>`;
+const loadDetail = (el) => el?.querySelectorAll(".detail img[data-src]").forEach((img) => { img.src = img.dataset.src; img.removeAttribute("data-src"); });
+
+function renderList() {
+  const list = $("#list");
+  if (tab === "marks") {
+    const shown = marks.filter((m) => filter === "all" || m.kind === filter);
+    list.innerHTML = shown.length ? shown.map((m) => {
+      const c = m.context || {};
+      return `<div class="item ${selected === m.index ? "sel" : ""}" data-mark="${m.index}">
+        <button type="button" class="summary" aria-expanded="${selected === m.index}" aria-controls="detail-${m.index}">
+        <img src="${esc(previewOf(m))}" alt="" loading="lazy">
+        <span class="meta">
+          <span class="top"><span class="badge ${m.kind}">${m.kind === "screenshot" ? "Shot" : "Mark"}</span><span>#${m.index}</span><span>${fmt(m.offsetSeconds)}</span></span>
+          <span class="title">${esc(titleOf(m))}</span>
+          <span class="sub">${esc(c.browserURL || c.windowTitle || c.appName || "")}</span>
+          ${m.browser?.hovered ? `<span class="sub"><code>${esc(m.browser.hovered.selector)}</code></span>` : ""}
+          ${(m.browser?.recent || []).some(isProblem) ? `<span class="sub warn">${icon("alert")}${(m.browser.recent || []).filter(isProblem).length} recent errors</span>` : ""}
+        </span>
+        </button>
+        <div class="detail" id="detail-${m.index}">
+          ${detailImg(m, m.image, `Mark ${m.index}`)}
+          ${m.frame && m.frame !== m.image ? `<div class="caption">Full screen at this moment</div>${detailImg(m, m.frame, `Full frame ${m.index}`)}` : ""}
+          ${m.narration ? `<blockquote>${esc(m.narration)}</blockquote>` : ""}
+          <dl class="kv">${kv(c)}</dl>
+          ${pageHtml(m.browser)}
+          <div class="actions"><button data-copy="${m.index}">${icon("copy")}Copy Markdown</button><button data-play="${m.index}">${icon("play")}Play from 5s before</button></div>
+        </div>
+      </div>`;
+    }).join("") : emptyState("flag", filter === "all" ? "No marks yet. Press <kbd>⌃⌥M</kbd> or <kbd>⌃⌥S</kbd> while recording." : "Nothing matches this filter.");
+  } else if (tab === "transcript") {
+    list.innerHTML = transcript.length ? transcript.map((s, i) =>
+      `<button type="button" class="row" data-seek="${s.start}" data-sent="${i}"><span class="t">${fmt(s.start)}</span><span>${esc(s.text)}</span></button>`).join("")
+      : emptyState("mic", "Silent recording: no narration.");
+  } else if (tab === "browser") {
+    list.innerHTML = browserEvents.map((b) => {
+      const e = b.event || {};
+      return `<button type="button" class="row" data-seek="${b.offsetSeconds}"><span class="t">${fmt(b.offsetSeconds)}</span><span><span class="swatch k-${e.kind}"></span>${esc({ click: "Click", nav: "Navigation", console: "Console", error: "Error", request: "Request" }[e.kind] || e.kind)}<span class="sub" style="${isProblem(e) ? "color:var(--now)" : ""}">${esc(pageEventText(e))}</span></span></button>`;
+    }).join("") || emptyState("inbox", "No page events. Install the Chrome extension (see README) to capture clicks, console errors and failed requests.");
+  } else {
+    list.innerHTML = activity.map((a) => {
+      const c = a.context || {};
+      return `<button type="button" class="row" data-seek="${a.offsetSeconds}"><span class="t">${fmt(a.offsetSeconds)}</span><span><span class="swatch" style="background:${appColor(c.appName)}"></span>${esc(c.appName)}<span class="sub">${esc(c.browserURL || c.windowTitle || "")}</span></span></button>`;
+    }).join("") || emptyState("app", "No activity recorded.");
+  }
+}
+
+function renderNow() {
+  const t = now();
+  $("#nowCtx").innerHTML = kv(contextAt(t));
+  const s = sentenceAt(t);
+  $("#nowSaid").innerHTML = transcript.length ? (s ? esc(s.text) : `<span class="empty">…</span>`) : `<span class="empty">Silent recording</span>`;
+  document.querySelectorAll(".playhead").forEach((p) => (p.style.left = pct(t)));
+  if (tab === "transcript") {
+    const idx = transcript.indexOf(s);
+    document.querySelectorAll(".row.cur").forEach((r) => r.classList.remove("cur"));
+    const row = document.querySelector(`.row[data-sent="${idx}"]`);
+    if (row) row.classList.add("cur");
+  }
+}
+
+function select(index, { seek = true, scroll = true } = {}) {
+  selected = index;
+  const m = marks.find((x) => x.index === index);
+  if (m && seek) { video.pause(); seekTo(m.offsetSeconds); }
+  renderTimeline(); renderNow();
+  // Toggle classes rather than re-rendering so images don't reload and flicker.
+  document.querySelectorAll(".item[data-mark]").forEach((el) => el.classList.toggle("sel", +el.dataset.mark === index));
+  document.querySelectorAll(".item[data-mark] > .summary").forEach((b) => b.setAttribute("aria-expanded", +b.parentElement.dataset.mark === index));
+  const item = document.querySelector(`.item[data-mark="${index}"]`);
+  loadDetail(item);
+  if (scroll) item?.scrollIntoView({ block: "nearest" });
+  if (m) writeHash(`#m=${index}`);
+}
+
+function step(dir) {
+  const t = now();
+  const sorted = [...marks].sort((a, b) => a.offsetSeconds - b.offsetSeconds);
+  const next = dir > 0 ? sorted.find((m) => m.offsetSeconds > t + 0.3) : [...sorted].reverse().find((m) => m.offsetSeconds < t - 0.3);
+  if (next) { if (tab !== "marks") setTab("marks"); select(next.index); }
+}
+
+function setTab(t) {
+  tab = t;
+  document.querySelectorAll("[data-tab]").forEach((b) => {
+    const on = b.dataset.tab === t;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", on);
+    b.tabIndex = on ? 0 : -1;
+  });
+  $("#list").setAttribute("aria-labelledby", `tab-${t}`);
+  $("#filters").style.display = t === "marks" ? "" : "none";
+  renderList(); renderNow();
+}
+
+async function copy(text, btn) {
+  try { await navigator.clipboard.writeText(text); } catch { const ta = Object.assign(document.createElement("textarea"), { value: text }); document.body.append(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+  if (btn) { const old = btn.innerHTML; btn.innerHTML = `${icon("check")}Copied`; btn.classList.add("done"); setTimeout(() => { btn.innerHTML = old; btn.classList.remove("done"); }, 1100); }
+}
+
+document.addEventListener("click", (e) => {
+  const el = e.target;
+  const btn = el.closest("button");
+  // A mouse click shouldn't leave focus on a card or row, or the next Space would re-press it instead of playing.
+  if (e.detail && btn?.matches(".summary, .row")) btn.blur();
+  if (btn?.matches("[data-tab]")) return setTab(btn.dataset.tab);
+  if (btn?.matches("[data-filter]")) {
+    filter = btn.dataset.filter;
+    document.querySelectorAll("[data-filter]").forEach((b) => b.classList.toggle("on", b === btn));
+    return renderList();
+  }
+  if (el.matches("[data-zoom]")) return lightbox.open(el.src);
+  if (el.closest("#lightbox")) return;
+  if (btn?.matches("[data-copy]")) return copy(markdownFor(marks.find((m) => m.index === +btn.dataset.copy)), btn);
+  if (btn?.matches("[data-play]")) { const m = marks.find((x) => x.index === +btn.dataset.play); seekTo(m.offsetSeconds - 5); return video.play(); }
+  if (btn?.id === "copyAll") return copy(`# ${manifest?.title ? sessionTitle : `Session ${DATA.name}`}\n\n` + marks.map(markdownFor).join("\n\n"), btn);
+  const pin = el.closest("[data-mark]");
+  if (pin && !el.closest(".detail")) return select(+pin.dataset.mark, { scroll: !!pin.classList.contains("pin") });
+  const row = el.closest("[data-seek]");
+  if (row) { seekTo(+row.dataset.seek); return renderNow(); }
+  const lane = el.closest(".lane");
+  if (lane) { const r = lane.getBoundingClientRect(); seekTo(((e.clientX - r.left) / r.width) * duration); renderNow(); }
+});
+
+// Tabs: roving tabindex, ←/→/Home/End move between them and select.
+$(".segmented").addEventListener("keydown", (e) => {
+  const tabs = [...e.currentTarget.querySelectorAll("[role=tab]")];
+  const i = tabs.indexOf(e.target);
+  if (i < 0) return;
+  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  const to = tabs[(next + tabs.length) % tabs.length];
+  to.focus();
+  setTab(to.dataset.tab);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input, textarea")) return;
+  if (lightbox.isOpen()) return lightbox.key(e);
+  // Focused controls keep Space and the arrows (Space presses a button, arrows move between tabs); j/k still step.
+  if ((e.key === " " || e.key.startsWith("Arrow")) && e.target.closest("button, a, input, textarea, select, [role=tab], [contenteditable]:not([contenteditable=false])")) return;
+  if (e.key === " " && e.target !== video) { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+  else if (e.key === "j") step(1);
+  else if (e.key === "k") step(-1);
+  else if (e.key === "ArrowRight" && e.target !== video) seekTo(now() + 5);
+  else if (e.key === "ArrowLeft" && e.target !== video) seekTo(now() - 5);
+});
+
+// Image lightbox: wheel/pinch zooms toward the pointer, drag pans, double-click toggles fit ↔ 1:1,
+// a click on the backdrop (not a drag) closes. Zoom is clamped so the image never fully leaves the view.
+const lightbox = (() => {
+  const box = $("#lightbox"), img = box.querySelector("img"), pct = $("#zoomPct");
+  let scale = 1, x = 0, y = 0, fit = 1;
+  const pointers = new Map();
+  let drag = null, pinch = null, moved = false;
+  const nat = () => ({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 });
+  const minScale = () => Math.min(fit, 1) * 0.5;
+  const maxScale = () => Math.max(fit * 2, 8);
+  function apply(animate = false) {
+    const { w, h } = nat(), vw = innerWidth, vh = innerHeight, keep = 60;
+    // Keep at least `keep` px of the image on screen; centre it on an axis where it fits.
+    const sw = w * scale, sh = h * scale;
+    x = sw <= vw ? (vw - sw) / 2 : Math.min(vw - keep, Math.max(keep - sw, x));
+    y = sh <= vh ? (vh - sh) / 2 : Math.min(vh - keep, Math.max(keep - sh, y));
+    box.classList.toggle("animate", animate);
+    img.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    pct.textContent = `${Math.round(scale * 100)}%`;
+  }
+  function zoomTo(next, cx = innerWidth / 2, cy = innerHeight / 2, animate = false) {
+    next = Math.min(maxScale(), Math.max(minScale(), next));
+    x = cx - ((cx - x) / scale) * next;
+    y = cy - ((cy - y) / scale) * next;
+    scale = next; apply(animate);
+  }
+  function reset(animate = false) {
+    const { w, h } = nat();
+    fit = Math.min(1, (innerWidth * 0.94) / w, (innerHeight * 0.9) / h) || 1;
+    scale = fit; apply(animate);
+  }
+  const toggle = (cx, cy) => (Math.abs(scale - fit) < 0.01 ? zoomTo(Math.max(1, fit * 2), cx, cy, true) : reset(true));
+  function close() { box.classList.remove("open"); pointers.clear(); drag = pinch = null; }
+
+  img.addEventListener("load", () => reset());
+  addEventListener("resize", () => { if (box.classList.contains("open")) reset(); });
+  box.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    // ctrlKey = trackpad pinch (finer deltas); line-mode wheels report small numbers.
+    const d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    zoomTo(scale * Math.exp(-d * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX, e.clientY);
+  }, { passive: false });
+  box.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".zoombar")) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    moved = false;
+    try { e.target.setPointerCapture(e.pointerId); } catch {}
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), scale }; drag = null;
+    } else if (e.target === img) {
+      drag = { sx: e.clientX - x, sy: e.clientY - y, ox: e.clientX, oy: e.clientY };
+      box.classList.add("panning");
+    }
+  });
+  box.addEventListener("pointermove", (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      moved = true;
+      zoomTo(pinch.scale * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.dist), (a.x + b.x) / 2, (a.y + b.y) / 2);
+    } else if (drag) {
+      if (Math.hypot(e.clientX - drag.ox, e.clientY - drag.oy) > 3) moved = true;
+      x = e.clientX - drag.sx; y = e.clientY - drag.sy; apply();
+    }
+  });
+  const end = (e) => {
+    const wasTap = pointers.size === 1 && !moved;
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (!pointers.size) { drag = null; box.classList.remove("panning"); }
+    if (e.type === "pointerup" && wasTap && e.target === box) close();
+  };
+  box.addEventListener("pointerup", end);
+  box.addEventListener("pointercancel", end);
+  img.addEventListener("dblclick", (e) => toggle(e.clientX, e.clientY));
+  box.querySelector(".zoombar").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-zoombtn]")?.dataset.zoombtn;
+    if (b === "in") zoomTo(scale * 1.5, undefined, undefined, true);
+    else if (b === "out") zoomTo(scale / 1.5, undefined, undefined, true);
+    else if (b === "fit") reset(true);
+    else if (b === "actual") zoomTo(1, undefined, undefined, true);
+  });
+
+  return {
+    isOpen: () => box.classList.contains("open"),
+    open(src) {
+      box.classList.add("open");
+      if (img.getAttribute("src") === src && img.complete) reset(); else img.src = src;
+    },
+    key(e) {
+      const k = e.key, pan = 80;
+      if (k === "Escape") close();
+      else if (k === "+" || k === "=") zoomTo(scale * 1.5, undefined, undefined, true);
+      else if (k === "-" || k === "_") zoomTo(scale / 1.5, undefined, undefined, true);
+      else if (k === "0") reset(true);
+      else if (k === "1") zoomTo(1, undefined, undefined, true);
+      else if (k === "ArrowLeft") { x += pan; apply(true); }
+      else if (k === "ArrowRight") { x -= pan; apply(true); }
+      else if (k === "ArrowUp") { y += pan; apply(true); }
+      else if (k === "ArrowDown") { y -= pan; apply(true); }
+      else return;
+      e.preventDefault();
+    },
+  };
+})();
+
+// Jump over removed ranges while playing; stop at the end of the last kept one.
+video.addEventListener("timeupdate", () => {
+  if (edited && !video.paused) {
+    const t = video.currentTime;
+    if (!segments.some((s) => t >= s.start - 0.05 && t < s.end)) {
+      const next = segments.find((s) => s.start > t);
+      if (next) video.currentTime = next.start; else video.pause();
+    }
+  }
+  renderNow();
+});
+video.addEventListener("seeked", renderNow);
+video.addEventListener("loadedmetadata", () => {
+  if (!edited && isFinite(video.duration)) { duration = video.duration; renderTimeline(); }
+  if (edited && video.currentTime < segments[0].start) video.currentTime = segments[0].start;
+});
+if (joined) document.querySelector(".player").insertAdjacentHTML("beforeend",
+  `<div class="sub" style="padding:8px">This is a joined session. Open it in Context Recorder to play it; times below are in the joined session.</div>`);
+
+if (cloud) setupCloud();
+
+function setupCloud() {
+  if (video.getAttribute("src") !== videoPath) video.src = videoPath;
+  if (manifest?.poster) video.poster = asset(manifest.poster);
+  if (manifest?.video?.width && manifest?.video?.height) video.style.aspectRatio = `${manifest.video.width} / ${manifest.video.height}`;
+
+  // Embedded copies carry their drawings; fetched mode loads drawings.json after the first render.
+  if (cloud.drawings) addDrawings(cloud.drawings);
+  else getJSON("drawings.json", true).then((list) => addDrawings(list || []), (err) => {
+    console.warn(err);
+    $(".player").insertAdjacentHTML("afterend", `<div class="notice" role="status">${icon("alert")}Drawings didn't load, so the video plays without them.</div>`);
+  });
+
+  // Drawings: one PNG per drawing at the video's pixel size, shown between start and end. The layer is sized
+  // to the picture inside the <video> element (object-fit: contain leaves bars when max-height bites).
+  function addDrawings(list) {
+    const drawings = list.filter((d) => d && d.file);
+    if (!drawings.length) return;
+    const layer = document.createElement("div");
+    layer.className = "drawings";
+    layer.innerHTML = drawings.map((d, i) => `<img data-drawing="${i}" src="${esc(asset(d.file))}" alt="">`).join("");
+    $(".player").append(layer);
+    const imgs = [...layer.children];
+    const place = () => {
+      const vw = video.videoWidth || manifest?.video?.width, vh = video.videoHeight || manifest?.video?.height;
+      const cw = video.clientWidth, ch = video.clientHeight;
+      if (!vw || !vh || !cw || !ch) return;
+      const k = Math.min(cw / vw, ch / vh), w = vw * k, h = vh * k;
+      Object.assign(layer.style, { left: `${video.offsetLeft + (cw - w) / 2}px`, top: `${video.offsetTop + (ch - h) / 2}px`, width: `${w}px`, height: `${h}px` });
+    };
+    const show = () => {
+      const t = now();
+      drawings.forEach((d, i) => imgs[i].classList.toggle("on", t >= d.start && t < d.end));
+    };
+    let raf = 0;
+    const tick = () => { show(); raf = video.paused ? 0 : requestAnimationFrame(tick); };
+    new ResizeObserver(place).observe(video);
+    addEventListener("resize", place);
+    video.addEventListener("loadedmetadata", place);
+    video.addEventListener("play", () => { if (!raf) raf = requestAnimationFrame(tick); });
+    ["seeked", "seeking", "timeupdate", "pause"].forEach((ev) => video.addEventListener(ev, show));
+    place(); show();
+  }
+
+  // Timeline hover: the thumbnail nearest the pointer's time.
+  if (hasThumbs) {
+    const tip = $("#thumbtip"), tipImg = tip.querySelector("img"), tipTime = tip.querySelector("span");
+    const timeline = $("#timeline");
+    const vw = manifest.video?.width, vh = manifest.video?.height;
+    if (vw && vh) tipImg.style.aspectRatio = `${vw} / ${vh}`; // stable size before the JPEG decodes
+    timeline.addEventListener("pointermove", (e) => {
+      const lane = e.target.closest(".lane");
+      if (!lane) return tip.classList.remove("on");
+      const r = lane.getBoundingClientRect();
+      const t = Math.min(duration, Math.max(0, ((e.clientX - r.left) / r.width) * duration));
+      const src = asset(thumbAt(t));
+      if (tipImg.getAttribute("src") !== src) tipImg.src = src;
+      tipTime.textContent = fmt(t);
+      tip.classList.add("on");
+      const w = tip.offsetWidth, h = tip.offsetHeight;
+      tip.style.left = `${Math.min(innerWidth - w - 8, Math.max(8, e.clientX - w / 2))}px`;
+      tip.style.top = `${Math.max(8, timeline.getBoundingClientRect().top - h - 6)}px`; // above the lanes, not over them
+    });
+    timeline.addEventListener("pointerleave", () => tip.classList.remove("on"));
+  }
+}
+
+$(".app").classList.remove("loading"); $("#list").removeAttribute("aria-busy");
+renderHeader(); renderTimeline(); setTab("marks");
+countShareView();
+
+// Opened from a share link (/share/<token>/): count this view once per page load (docs/cloud-sessions.md §8).
+// Counting here, after the first render, leaves out link-preview bots, which fetch the page but run no script.
+function countShareView() {
+  if (!/^https?:$/.test(location.protocol) || !/\/share\/[^/]+\/(index\.html)?$/.test(location.pathname)) return;
+  let viewer;
+  try {
+    viewer = localStorage.getItem("contextRecorderViewer");
+    if (!viewer) localStorage.setItem("contextRecorderViewer", viewer = crypto.randomUUID());
+  } catch { /* storage blocked: count the view with a throwaway id */ }
+  try { navigator.sendBeacon("view", JSON.stringify({ viewer: viewer || crypto.randomUUID(), referrer: document.referrer })); } catch {}
+}
+
+// Location in the URL hash (#m=<mark index> or #t=<edited seconds>) so a reload or a shared link lands in the
+// same place. The hash works over file:// and never reaches the server; replaceState keeps it out of history.
+function writeHash(h) { if (location.hash !== h) history.replaceState(null, "", h); }
+function writeTimeHash() {
+  const m = marks.find((x) => x.index === selected);
+  // Paused on the selected mark (select() pauses and seeks there) keeps #m; anywhere else is a time.
+  if (m && Math.abs(now() - m.offsetSeconds) < 0.25) return writeHash(`#m=${m.index}`);
+  writeHash(`#t=${now().toFixed(1)}`);
+}
+video.addEventListener("pause", writeTimeHash);
+video.addEventListener("seeked", () => { if (video.paused) writeTimeHash(); });
+function readHash() {
+  const [, key, val] = location.hash.match(/^#([mt])=(\d+(?:\.\d+)?)$/) || [];
+  if (key === "m" && marks.some((x) => x.index === +val)) {
+    if (tab !== "marks") setTab("marks");
+    select(+val, { seek: true });
+  } else if (key === "t" && +val <= duration) {
+    const go = () => seekTo(+val);
+    if (video.readyState >= 1) go(); else video.addEventListener("loadedmetadata", go, { once: true });
+  }
+}
+addEventListener("hashchange", readHash);
+readHash();
+</script>
+</body>
+</html>
