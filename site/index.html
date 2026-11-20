@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Context Recorder: screen recordings an agent can act on</title>
+<meta name="description" content="A macOS screen recorder for reviewing your own apps. Talk while you click around, mark what is wrong, and get a list with the video frame, your words, and the page context for each mark.">
+<meta property="og:title" content="Context Recorder">
+<meta property="og:description" content="Talk through what is wrong with your app. Get a feedback list with the frame, your words, and the element, source file and failed request for each mark.">
+<meta property="og:image" content="https://byronwall.github.io/context-recorder/img/og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="img/icon.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header class="nav">
+  <a class="wordmark" href="./"><img src="img/icon.png" alt="" width="28" height="28">Context Recorder</a>
+  <nav>
+    <a href="#how">How it works</a>
+    <a href="#marks">What a mark holds</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/byronwall/context-recorder">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <p class="eyebrow">macOS screen recorder for UI feedback</p>
+    <h1>Click through your app. Say what's wrong. Hand the list to an agent.</h1>
+    <p class="lede">Context Recorder records your screen while you talk. Press a key when something is off. Each mark keeps the frame, what you said around it, and what the page knew: the element under the pointer, its source file, and the request that failed.</p>
+    <div class="actions">
+      <a class="button primary" href="#install">Build it from source</a>
+      <a class="button" href="https://github.com/byronwall/context-recorder">View on GitHub</a>
+    </div>
+    <figure class="shot hero-shot">
+      <img src="img/mark.webp" width="1600" height="911" alt="The Sessions window. A recording of a checkout page plays in the middle, with a timeline of apps, page events and narration below. On the right, mark 1 is open: its title is the sentence that was spoken, followed by the frame, the narration around it, and the element under the pointer with its component chain, props and source file.">
+      <figcaption>A staged session of a demo shop. Mark 1 is open: its title is what was said, and the panel shows the element, props and source file under the pointer.</figcaption>
+    </figure>
+  </section>
+
+  <section id="how" class="band">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li>
+        <span class="key">⌃⌥R</span>
+        <h3>Record</h3>
+        <p>Start a recording and go back to your app. A small floating bar shows the time, the mic level and the mark count. It stays out of the video.</p>
+      </li>
+      <li>
+        <span class="key">⌃⌥M <small>or</small> ⌃⌥S</span>
+        <h3>Mark</h3>
+        <p>Press ⌃⌥M when you see a problem, or ⌃⌥S to drag a box around it. Keep talking. You don't stop to write anything down.</p>
+      </li>
+      <li>
+        <span class="key">Stop</span>
+        <h3>Review and hand off</h3>
+        <p>The session opens with the video, a timeline and the transcript. Each sentence you said near a mark becomes its title. <b>Copy as Markdown</b> gives you one mark or the whole list.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="marks" class="split">
+    <div class="copy">
+      <h2>What a mark holds</h2>
+      <p>A video with "the total is wrong at 0:17" is still work for the person who fixes it. They have to find the page, the element and the error. A mark already has them.</p>
+      <ul class="facts">
+        <li><b>What you said.</b> The narration from 20 seconds before the mark to 10 seconds after, transcribed on your Mac with Parakeet.</li>
+        <li><b>The frame.</b> The full screen at that moment, plus your region when you drew one.</li>
+        <li><b>The element.</b> Selector, text and component chain for what was under the pointer. In a dev build, the source file and line.</li>
+        <li><b>What went wrong on the page.</b> Failed requests with their status and error body, console errors and uncaught exceptions from the moments before.</li>
+        <li><b>The page itself.</b> A saved copy of the DOM and styles, to open in Chrome and inspect.</li>
+      </ul>
+      <p class="note">Page context comes from a small Chrome extension that talks to the app on localhost. Your web app needs no changes. Input values are never recorded.</p>
+    </div>
+    <figure class="shot">
+      <img src="img/region.webp" width="1600" height="911" loading="lazy" alt="Mark 3 is open on the settings page. It shows the region shot next to the full frame, the narration, two problems (a PUT request that returned 500 with its error body, and a console error), and the save button under the pointer with its source file.">
+      <figcaption>A region mark: the shot and full frame, the 500 from the save request with its body, and the button's source line.</figcaption>
+    </figure>
+  </section>
+
+  <section class="band markdown">
+    <div class="copy">
+      <h2>The part the agent reads</h2>
+      <p>Every mark is also Markdown, in <code>marks/003.md</code> and in one <code>session.md</code>. Paste it into a chat, or point an agent at the session folder. This is the real output for the mark above.</p>
+    </div>
+<pre class="md"><code><b>## 003 · 0:40 · Saving fails with just something went wrong, and the button is stuck…</b>
+
+![mark 3](../screenshots/003.png)
+
+&gt; Now settings, I'll switch the theme to dark and save. Saving fails with
+&gt; just something went wrong, and the button is ⚑ stuck on saving.
+
+- <b>URL:</b> http://localhost:5173/account/settings
+- <b>Video:</b> `recording.mp4` @ 40.0s
+
+<b>Page</b>
+
+- <b>Under mouse:</b> `[data-testid="save-settings"]` · “Save settings”
+  · in SettingsPage › SettingsForm › SaveButton
+  - source: `/src/account/SettingsForm.tsx:58:7`
+
+<b>Recent errors / failed requests</b>
+
+- PUT http://localhost:5173/api/account/settings → 500 (212 ms)
+  — {"error":"theme must be one of: light, system"}
+- console.error: SettingsForm: save failed (500)</code></pre>
+  </section>
+
+  <section class="review">
+    <h2>Review the session afterwards</h2>
+    <p class="lede-sm">Most of the work happens after you stop. The Sessions window keeps every recording on your Mac and lets you tidy one up before you share it.</p>
+    <div class="pair">
+      <figure class="shot">
+        <img src="img/transcript.webp" width="1600" height="911" loading="lazy" alt="The Transcript tab: each spoken sentence with its time, and the mark numbers beside the sentences they landed in.">
+        <figcaption><b>Transcript.</b> Each mark's number sits beside the sentence it landed in.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/events.webp" width="1600" height="911" loading="lazy" alt="The Events tab: navigation, clicks, a failed request and a console error in one log, with the problems in red.">
+        <figcaption><b>Events.</b> Page loads, clicks, requests and console errors in one log, with problems in red.</figcaption>
+      </figure>
+    </div>
+    <ul class="grid">
+      <li><h3>Mark later</h3><p>Press M at the playhead, or S to cut a region from the frame. Review marks get the same context as live ones.</p></li>
+      <li><h3>Cut and join</h3><p>Shift-drag on the timeline and press ⌫. Marks, narration and events close up around the cut. The original video is never changed.</p></li>
+      <li><h3>Draw on it</h3><p>Arrows, boxes, text and highlights on the video or on a mark's image. The Markdown uses the marked-up picture.</p></li>
+      <li><h3>Canvas</h3><p>Lay a recording out as tall columns of the pages you scrolled, so you can find a moment without scrubbing.</p></li>
+      <li><h3>Find</h3><p>⌘F filters marks, transcript and events at once.</p></li>
+      <li><h3>Your own cloud</h3><p>Push a session to a Cloudflare Worker you run. Watch it in a browser, share a link, or let an agent read it over MCP.</p></li>
+    </ul>
+  </section>
+
+  <section class="band agents">
+    <h2>Agents can read it directly</h2>
+    <p>Push a session to your cloud, then add it to Claude Code. The agent can list sessions, read marks as Markdown with their screenshots, and get the frame at any moment.</p>
+    <pre class="cmd"><code>claude mcp add --transport http sessions https://&lt;your-worker&gt;/mcp</code></pre>
+    <p class="note">Nothing uploads until you push, and <code>audio.wav</code> never does. Setup for the Worker is in <a href="https://github.com/byronwall/context-recorder/blob/main/cloud/README.md">cloud/README.md</a>.</p>
+  </section>
+
+  <section id="install" class="install">
+    <h2>Install</h2>
+    <p>There is no download yet. You build the app from source with one script.</p>
+    <div class="cols">
+      <div>
+        <h3>You need</h3>
+        <ul>
+          <li>macOS 26</li>
+          <li>The Command Line Tools (Xcode isn't needed)</li>
+          <li><code>ffmpeg</code> and <code>parakeet-mlx</code> on your login-shell <code>PATH</code></li>
+          <li>Google Chrome, for page context</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Build and run</h3>
+<pre class="cmd"><code>git clone https://github.com/byronwall/context-recorder
+cd context-recorder
+./scripts/build-app.sh</code></pre>
+        <p>The script builds and signs the app, installs it to <code>/Applications</code> and opens it. The first run asks for Screen Recording and Microphone access.</p>
+      </div>
+    </div>
+    <h3>Connect Chrome</h3>
+    <p>Click the <b>Chrome</b> badge on the record card. The app copies the extension folder path and opens <code>chrome://extensions</code>. Turn on Developer mode, click <b>Load unpacked</b>, paste the path, and the badge turns to <b>Connected</b>.</p>
+    <p><a href="https://github.com/byronwall/context-recorder#readme">Read the full README</a> for every key, the session files, and the cloud.</p>
+  </section>
+</main>
+
+<footer class="footer">
+  <span class="wordmark"><img src="img/icon.png" alt="" width="20" height="20">Context Recorder</span>
+  <span>Built by <a href="https://github.com/byronwall">Byron Wall</a>. Screenshots show a staged session of a demo shop.</span>
+  <a href="https://github.com/byronwall/context-recorder">GitHub</a>
+</footer>
+</body>
+</html>
