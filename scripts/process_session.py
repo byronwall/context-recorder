@@ -113,10 +113,14 @@ def tokens_of(transcript):
 def narration_window(tokens, offset, before, after):
     """Text spoken in [offset-before, offset+after], with a ⚑ where the mark landed."""
     lo, hi = offset - before, offset + after
-    out, placed = [], False
+    out, placed, word = [], False, False
     for t in tokens:
         if t["end"] < lo or t["start"] > hi:
             continue
+        # The edge can fall between a word and its punctuation token ("." of the prior sentence).
+        if not word and not any(c.isalnum() for c in t["text"]):
+            continue
+        word = True
         if not placed and t["start"] >= offset:
             out.append(" ⚑")
             placed = True

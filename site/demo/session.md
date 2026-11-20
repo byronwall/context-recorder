@@ -45,7 +45,7 @@
 
 ![mark 3](screenshots/003.png)
 
-> . And the express shipping option is cut off, so you can't read it. Now settings, I'll switch the theme to dark and save. Saving fails with just something went wrong, and the button is ⚑ stuck on saving.
+> And the express shipping option is cut off, so you can't read it. Now settings, I'll switch the theme to dark and save. Saving fails with just something went wrong, and the button is ⚑ stuck on saving.
 
 - **App:** Google Chrome (`com.google.Chrome`)
 - **Window:** Settings · Northfold

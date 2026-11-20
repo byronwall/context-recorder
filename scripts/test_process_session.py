@@ -81,6 +81,12 @@ class Transcript(unittest.TestCase):
         tokens = [t for s in mapped for t in s["tokens"]]
         self.assertEqual(ps.narration_window(tokens, 4, 20, 10), "kept ⚑ later")
 
+    def test_narration_starts_at_a_word(self):
+        # The window opens between "broken" and its ".": the stray period must not lead the quote.
+        tokens = [{"text": " broken", "start": 9.0, "end": 9.8}, {"text": ".", "start": 9.8, "end": 10.2},
+                  {"text": " And", "start": 11, "end": 11.3}, {"text": " now", "start": 11.3, "end": 11.6}]
+        self.assertEqual(ps.narration_window(tokens, 30, 20, 10), "And now ⚑")
+
 
 class Activity(unittest.TestCase):
     def test_state_carries_into_each_kept_range(self):
