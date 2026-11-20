@@ -32,7 +32,7 @@
     <div class="hero-copy">
       <h1>Click through your app. Say what's wrong. Hand the list to an agent.</h1>
       <p class="lede">Context Recorder is a macOS screen recorder for reviewing your own apps. You talk while you use the app and press a key when something is off. Each mark keeps the frame, what you said, and what the page knew at that moment: the element under the pointer, its source file, and the request that failed.</p>
-      <p class="keys"><kbd>⌃⌥R</kbd> record <kbd>⌃⌥M</kbd> mark <kbd>⌃⌥S</kbd> mark a region <span class="sep">·</span> <a href="#install">Build from source</a></p>
+      <p class="keys"><span><kbd>⌃⌥R</kbd>record</span><span><kbd>⌃⌥M</kbd>mark</span><span><kbd>⌃⌥S</kbd>mark a region</span><a href="#install">Build from source</a></p>
     </div>
 
     <div id="demo" class="player" data-session="demo/">
@@ -60,11 +60,11 @@
         <div class="ins-body" id="insbody">
           <div class="view" data-view="context" id="context"></div>
           <div class="view" data-view="markdown" hidden>
-            <button type="button" class="copy" id="copymd" aria-label="Copy this mark as Markdown"><span>Copy</span></button>
+            <div class="md-bar"><code id="mdfile">marks/001.md</code><button type="button" class="copy" id="copymd" aria-label="Copy this mark as Markdown"><span>Copy</span></button></div>
             <pre class="md"><code id="md"></code></pre>
           </div>
         </div>
-        <p class="ins-foot">A staged 48-second session of a demo shop, processed by the app. <a href="demo/viewer.html">Open it in the full browser viewer</a></p>
+        <p class="ins-foot"><a href="demo/viewer.html">Open in the browser viewer</a><span class="hint"><kbd>J</kbd><kbd>K</kbd>marks <kbd>Space</kbd>play</span></p>
       </aside>
     </div>
   </section>
@@ -124,14 +124,13 @@
         </ul>
       </div>
       <div>
-        <h3>Build</h3>
-        <div class="cmd" data-copy="git clone https://github.com/byronwall/context-recorder
+        <div class="cmd stacked" data-copy="git clone https://github.com/byronwall/context-recorder
 cd context-recorder
 ./scripts/build-app.sh">
+          <div class="cmd-head"><h3>Build</h3><button type="button" class="copy" aria-label="Copy commands"><span>Copy</span></button></div>
           <pre><code>git clone https://github.com/byronwall/context-recorder
 cd context-recorder
 ./scripts/build-app.sh</code></pre>
-          <button type="button" class="copy" aria-label="Copy commands"><span>Copy</span></button>
         </div>
       </div>
       <div>
@@ -153,7 +152,8 @@ cd context-recorder
 </footer>
 
 <dialog id="zoom" class="zoom" aria-label="Screenshot at full size">
-  <img id="zimg" src="" alt="">
+  <div class="zwrap"><img id="zimg" src="" alt=""></div>
+  <p class="zhint">Click to zoom · drag to pan · Esc to close</p>
   <button type="button" class="close" id="zclose" aria-label="Close">×</button>
 </dialog>
 </body>

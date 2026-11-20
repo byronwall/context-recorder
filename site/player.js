@@ -13,21 +13,62 @@ function flashCopied(btn) {
 }
 async function copy(text, btn) {
   try { await navigator.clipboard.writeText(text); flashCopied(btn); }
-  catch { getSelection()?.selectAllChildren(btn.parentElement.querySelector('code')); }
+  catch { getSelection()?.selectAllChildren(btn.closest('.cmd, .view').querySelector('pre code')); }
 }
 document.querySelectorAll('.cmd[data-copy] .copy').forEach((btn) => {
-  btn.addEventListener('click', () => copy(btn.parentElement.dataset.copy, btn));
+  btn.addEventListener('click', () => copy(btn.closest('.cmd').dataset.copy, btn));
 });
 
-// Full-size view for any screenshot.
+// Full-size view for any screenshot. It opens fitted; a click zooms to 2x at that point, and a drag pans.
 const zoom = $('zoom');
+const zimg = $('zimg');
+const zwrap = zoom.querySelector('.zwrap');
 function openZoom(src, alt) {
-  $('zimg').src = src;
-  $('zimg').alt = alt || '';
+  zimg.src = src;
+  zimg.alt = alt || '';
+  zoom.classList.remove('zoomed');
   zoom.showModal();
 }
+let drag = null;
+zwrap.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  drag = { x: e.clientX, y: e.clientY, left: zwrap.scrollLeft, top: zwrap.scrollTop, moved: false };
+});
+zwrap.addEventListener('pointermove', (e) => {
+  if (!drag || !zoom.classList.contains('zoomed')) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+  zwrap.scrollLeft = drag.left - dx;
+  zwrap.scrollTop = drag.top - dy;
+});
+zwrap.addEventListener('pointerup', (e) => {
+  const moved = drag?.moved;
+  drag = null;
+  if (moved) return;
+  if (e.target !== zimg) return zoom.close();
+  const r = zimg.getBoundingClientRect();
+  const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+  zoom.classList.toggle('zoomed');
+  if (zoom.classList.contains('zoomed')) {
+    const z = zimg.getBoundingClientRect();
+    zwrap.scrollLeft = fx * z.width - (e.clientX - zwrap.getBoundingClientRect().left);
+    zwrap.scrollTop = fy * z.height - (e.clientY - zwrap.getBoundingClientRect().top);
+  }
+});
 $('zclose').addEventListener('click', () => zoom.close());
-zoom.addEventListener('click', (e) => { if (e.target === zoom) zoom.close(); });
+
+// Arrow keys, Home and End move between tabs in any tablist.
+document.addEventListener('keydown', (e) => {
+  const list = e.target.closest?.('[role=tablist]');
+  if (!list || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const tabs = [...list.querySelectorAll('[role=tab]')];
+  const i = tabs.indexOf(e.target);
+  const next = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: tabs.length - 1 }[e.key];
+  const tab = tabs[(next + tabs.length) % tabs.length];
+  e.preventDefault();
+  tab.focus();
+  tab.click();
+});
 
 // Gallery of app screenshots.
 const SHOTS = {
@@ -98,18 +139,33 @@ function renderContext(mark) {
   $('context').querySelector('.thumb').addEventListener('click', (e) => openZoom(e.currentTarget.dataset.src, 'Mark ' + mark.index));
 }
 
+// Light Markdown highlighting: headings and bold labels in the text color, markup characters dimmed.
+function highlight(md) {
+  return md.split('\n').map((line) => {
+    const e = esc(line);
+    if (/^#{1,6} /.test(line)) return `<span class="mk">${e.match(/^#+/)[0]}</span><b>${e.replace(/^#+/, '')}</b>`;
+    return e
+      .replace(/^(\s*)([-*]|&gt;)( )/, '$1<span class="mk">$2</span>$3')
+      .replace(/\*\*(.+?)\*\*/g, '<span class="mk">**</span><b>$1</b><span class="mk">**</span>')
+      .replace(/`([^`]+)`/g, '<span class="mk">`</span><span class="ic">$1</span><span class="mk">`</span>');
+  }).join('\n');
+}
+
 async function renderMarkdown(mark) {
   const file = `marks/${String(mark.index).padStart(3, '0')}.md`;
+  $('mdfile').textContent = file;
   markdown[file] ??= await fetch(base + file).then((r) => r.text());
-  $('md').textContent = markdown[file];
+  if (session.marks[current] === mark) $('md').innerHTML = highlight(markdown[file]);
 }
 
 function select(i, seek) {
   current = i;
   const mark = session.marks[i];
-  document.querySelectorAll('#marknav button, #marks button').forEach((b) => b.setAttribute('aria-selected', String(+b.dataset.i === i)));
+  document.querySelectorAll('#marknav button').forEach((b) => b.setAttribute('aria-selected', String(+b.dataset.i === i)));
+  document.querySelectorAll('#marks button').forEach((b) => b.classList.toggle('on', +b.dataset.i === i));
   renderContext(mark);
   renderMarkdown(mark);
+  if (player.classList.contains('novideo')) { video.poster = base + mark.frame; last = mark.offsetSeconds; tick(); }
   $('insbody').scrollTop = 0;
   if (seek) {
     // Before the video has its metadata, a seek is dropped, so wait for it.
@@ -126,9 +182,13 @@ function setView(v) {
 document.querySelectorAll('.seg [role=tab]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 $('copymd').addEventListener('click', (e) => copy($('md').textContent, e.currentTarget));
 
+// Without a playable video (no H.264 in some browsers), the stage shows each mark's frame instead.
+const noVideo = () => { player.classList.add('novideo'); if (session) select(current, false); };
+video.addEventListener('error', noVideo);
+if (video.error) noVideo();
+
 let last = 0;
-function tick() {
-  const t = video.currentTime;
+function tick(t = player.classList.contains('novideo') ? last : video.currentTime) {
   const pct = (t / session.duration) * 100;
   $('playhead').style.left = pct + '%';
   $('clock').textContent = clock(t);
@@ -148,13 +208,16 @@ $('play').addEventListener('click', togglePlay);
 video.addEventListener('click', togglePlay);
 video.addEventListener('play', () => { player.classList.add('playing'); $('play').setAttribute('aria-label', 'Pause'); loop(); });
 video.addEventListener('pause', () => { player.classList.remove('playing'); $('play').setAttribute('aria-label', 'Play with sound'); tick(); });
-video.addEventListener('seeked', tick);
+video.addEventListener('seeked', () => tick());
 
 $('rail').addEventListener('pointerdown', (e) => {
   if (e.target.closest('button')) return;
   const r = $('rail').getBoundingClientRect();
-  video.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * session.duration;
-  last = video.currentTime;
+  const t = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * session.duration;
+  video.currentTime = last = t;
+  // The inspector shows the last mark at or before the new time.
+  const before = session.marks.filter((m) => m.offsetSeconds <= t + 0.25);
+  select(before.length ? session.marks.indexOf(before.at(-1)) : 0, false);
   tick();
 });
 
@@ -170,9 +233,9 @@ fetch(base + 'session.json').then((r) => r.json()).then((data) => {
   session = data;
   const pos = (t) => `${(t / session.duration) * 100}%`;
   $('voice').innerHTML = session.transcript.map((s) => `<span style="left:${pos(s.start)};width:calc(${pos(s.end - s.start)} - 2px)"></span>`).join('');
-  const btn = (m, i, label) => `<button type="button" role="tab" data-i="${i}" class="${m.kind}" aria-selected="false" aria-label="Mark ${m.index} at ${clock(m.offsetSeconds)}">${label}</button>`;
-  $('marks').innerHTML = session.marks.map((m, i) => btn(m, i, m.index).replace('<button', `<button style="left:${pos(m.offsetSeconds)}"`)).join('');
-  $('marknav').innerHTML = session.marks.map((m, i) => btn(m, i, `${m.kind === 'screenshot' ? 'Shot' : 'Mark'} ${m.index}`)).join('');
+  const name = (m) => `${m.kind === 'screenshot' ? 'Shot' : 'Mark'} ${m.index}`;
+  $('marks').innerHTML = session.marks.map((m, i) => `<button type="button" tabindex="-1" data-i="${i}" class="${m.kind}" style="left:${pos(m.offsetSeconds)}" aria-label="${name(m)} at ${clock(m.offsetSeconds)}">${m.index}</button>`).join('');
+  $('marknav').innerHTML = session.marks.map((m, i) => `<button type="button" role="tab" data-i="${i}" aria-selected="false">${name(m)}</button>`).join('');
   document.querySelectorAll('#marknav button, #marks button').forEach((b) => b.addEventListener('click', () => { video.pause(); select(+b.dataset.i, true); }));
   select(0, true);
 });
