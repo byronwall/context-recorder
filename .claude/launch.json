@@ -3,6 +3,6 @@
   "configurations": [
     { "name": "fake-sessions", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8765", "-d", "tmp"], "port": 8765 },
     { "name": "cloud-dev", "runtimeExecutable": "pnpm", "runtimeArgs": ["--dir", "cloud", "dev"], "port": 8787 },
-    { "name": "site", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8791", "-d", "site"], "port": 8791 }
+    { "name": "site", "runtimeExecutable": "pnpm", "runtimeArgs": ["dlx", "http-server@14.1.1", "site", "-p", "8791", "-c-1", "--silent"], "port": 8791 }
   ]
 }
