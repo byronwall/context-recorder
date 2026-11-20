@@ -5,9 +5,11 @@
 
 Writes <out-dir>/2026-11-19_10-42-00/ with recording.mp4 (headless Chrome frames plus `say`
 narration), marks.jsonl, activity.jsonl and browser.jsonl, then runs scripts/process_session.py
-on it. Open it with `swift run ContextRecorder --library <out-dir>`. No real screen is recorded.
+on it, and copies it to site/demo/ for the home page. Open it with
+`swift run ContextRecorder --library <out-dir>`. No real screen is recorded.
 """
 import json
+import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -158,10 +160,10 @@ def main():
     total["props"] = {"component": "OrderTotal", "props": {"items": "[2 items]", "shipping": 0, "currency": "USD"}}
     express = element("#ship-express > div.t", "div", "Express overnight to your door",
                       ["ShippingOption", "ShippingPicker", "CheckoutPage"], "/src/checkout/ShippingOption.tsx", 22)
-    region = [  # what the region screenshot covers: the save button and the toast
+    region = [  # what the region screenshot covers: the settings form
+        {"selector": "#theme", "text": "Dark",
+         "source": {"file": "/src/account/ThemeSelect.tsx", "line": 12, "via": "react-debugSource"}},
         {"selector": '[data-testid="save-settings"]', "text": "Saving…", "source": save["source"]},
-        {"selector": "div.toast", "text": "Something went wrong.",
-         "source": {"file": "/src/ui/Toast.tsx", "line": 9, "via": "react-debugSource"}},
     ]
     hovered = {17.0: total, 25.5: express, 40.0: save}
     with open(folder / "marks.jsonl", "w") as f:
@@ -175,8 +177,8 @@ def main():
                 shots = folder / "screenshots"
                 shots.mkdir(exist_ok=True)
                 frame = work / f"frames/{int(t * FPS):04d}.png"
-                # CSS box 108,560 -> 1352,850 at the 4/3 scale.
-                subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", frame, "-vf", "crop=1659:387:144:747",
+                # The settings card, CSS box 108,325 -> 748,681, at the 4/3 scale.
+                subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", frame, "-vf", "crop=853:475:144:433",
                                 shots / f"{n:03d}.png"], check=True)
                 mark["screenshot"] = f"screenshots/{n:03d}.png"
                 mark["browser"]["region"] = {"method": "pointer", "elements": region}
@@ -184,6 +186,11 @@ def main():
 
     (folder / "session-info.json").write_text(json.dumps({"title": "Northfold checkout pass"}) + "\n")
     subprocess.run([sys.executable, ROOT / "scripts/process_session.py", folder], check=True)
+
+    # The site's player and the browser viewer read this copy. audio.wav and the raw logs stay out.
+    site = ROOT / "site/demo"
+    shutil.rmtree(site, ignore_errors=True)
+    shutil.copytree(folder, site, ignore=shutil.ignore_patterns("audio.wav", "transcript.json", "*.jsonl", "session-info.json"))
     print(folder)
 
 

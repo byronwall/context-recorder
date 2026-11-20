@@ -237,7 +237,7 @@ Delete `transcript.json` first if you want the audio transcribed again.
 - `cloud/`: the Cloudflare Worker (TypeScript): storage, viewer, sign-in and MCP. See [cloud/README.md](cloud/README.md).
 - `scripts/process_session.py`: post-processing (ffmpeg, parakeet-mlx). Standard library only.
 - `scripts/viewer.html`: viewer template. The session data gets embedded in it, or, served from the cloud, it fetches `session.json` beside it.
-- `site/`: the home page at [byronwall.github.io/context-recorder](https://byronwall.github.io/context-recorder/). It is static HTML and CSS; `.github/workflows/pages.yml` deploys it on each push to `main` that changes it. `scripts/site-demo/make_session.py` builds the staged demo session that its screenshots show, and `scripts/site-demo/shoot.sh` captures the Sessions window on it.
+- `site/`: the home page at [byronwall.github.io/context-recorder](https://byronwall.github.io/context-recorder/). It is static HTML, CSS and one script (`player.js`, the demo player); `.github/workflows/pages.yml` deploys it on each push to `main` that changes it. `scripts/site-demo/make_session.py` builds the staged demo session and copies it to `site/demo/`, where the player and the browser viewer read it. `scripts/site-demo/shoot.sh` captures the Sessions window on it for `site/img/`.
 - `scripts/make-icon.swift`: draws the app icon and writes `Resources/AppIcon.icns` (`swift scripts/make-icon.swift`).
 
 Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `parakeet-mlx` on the login-shell `PATH`.
