@@ -191,6 +191,11 @@ def main():
     site = ROOT / "site/demo"
     shutil.rmtree(site, ignore_errors=True)
     shutil.copytree(folder, site, ignore=shutil.ignore_patterns("audio.wav", "transcript.json", "*.jsonl", "session-info.json"))
+    for name in ("session.json", "viewer.html"):  # they record the local folder path; keep it off the web
+        f = site / name
+        text = f.read_text()
+        assert str(folder) in text, name
+        f.write_text(text.replace(str(folder), "demo"))
     print(folder)
 
 
