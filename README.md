@@ -217,6 +217,14 @@ A session with an `edits.json` plays only its kept ranges:
 
 Processing writes `session.json`, the Markdown and the export data in *edited* time: marks, activity, page events and the transcript move with the video, and anything inside a removed range drops out (cut marks are kept under `hiddenMarks`). Each mark keeps `sourceOffsetSeconds`, and Markdown video references point at the original recording and time. `recording.mp4` and the raw `.jsonl` files are never changed; marks added while reviewing an edited session are stored at their original time. Delete `edits.json` and re-process to get the session back as recorded.
 
+How the time mapping is split:
+
+- `process_session.py` is the only place that converts context (marks, transcript, activity, page events, narration) to edited time. It writes the resolved table to `session.json.segments`: each segment with its `editedStart` and source video.
+- Swift (`EditMap` in `Library/Edits.swift`) uses that table for two things only: it builds the player's `AVMutableComposition`, and it maps the playhead back to `(source, original time)` when you add a mark, a shot or a drawing. A session with one full-length segment plays from `AVPlayer(url:)` as before.
+- Frames are cut by ffmpeg from the source recording at the original time, so the `frames/` cache stays valid through any cut.
+- A joined session records `sourceSession` on each mark and points at the sources' images through relative paths; it copies nothing. Sources of different sizes play in one video track with a fit-to-frame video composition.
+- Every cut re-runs the whole script. With the transcript and frames cached, that takes well under a second.
+
 The time mapping is tested by `python3 -m unittest scripts/test_process_session.py` and, in the app, `swift run ContextRecorder --library <session> --self-test edits`; both read the cases in `scripts/fixtures/edit-cases.json`.
 
 To re-run processing, for example with a different narration window:
@@ -230,7 +238,7 @@ Delete `transcript.json` first if you want the audio transcribed again.
 ## Layout
 
 - `Sources/ContextRecorder/`: Swift app. `Recorder` (ScreenCaptureKit and AVAssetWriter), `HotKeys` (Carbon), `ContextProbe` (front app, window, Chrome tab), `ActivityLog`, `Session`.
-- `Sources/ContextRecorder/Library/`: the Sessions window (SwiftUI, macOS 26). `SessionLibrary` scans the folders, `SessionModel` owns one open session and its player, `SessionData` decodes `session.json`, `MarkText` builds titles and the Markdown.
+- `Sources/ContextRecorder/Library/`: the Sessions window (SwiftUI, macOS 26). `SessionLibrary` scans the folders, `SessionModel` owns one open session and its player, `SessionData` decodes `session.json`, `MarkText` builds titles and the Markdown. `Edits` and `TimelineEditing` hold cuts and joins, and `Annotations` the drawings over the video.
 - `Sources/CanvasKit/`: video → canvas analysis. `FrameSource` decodes with exact presentation times (AVFoundation, so they match the player), `Segmenter` splits it into runs, `Joiner` and `RowProfileEstimator` find and verify scrolling, and `CanvasAnalyzer` composes the columns and writes `canvas.json`.
 - `Sources/CanvasTool/`: `canvas-tool`, the fast loop for canvas work. `swift run -c release canvas-tool check` generates synthetic scrolling clips with known answers (a barcode below the content encodes each frame number), analyzes them and checks the result, including that every seek shows the right frame. `canvas-tool analyze <session> --box x,y,w,h` builds a session's canvas from the command line.
 - `Sources/ContextRecorder/Cloud/`: the cloud copy (`CloudBundle`), push (`CloudClient`), sign-in (`CloudAuth`), the push and settings UI (`CloudViews`), download from another Mac (`CloudPull`, the sidebar's ghosted cloud-only rows in `CloudLibraryViews`), and `--cloud-bundle` / `--push` / `--cloud-list` / `--pull` / `--cloud-snapshot` (`CloudCLI`). `--self-test cloud-bundle` checks every exported frame against the edit map; `--self-test cloud-client` runs push, download and sign-in against a fake Worker.
@@ -245,5 +253,6 @@ Requires macOS 26, the Command Line Tools (Xcode isn't needed), `ffmpeg`, and `p
 ## Next
 
 - rrweb DOM recording, to replay the DOM over time alongside the video.
+- Session editing, after cuts, joins and drawings: suggested cuts (silence, idle time, "keep marks ± N s"), video drawings in mark frames, a blur tool, MP4 export with video drawings burned in, joined sessions in the local `viewer.html`, and reordering or picking ranges across sources.
 - [Video to canvas](docs/intent/video-to-canvas/shape-brief.md): built (see Canvas above).
 - [Cloud sessions](docs/intent/cloud-sessions/shape-brief.md): built (see Cloud above). Share links and frames from Media Transformations are next.
