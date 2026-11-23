@@ -1,0 +1,256 @@
+Hi, the [Context Recorder repository](https://github.com/byronwall/context-recorder?utm_source=chatgpt.com) is well positioned for this feature. The existing Chrome extension already has most of the infrastructure needed.
+
+## Recommendation: Add an OpenTelemetry-aware recording layer
+
+The goal should be to turn Context Recorder into a lightweight, video-synchronized trace viewer that works with existing web applications.
+
+Imagine recording a bug where clicking Save fails. Today, Context Recorder might show:
+
+- A click on the Save button
+- A failed `POST /api/projects`
+- A console error
+- The video of what happened
+
+With OpenTelemetry support, that same moment could show:
+
+Page trace · Save project
+
+Failed
+
+01:14.200 · Browser and application spans
+
+Click Save
+
+0 ms
+
+↳ saveProject
+
+480 ms
+
+↳ POST /api/projects
+
+421 ms
+
+↳ HTTP 500
+
+Error
+
+Conceptual example, not data from an actual recording.
+
+The useful distinction: instead of simply knowing that something failed, you can inspect the operation, its duration, parent-child relationships, associated requests, errors, and the exact moment on the recording.
+
+### The key architectural insight
+
+Focus on three standard ways to observe telemetry, rather than maintaining integrations with individual instrumentation libraries.
+
+| Capture method                    | What it provides                                                         | Reliability                                          |
+| --------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------- |
+| OTLP/HTTP export interception     | Actual span IDs, parent relationships, durations, attributes, exceptions | High, when the page exports compatible telemetry     |
+| W3C `traceparent` headers         | Trace IDs linking HTTP requests to distributed traces                    | High for correlation, but not full span capture      |
+| Browser timing and existing hooks | Network timings, interactions, navigations, failures                     | Broad coverage, but inferred rather than native OTel |
+
+OTLP (OpenTelemetry Protocol) supports JSON and Protobuf encoding, so one decoder can support many different OpenTelemetry SDK configurations and observability backends.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://opentelemetry.io\&sz=32)
+
+opentelemetry.io
+
++1
+
+
+
+The limitation is important: an extension cannot recover arbitrary spans that an application never exposes or exports. It also cannot observe backend-only spans. Those would require an optional integration or connection to a tracing backend.
+
+## What the repository already supports
+
+The existing data flow is straightforward:
+
+`page.js` → `relay.js` → `background.js` → WebSocket → macOS recorder → `browser.jsonl` → `session.json` → viewers
+
+The important findings:
+
+- [extension/page.js](https://github.com/byronwall/context-recorder/blob/main/extension/page.js?utm_source=chatgpt.com)
+  - Already intercepts `fetch`, `XMLHttpRequest`, navigation, console warnings/errors, and clicks.
+  - Runs in Chrome's `MAIN` JavaScript world at `document_start`.
+  - Keeps a 60-event ring buffer for snapshots.
+  - Streams failed or slow requests, but not ordinary successful requests.
+- [Session.swift](https://github.com/byronwall/context-recorder/blob/main/Sources/ContextRecorder/Session.swift?utm_source=chatgpt.com)
+  - Persists streamed browser events to `browser.jsonl`.
+- [RecorderController.swift](https://github.com/byronwall/context-recorder/blob/main/Sources/ContextRecorder/RecorderController.swift?utm_source=chatgpt.com)
+  - Associates received events with the current recording offset.
+- [process_session.py](https://github.com/byronwall/context-recorder/blob/main/scripts/process_session.py?utm_source=chatgpt.com)
+  - Consolidates events into `session.json`.
+  - Remaps point events when recordings are cut or joined.
+- [SessionTimeline.swift](https://github.com/byronwall/context-recorder/blob/main/Sources/ContextRecorder/Library/SessionTimeline.swift?utm_source=chatgpt.com)
+  - Already has a Page lane.
+- [viewer.html](https://github.com/byronwall/context-recorder/blob/main/scripts/viewer.html?utm_source=chatgpt.com)
+  - Provides a separate browser-based session viewer, also used by cloud sessions.
+
+This means the extension can be extended without reworking the recording architecture.
+
+## Proposed implementation
+
+### 1. Capture actual OpenTelemetry spans
+
+Add an OTLP observer alongside the existing network hooks.
+
+Start by detecting exports using:
+
+- `fetch` — most important
+- `XMLHttpRequest` — compatibility
+- `navigator.sendBeacon` — compatibility with older or alternative exporters
+
+Recognize requests using configurable endpoints and standard OTLP content types, including `/v1/traces`.
+
+Parse:
+
+- `resourceSpans`
+- `scopeSpans`
+- Span names, IDs, and parent IDs
+- Start and end times
+- Attributes and status
+- Span events, including exceptions
+- Links between spans
+
+Handle JSON and Protobuf, including gzip-compressed requests.
+
+Importantly, inspect a copy of the outgoing request body without consuming or changing the original request.
+
+### 2. Correlate normal HTTP requests
+
+Expand the existing request recorder to inspect outgoing `traceparent` headers.
+
+These carry real distributed trace identifiers, so requests can be associated with captured spans rather than merely matched by time.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.w3.org\&sz=32)
+
+w3.org
+
+
+
+For example:
+
+\- `POST /api/projects`
+
+- Trace ID: `abc…`
+- Client span ID: `def…`
+- Status: 500
+- Duration: 421 ms
+
+Even when no OTLP export is observable, this provides useful correlation information.
+
+### 3. Introduce a proper telemetry model
+
+A dedicated `telemetry.jsonl` is preferable to forcing all spans into the existing page-event format.
+
+A normalized span record could include:
+
+```
+interface RecordedSpan {
+  type: "otel.span";
+  source: "otlp-http" | "integration" | "inferred";
+
+  tabId: number;
+  frameId?: number;
+  documentId?: string;
+
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string;
+
+  name: string;
+  spanKind: string;
+
+  startUnixNano: string;
+  endUnixNano: string;
+
+  serviceName?: string;
+  attributes: Record<string, unknown>;
+
+  status?: {
+    code: string;
+    message?: string;
+  };
+
+  events: Array<{
+    name: string;
+    timeUnixNano: string;
+    attributes?: Record<string, unknown>;
+  }>;
+}
+```
+
+The processor would derive video-relative start/end offsets and expose spans through `session.json`.
+
+Keeping the source classification matters: a genuine OpenTelemetry span should be distinguishable from an inferred browser operation.
+
+### 4. Add a Traces view
+
+Keep the existing Events inspector. Add a dedicated Traces tab with:
+
+- A hierarchical waterfall grouped by trace ID
+- Span durations and parent-child relationships
+- Error highlighting
+- Filters for service, operation, status, and time range
+- Click-to-seek into the recording
+- A detail inspector for attributes and span events
+
+Also add a small Trace lane to the timeline.
+
+The most interesting interaction is selecting a mark and seeing the spans active around it—or selecting a span and immediately seeing what the user was doing on screen.
+
+## Important engineering considerations
+
+There are four issues worth explicitly designing around.
+
+1. Timing accuracy. The recorder currently timestamps events on native receipt. OTLP exports may be batched and arrive seconds after a span finishes. The span's original timestamps must be converted to recording time using a calibrated clock anchor.
+2. Edits and joins. Spans are intervals, unlike today's point events. Cutting a recording must clip or split visible spans appropriately, and joined sessions need source-aware identity.
+3. Compatibility. Avoid depending on OpenTelemetry JavaScript SDK internals or dynamically attaching processors. SDK 2.x removed `addSpanProcessor`, making that approach version-fragile. Protocol observation is the more sustainable default.&#x20;
+
+   [image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+   GitHub
+
+
+
+4\. Privacy and overhead. Span attributes can include sensitive user data. Apply size limits, redact credentials and sensitive attributes, and make detailed telemetry capture configurable by site. Batch extension-to-app messages rather than forwarding every attribute-heavy record separately.
+
+There's also an important scope boundary: this captures telemetry visible in the instrumented page. Exports performed exclusively in workers, backend spans, and traces sent through unsupported transports may not be observable.
+
+## Suggested delivery order
+
+| Phase             | Scope                                                                    | Result                                       |
+| ----------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
+| 1 — Foundation    | Span schema, clock alignment, OTLP JSON interception, persistence        | Real spans stored with recordings            |
+| 2 — Compatibility | Protobuf, compression, traceparent, frame/tab metadata                   | Broader application coverage and correlation |
+| 3 — Viewer        | Waterfall, Trace lane, span details, video seeking                       | Usable tracing experience                    |
+| 4 — Polish        | Cuts/joins, deduplication, redaction, cloud export, optional integration | Production-ready behavior                    |
+
+Testing should use a small instrumented browser app that emits manual spans, automatic fetch spans, nested operations, errors, and batched exports. Then verify those against the recorded video and session timestamps.
+
+## One additional idea: an optional integration mode
+
+Zero-configuration observation should remain the default. But eventually, supporting a small optional integration would be valuable.
+
+An application could explicitly forward its completed spans to Context Recorder, even if:
+
+- It doesn't export OTLP.
+- It uses a worker for telemetry export.
+- Its SDK or transport isn't supported by passive observation.
+
+This gives two honest capability levels:
+
+- Automatic: capture whatever the extension can observe.
+- Integrated: capture spans explicitly supplied by the application.
+
+That is a stronger foundation than promising universal automatic tracing.
+
+## Bottom line
+
+This is a worthwhile extension of Context Recorder. The architectural changes are manageable because recording, persistence, time alignment, session processing, and the viewers already exist.
+
+The strongest differentiator is not competing with Jaeger or Grafana on tracing features. It's combining an actual distributed trace with a screen recording, user interactions, narration, page context, and precise seekable timestamps.
+
+The next concrete step would be a focused MVP implementing OTLP interception and a basic span waterfall. That would validate the central idea before investing in broader SDK compatibility.
+
+No repository files or GitHub issues were changed; this was a read-only architecture review.
